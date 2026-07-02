@@ -1,0 +1,163 @@
+[
+  {
+    "id": "kql-001",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which KQL operator filters rows based on a condition?",
+    "choices": [
+      "project",
+      "where",
+      "summarize",
+      "extend"
+    ],
+    "answer": [1],
+    "explanation": "The `where` operator filters rows that match a condition. It's the primary filtering operator in KQL, similar to SQL's WHERE clause. `project` selects columns, `summarize` aggregates data, and `extend` adds computed columns.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-002",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "What does `ago(1h)` represent in a KQL query?",
+    "choices": [
+      "One hour from now",
+      "One hour ago from the current time (UTC)",
+      "The timestamp exactly one hour old in local time",
+      "A duration of one hour"
+    ],
+    "answer": [1],
+    "explanation": "`ago(1h)` means 'one hour ago from the current time'. All timestamps in Azure Monitor are UTC, so `ago()` also uses UTC. This is a common gotcha — don't confuse it with local time.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-003",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which operator would you use to count the number of failed requests in the last hour?",
+    "choices": [
+      "`count`",
+      "`summarize count() by success`",
+      "`where success == false | count`",
+      "`summarize failures = count() where success == false`"
+    ],
+    "answer": [2],
+    "explanation": "To count failed requests: `requests | where timestamp > ago(1h) | where success == false | count`. The `count` operator counts all rows in the pipeline. You must filter first, then count.",
+    "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
+  },
+  {
+    "id": "kql-004",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "multi",
+    "question": "Which of these are valid Application Insights tables that contain telemetry data? (Select all that apply)",
+    "choices": [
+      "requests",
+      "dependencies",
+      "exceptions",
+      "users",
+      "traces"
+    ],
+    "answer": [0, 1, 2, 4],
+    "explanation": "The core Application Insights tables are: `requests` (incoming HTTP), `dependencies` (outbound calls), `exceptions` (errors), `traces` (log lines), and `customEvents`. There is no `users` table by default.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-005",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "In KQL, which comparison operator is case-SENSITIVE for string equality?",
+    "choices": [
+      "`==`",
+      "`=`",
+      "`=~`",
+      "`contains`"
+    ],
+    "answer": [0],
+    "explanation": "`==` is case-sensitive exact match. `=~` is case-INsensitive equality. `contains` is case-insensitive substring matching. This is a classic exam gotcha.",
+    "reference": "../../04-secure-monitor/kql/README.md#exam-gotchas"
+  },
+  {
+    "id": "kql-006",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "What is the correct pipe order for: filter to last 24h, then group by request name, then count?",
+    "choices": [
+      "`where timestamp > ago(1d) | summarize count() by name | where timestamp > ago(1d)`",
+      "`where timestamp > ago(1d) | summarize count() by name`",
+      "`summarize count() by name | where timestamp > ago(1d)`",
+      "`where name == 'GET /api' | summarize count() by timestamp`"
+    ],
+    "answer": [1],
+    "explanation": "Pipe order matters. Filter first (`where timestamp > ago(1d)`), then aggregate (`summarize count() by name`). Once you summarize, individual row data like timestamp is gone, so filtering on timestamp after summarize won't work.",
+    "reference": "../../04-secure-monitor/kql/README.md#exam-gotchas"
+  },
+  {
+    "id": "kql-007",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which operator adds a computed column without removing existing ones?",
+    "choices": [
+      "`project`",
+      "`extend`",
+      "`summarize`",
+      "`where`"
+    ],
+    "answer": [1],
+    "explanation": "`extend` adds computed columns while keeping all existing columns. `project` selects specific columns (can also compute), `summarize` aggregates, `where` filters rows.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-008",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "What does `bin(timestamp, 5m)` do?",
+    "choices": [
+      "Groups rows into 5-minute intervals",
+      "Creates a timestamp exactly 5 minutes in the future",
+      "Filters to only timestamps exactly on 5-minute boundaries",
+      "Converts timestamp to a 5-minute precision value"
+    ],
+    "answer": [0],
+    "explanation": "`bin(timestamp, 5m)` buckets/group rows into 5-minute intervals. This is essential for creating time charts that show trends over time.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-009",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "build-list",
+    "question": "Put these query fragments in the correct order to find the 5 most frequent exception types in the last day:",
+    "choices": [
+      "exceptions",
+      "where timestamp > ago(1d)",
+      "summarize failures = count() by type",
+      "top 5 by failures"
+    ],
+    "answer": [0, 1, 2, 3],
+    "explanation": "Correct order: 1) Start with table `exceptions`, 2) Filter to last day `where timestamp > ago(1d)`, 3) Aggregate by type `summarize failures = count() by type`, 4) Get top 5 `top 5 by failures`.",
+    "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
+  },
+  {
+    "id": "kql-010",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which operator would you use to select only the 'name' and 'duration' columns from a table?",
+    "choices": [
+      "`where name, duration`",
+      "`project name, duration`",
+      "`summarize name, duration`",
+      "`extend name, duration`"
+    ],
+    "answer": [1],
+    "explanation": "`project` selects/chooses specific columns, similar to SQL's SELECT. `where` filters rows, `summarize` aggregates, `extend` adds columns.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  }
+]
