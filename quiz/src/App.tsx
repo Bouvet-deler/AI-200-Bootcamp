@@ -56,6 +56,7 @@ function App() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [score, setScore] = useState(0);
   const [answeredCorrectly, setAnsweredCorrectly] = useState<Set<number>>(new Set());
+  const [darkMode, setDarkMode] = useState<boolean>(false);
 
   // Generate questions based on mode
   const questions = useMemo(() => {
@@ -234,6 +235,24 @@ function App() {
     setAnsweredCorrectly(new Set());
   }, [mode, selectedTopic, questionCount]);
 
+  // Update theme attribute when darkMode changes
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
+
+  // Load saved theme preference from localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('quiz-theme');
+    if (savedTheme === 'dark') {
+      setDarkMode(true);
+    }
+  }, []);
+
+  // Save theme preference to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('quiz-theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
+
   if (questions.length === 0) {
     return (
       <div className="container">
@@ -247,6 +266,15 @@ function App() {
     <div className="container">
       <header className="header">
         <h1>AI-200 Quiz</h1>
+        <div className="theme-toggle" onClick={() => setDarkMode(!darkMode)}>
+          <input
+            type="checkbox"
+            checked={darkMode}
+            onChange={() => setDarkMode(!darkMode)}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <span>{darkMode ? 'Dark' : 'Light'}</span>
+        </div>
         <div className="mode-selector">
           <label>
             <input 
