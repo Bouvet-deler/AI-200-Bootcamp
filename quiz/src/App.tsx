@@ -276,50 +276,62 @@ function App() {
           <span>{darkMode ? 'Dark' : 'Light'}</span>
         </div>
         <div className="mode-selector">
-          <label>
+          <div 
+            className={`mode-option ${mode === 'per-topic' ? 'selected' : ''}`}
+            onClick={() => setMode('per-topic')}
+          >
             <input 
               type="radio" 
               checked={mode === 'per-topic'} 
               onChange={() => setMode('per-topic')}
             />
-            Per Topic
-          </label>
-          <label>
+            <div className="custom-radio"></div>
+            <span>Per Topic</span>
+          </div>
+          <div 
+            className={`mode-option ${mode === 'full-exam' ? 'selected' : ''}`}
+            onClick={() => setMode('full-exam')}
+          >
             <input 
               type="radio" 
               checked={mode === 'full-exam'} 
               onChange={() => setMode('full-exam')}
             />
-            Full Exam
-          </label>
+            <div className="custom-radio"></div>
+            <span>Full Exam</span>
+          </div>
         </div>
 
         {mode === 'per-topic' && (
           <div className="topic-selector">
             <label htmlFor="topic-select">Topic:</label>
-            <select 
-              id="topic-select" 
-              value={selectedTopic} 
-              onChange={(e) => setSelectedTopic(e.target.value)}
-            >
-              {availableTopics.map(topic => (
-                <option key={topic} value={topic}>{topic}</option>
-              ))}
-            </select>
+            <div className="select-wrapper">
+              <select 
+                id="topic-select" 
+                value={selectedTopic} 
+                onChange={(e) => setSelectedTopic(e.target.value)}
+              >
+                {availableTopics.map(topic => (
+                  <option key={topic} value={topic}>{topic}</option>
+                ))}
+              </select>
+            </div>
             
             <label htmlFor="question-count">Questions:</label>
-            <select
-              id="question-count"
-              value={questionCount}
-              onChange={(e) => setQuestionCount(Number(e.target.value))}
-            >
-              <option value="5">5</option>
-              <option value="10">10</option>
-              <option value="20">20</option>
-              <option value="30">30</option>
-              <option value="50">50</option>
-              <option value="100">All</option>
-            </select>
+            <div className="select-wrapper">
+              <select
+                id="question-count"
+                value={questionCount}
+                onChange={(e) => setQuestionCount(Number(e.target.value))}
+              >
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+                <option value="100">All</option>
+              </select>
+            </div>
           </div>
         )}
 
@@ -342,7 +354,7 @@ function App() {
                   <div className="build-list-available">
                     <h4>Available Choices</h4>
                     <div className="build-list-available-choices">
-                      {currentQuestion.choices.map((choice, index) => {
+                      {currentQuestion.choices.map((_choice, index) => {
                         const userSelections = selectedAnswers[currentQuestionIndex] || [];
                         const choiceId = getChoiceId(index);
                         const isSelected = userSelections.includes(choiceId);

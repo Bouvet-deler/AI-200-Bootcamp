@@ -99,6 +99,11 @@ Weights are defined in `src/lib/examWeights.ts` and can be adjusted as needed.
 - **Bundler**: Vite 5
 - **Language**: TypeScript 5
 - **Styling**: Plain CSS (no framework)
+- **Font**: Inter from Google Fonts
+
+## Important Notice
+
+**Background Images License**: This project currently uses background images (`background-light.jpg` and `background-dark.jpg`) from the `assets/` folder. If this project is ever going to be published to the public, **you must replace these background images with images that you own or have the proper license for**. The current images may be subject to copyright restrictions and are not guaranteed to be free for public use.
 
 ## Scripts
 
