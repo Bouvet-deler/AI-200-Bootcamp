@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { allQuestions, questionsByDomain, questionsByTopic } from './questions';
 import { EXAM_WEIGHTS } from './lib/examWeights';
 import type { Question } from './types';
@@ -15,12 +15,6 @@ function shuffleArray<T>(array: T[]): T[] {
 
 // Generate a full exam with weighted sampling
 function generateFullExam(): Question[] {
-  const domainTopics: Record<string, string[]> = {
-    '01-containers': ['acr', 'app-service-containers', 'container-apps-keda', 'aks'],
-    '02-data-services': ['cosmos-db-nosql', 'postgresql-pgvector', 'azure-managed-redis'],
-    '03-connect-consume': ['service-bus', 'event-grid', 'azure-functions'],
-    '04-secure-monitor': ['key-vault', 'app-configuration', 'opentelemetry', 'kql'],
-  };
 
   const exam: Question[] = [];
   const questionsPerDomain: Record<string, number> = {};
@@ -56,20 +50,25 @@ type QuizMode = 'per-topic' | 'full-exam';
 function App() {
   const [mode, setMode] = useState<QuizMode>('per-topic');
   const [selectedTopic, setSelectedTopic] = useState<string>('04-secure-monitor/kql');
+  const [questionCount, setQuestionCount] = useState<number>(10);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
+  const [selectedAnswers, setSelectedAnswers] = useState<(number | string)[][]>([]);
   const [showAnswer, setShowAnswer] = useState(false);
   const [score, setScore] = useState(0);
+  const [answeredCorrectly, setAnsweredCorrectly] = useState<Set<number>>(new Set());
 
   // Generate questions based on mode
   const questions = useMemo(() => {
     if (mode === 'full-exam') {
       return generateFullExam();
     }
-    // Per-topic mode
+    // Per-topic mode - limit to selected count
     const topicQuestions = questionsByTopic[selectedTopic] || [];
-    return shuffleArray([...topicQuestions]);
-  }, [mode, selectedTopic]);
+    const shuffled = shuffleArray([...topicQuestions]);
+    // If "All" is selected (100), use all questions
+    const count = questionCount === 100 ? shuffled.length : Math.min(questionCount, shuffled.length);
+    return shuffled.slice(0, count);
+  }, [mode, selectedTopic, questionCount]);
 
   const currentQuestion = questions[currentQuestionIndex];
 
@@ -82,47 +81,127 @@ function App() {
     setSelectedAnswers(prev => {
       const newAnswers = [...prev];
       if (currentQuestion.type === 'single') {
-        newAnswers[currentQuestionIndex] = index;
+        newAnswers[currentQuestionIndex] = [index] as number[];
       } else if (currentQuestion.type === 'multi') {
-        if (newAnswers[currentQuestionIndex] === undefined) {
-          newAnswers[currentQuestionIndex] = index;
+        // Toggle selection for multi-select
+        const currentSelections = (newAnswers[currentQuestionIndex] || []) as number[];
+        const indexInSelection = currentSelections.indexOf(index);
+        if (indexInSelection === -1) {
+          // Add to selection
+          newAnswers[currentQuestionIndex] = [...currentSelections, index] as number[];
         } else {
-          // Toggle selection for multi-select
-          const current = newAnswers[currentQuestionIndex];
-          if (current === index) {
-            newAnswers[currentQuestionIndex] = -1; // Deselect
-          } else {
-            newAnswers[currentQuestionIndex] = index;
-          }
+          // Remove from selection
+          newAnswers[currentQuestionIndex] = currentSelections.filter(i => i !== index) as number[];
         }
       } else if (currentQuestion.type === 'build-list') {
-        // For build-list, track the order
-        newAnswers[currentQuestionIndex] = index;
+        // For build-list with drag and drop, we store choice IDs (strings)
+        const currentSelections = (newAnswers[currentQuestionIndex] || []) as string[];
+        // Get the choice ID - either from BuildListChoice object or use index as ID
+        const choiceId = getChoiceId(index);
+        if (!currentSelections.includes(choiceId)) {
+          newAnswers[currentQuestionIndex] = [...currentSelections, choiceId] as string[];
+        }
       }
       return newAnswers;
     });
   };
 
+  const handleRemoveFromList = (choiceId: string) => {
+    setSelectedAnswers(prev => {
+      const newAnswers = [...prev];
+      if (currentQuestion.type === 'build-list') {
+        const currentSelections = (newAnswers[currentQuestionIndex] || []) as string[];
+        newAnswers[currentQuestionIndex] = currentSelections.filter(id => id !== choiceId) as string[];
+      }
+      return newAnswers;
+    });
+  };
+
+  const handleMoveInList = (fromIndex: number, toIndex: number) => {
+    setSelectedAnswers(prev => {
+      const newAnswers = [...prev];
+      if (currentQuestion.type === 'build-list') {
+        const currentSelections = [...(newAnswers[currentQuestionIndex] || [])] as string[];
+        const [removed] = currentSelections.splice(fromIndex, 1);
+        currentSelections.splice(toIndex, 0, removed);
+        newAnswers[currentQuestionIndex] = currentSelections as string[];
+      }
+      return newAnswers;
+    });
+  };
+
+  // Helper to get choice ID - handles both string[] and BuildListChoice[]
+  const getChoiceId = (index: number): string => {
+    if (!currentQuestion) return index.toString();
+    const choice = currentQuestion.choices[index];
+    // If choice is an object with id property, use it
+    if (typeof choice === 'object' && choice !== null && 'id' in choice) {
+      return (choice as any).id;
+    }
+    // Otherwise use the index as the ID
+    return index.toString();
+  };
+
+  // Helper to get choice text
+  const getChoiceText = (indexOrId: number | string): string => {
+    if (!currentQuestion) return '';
+    if (typeof indexOrId === 'number') {
+      const choice = currentQuestion.choices[indexOrId];
+      if (typeof choice === 'object' && choice !== null && 'text' in choice) {
+        return (choice as any).text;
+      }
+      return choice as string;
+    }
+    // If it's an ID string, find the choice with that ID
+    for (const choice of currentQuestion.choices) {
+      if (typeof choice === 'object' && choice !== null && 'id' in choice && (choice as any).id === indexOrId) {
+        return (choice as any).text;
+      }
+    }
+    return indexOrId;
+  };
+
   const handleSubmit = () => {
     if (!currentQuestion) return;
 
-    const userAnswer = selectedAnswers[currentQuestionIndex];
-    const isCorrect = userAnswer !== undefined && 
-      currentQuestion.answer.includes(userAnswer);
+    const userAnswers = selectedAnswers[currentQuestionIndex] || [];
+    
+    // For single, check if the single answer matches
+    // For multi, check if all selected answers are in the correct answer and vice versa
+    // For build-list, check if the ordered array matches exactly
+    let isCorrect = false;
+    if (currentQuestion.type === 'single') {
+      const userAnswersNum = userAnswers as number[];
+      isCorrect = userAnswersNum.length > 0 && 
+        currentQuestion.answer.length > 0 &&
+        userAnswersNum[0] === currentQuestion.answer[0];
+    } else if (currentQuestion.type === 'multi') {
+      // Both arrays must have same length and same elements (order doesn't matter)
+      const userAnswersNum = userAnswers as number[];
+      const answerNum = currentQuestion.answer as number[];
+      isCorrect = userAnswersNum.length === answerNum.length &&
+        userAnswersNum.every(ans => answerNum.includes(ans));
+    } else if (currentQuestion.type === 'build-list') {
+      // For build-list with IDs, the order must match exactly
+      const userAnswersStr = userAnswers as string[];
+      const answerStr = currentQuestion.answer as string[];
+      isCorrect = userAnswersStr.length === answerStr.length &&
+        userAnswersStr.every((ans, i) => ans === answerStr[i]);
+    }
 
-    if (isCorrect) {
+    if (isCorrect && !answeredCorrectly.has(currentQuestionIndex)) {
       setScore(prev => prev + 1);
+      setAnsweredCorrectly(prev => {
+        const newSet = new Set(prev);
+        newSet.add(currentQuestionIndex);
+        return newSet;
+      });
     }
     setShowAnswer(true);
   };
 
   const handleNext = () => {
     setShowAnswer(false);
-    setSelectedAnswers(prev => {
-      const newAnswers = [...prev];
-      newAnswers[currentQuestionIndex] = -1;
-      return newAnswers;
-    });
 
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
@@ -131,6 +210,7 @@ function App() {
       setCurrentQuestionIndex(0);
       setScore(0);
       setSelectedAnswers([]);
+      setAnsweredCorrectly(new Set());
     }
   };
 
@@ -145,13 +225,14 @@ function App() {
     ? `${currentQuestionIndex + 1} / ${questions.length}` 
     : '0 / 0';
 
-  // Reset quiz when mode or topic changes
-  useMemo(() => {
+  // Reset quiz when mode, topic, or question count changes
+  useEffect(() => {
     setCurrentQuestionIndex(0);
     setScore(0);
     setSelectedAnswers([]);
     setShowAnswer(false);
-  }, [mode, selectedTopic]);
+    setAnsweredCorrectly(new Set());
+  }, [mode, selectedTopic, questionCount]);
 
   if (questions.length === 0) {
     return (
@@ -197,6 +278,20 @@ function App() {
                 <option key={topic} value={topic}>{topic}</option>
               ))}
             </select>
+            
+            <label htmlFor="question-count">Questions:</label>
+            <select
+              id="question-count"
+              value={questionCount}
+              onChange={(e) => setQuestionCount(Number(e.target.value))}
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+              <option value="50">50</option>
+              <option value="100">All</option>
+            </select>
           </div>
         )}
 
@@ -214,52 +309,193 @@ function App() {
             <h2 className="question-text">{currentQuestion.question}</h2>
 
             <div className="choices">
-              {currentQuestion.choices.map((choice, index) => {
-                const isSelected = selectedAnswers[currentQuestionIndex] === index;
-                const isCorrect = currentQuestion.answer.includes(index);
-                const isWrong = showAnswer && isSelected && !isCorrect;
-                const isRight = showAnswer && isSelected && isCorrect;
+              {currentQuestion.type === 'build-list' ? (
+                <div className="build-list-container">
+                  <div className="build-list-available">
+                    <h4>Available Choices</h4>
+                    <div className="build-list-available-choices">
+                      {currentQuestion.choices.map((choice, index) => {
+                        const userSelections = selectedAnswers[currentQuestionIndex] || [];
+                        const choiceId = getChoiceId(index);
+                        const isSelected = userSelections.includes(choiceId);
+                        const choiceText = getChoiceText(index);
 
-                return (
-                  <button
-                    key={index}
-                    className={`choice ${
-                      isSelected ? 'selected' : ''
-                    } ${
-                      isWrong ? 'wrong' : ''
-                    } ${
-                      isRight ? 'correct' : ''
-                    } ${
-                      showAnswer && isCorrect ? 'correct-answer' : ''
-                    }`}
-                    onClick={() => handleAnswerSelect(index)}
-                    disabled={showAnswer}
+                        return (
+                          <div
+                            key={choiceId}
+                            className={`build-list-choice-wrapper ${
+                              isSelected ? 'selected' : ''
+                            }`}
+                            draggable={!showAnswer && !isSelected}
+                            onDragStart={(e) => {
+                              if (showAnswer) return;
+                              e.dataTransfer.setData('text/plain', choiceId);
+                              e.dataTransfer.effectAllowed = 'move';
+                            }}
+                          >
+                            <div
+                              className={`build-list-choice-item ${
+                                isSelected ? 'selected' : ''
+                              }`}
+                            >
+                              <span className="build-list-choice-indicator">{String.fromCharCode(65 + index)}</span>
+                              <span className="build-list-choice-text">{choiceText}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  <div className="build-list-arrow">
+                    <span>&#8594;</span>
+                  </div>
+                  
+                  <div 
+                    className="build-list-ordered"
+                    onDragOver={(e) => {
+                      if (showAnswer) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDrop={(e) => {
+                      if (showAnswer) return;
+                      e.preventDefault();
+                      const choiceId = e.dataTransfer.getData('text/plain');
+                      const userSelections = (selectedAnswers[currentQuestionIndex] || []) as string[];
+                      if (!userSelections.includes(choiceId)) {
+                        setSelectedAnswers(prev => {
+                          const newAnswers = [...prev];
+                          newAnswers[currentQuestionIndex] = [...userSelections, choiceId] as string[];
+                          return newAnswers;
+                        });
+                      }
+                    }}
                   >
-                    <span className="choice-letter">{String.fromCharCode(65 + index)}</span>
-                    <span className="choice-text">{choice}</span>
-                  </button>
-                );
-              })}
+                    <h4>Your Order (Drag to reorder)</h4>
+                    {selectedAnswers[currentQuestionIndex] && selectedAnswers[currentQuestionIndex].length > 0 ? (
+                      <ul className="build-list-ordered-list">
+                        {(selectedAnswers[currentQuestionIndex] as string[]).map((choiceId, position) => {
+                          const choiceText = getChoiceText(choiceId);
+                          const isCorrect = showAnswer && 
+                            (currentQuestion.answer as string[])[position] === choiceId;
+                          const isWrong = showAnswer && 
+                            (currentQuestion.answer as string[])[position] !== choiceId;
+                          
+                          return (
+                            <li 
+                              key={choiceId}
+                              draggable={!showAnswer}
+                              onDragStart={(e) => {
+                                if (showAnswer) return;
+                                e.dataTransfer.setData('text/plain', choiceId);
+                                e.dataTransfer.effectAllowed = 'move';
+                              }}
+                              onDragOver={(e) => {
+                                if (showAnswer) return;
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = 'move';
+                              }}
+                              onDrop={(e) => {
+                                if (showAnswer) return;
+                                e.preventDefault();
+                                const draggedId = e.dataTransfer.getData('text/plain');
+                                const userSelections = (selectedAnswers[currentQuestionIndex] || []) as string[];
+                                const draggedIndex = userSelections.indexOf(draggedId);
+                                if (draggedIndex !== -1 && draggedIndex !== position) {
+                                  handleMoveInList(draggedIndex, position);
+                                }
+                              }}
+                              className={`build-list-ordered-item ${
+                                isCorrect ? 'correct' : ''
+                              } ${
+                                isWrong ? 'wrong' : ''
+                              }`}
+                            >
+                              <span className="build-list-drag-handle">&#9776;</span>
+                              <span className="build-list-position">{position + 1}.</span>
+                              <span className="build-list-item-text">{choiceText}</span>
+                              {!showAnswer && (
+                                <button 
+                                  className="build-list-remove-btn"
+                                  onClick={() => handleRemoveFromList(choiceId)}
+                                >
+                                  &times;
+                                </button>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <p className="build-list-empty-hint">Drag items here from the left to build your ordered list</p>
+                    )}
+                    {showAnswer && currentQuestion.answer && (
+                      <div className="build-list-correct-order">
+                        <h5>Correct Order:</h5>
+                        <ol className="build-list-correct-list">
+                          {(currentQuestion.answer as string[]).map((choiceId) => (
+                            <li key={choiceId}>{getChoiceText(choiceId)}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                currentQuestion.choices.map((choice, index) => {
+                  const userSelections = (selectedAnswers[currentQuestionIndex] || []) as number[];
+                  const isSelected = userSelections.includes(index);
+                  const isCorrect = (currentQuestion.answer as number[]).includes(index);
+                  const isWrong = showAnswer && isSelected && !isCorrect;
+                  const isRight = showAnswer && isSelected && isCorrect;
+                  const isMissed = showAnswer && !isSelected && isCorrect;
+                  const isMultiSelect = currentQuestion.type === 'multi';
+
+                  // For multi-select, use empty indicator (CSS handles it); for single, use letters
+                  const indicator = isMultiSelect 
+                    ? ''
+                    : String.fromCharCode(65 + index);
+
+                  return (
+                    <button
+                      key={index}
+                      className={`choice ${
+                        isSelected ? 'selected' : ''
+                      } ${
+                        isWrong ? 'wrong' : ''
+                      } ${
+                        isRight ? 'correct' : ''
+                      } ${
+                        isMissed ? (isMultiSelect ? 'wrong' : 'correct-answer') : ''
+                      } ${isMultiSelect ? 'multi-select' : ''}`}
+                      onClick={() => handleAnswerSelect(index)}
+                      disabled={showAnswer}
+                    >
+                      <span className="choice-indicator">{indicator}</span>
+                      <span className="choice-text">{choice}</span>
+                    </button>
+                  );
+                })
+              )}
             </div>
 
             {!showAnswer ? (
               <button 
                 className="submit-btn" 
                 onClick={handleSubmit}
-                disabled={selectedAnswers[currentQuestionIndex] === undefined}
+                disabled={!selectedAnswers[currentQuestionIndex] || 
+                  (currentQuestion.type === 'build-list' 
+                    ? selectedAnswers[currentQuestionIndex].length !== currentQuestion.answer.length
+                    : selectedAnswers[currentQuestionIndex].length === 0)}
               >
-                Submit Answer
+                {currentQuestion.type === 'build-list' 
+                  ? `Submit Order (${selectedAnswers[currentQuestionIndex] ? selectedAnswers[currentQuestionIndex].length : 0}/${currentQuestion.answer.length})`
+                  : 'Submit Answer'}
               </button>
             ) : (
               <div className="answer-feedback">
                 <div className="explanation">{currentQuestion.explanation}</div>
-                {currentQuestion.reference && (
-                  <div className="reference">
-                    <a href={currentQuestion.reference} target="_blank" rel="noopener noreferrer">
-                      View in Topic Guide
-                    </a>
-                  </div>
-                )}
                 <div className="navigation">
                   <button className="nav-btn" onClick={handlePrev} disabled={currentQuestionIndex === 0}>
                     Previous

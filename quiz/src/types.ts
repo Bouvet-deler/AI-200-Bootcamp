@@ -1,5 +1,11 @@
 // Question types for the AI-200 quiz app
 
+// Choice type for build-list questions
+export interface BuildListChoice {
+  id: string;
+  text: string;
+}
+
 // Question base type
 export interface QuestionBase {
   id: string;
@@ -7,7 +13,7 @@ export interface QuestionBase {
   topic: string; // e.g., "kql"
   question: string;
   choices: string[];
-  answer: number[]; // array of choice indices (0-based). For single-answer, length 1.
+  answer: number[] | string[]; // array of choice indices (0-based) or choice IDs for build-list
   explanation: string;
   reference?: string; // link to topic guide
 }
@@ -25,7 +31,10 @@ export interface MultiAnswerQuestion extends QuestionBase {
 
 export interface BuildListQuestion extends QuestionBase {
   type: 'build-list';
-  // For build-list, answer is the correct order of choice indices
+  // For build-list, choices can be objects with id and text
+  choices: string[] | BuildListChoice[];
+  // Answer is the correct order of choice IDs
+  answer: string[];
 }
 
 export type Question = SingleAnswerQuestion | MultiAnswerQuestion | BuildListQuestion;
