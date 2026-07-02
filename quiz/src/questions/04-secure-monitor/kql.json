@@ -135,12 +135,12 @@
     "type": "build-list",
     "question": "Put these query fragments in the correct order to find the 5 most frequent exception types in the last day:",
     "choices": [
-      "exceptions",
-      "where timestamp > ago(1d)",
-      "summarize failures = count() by type",
-      "top 5 by failures"
+      {"id": "table", "text": "exceptions"},
+      {"id": "filter", "text": "where timestamp > ago(1d)"},
+      {"id": "summarize", "text": "summarize failures = count() by type"},
+      {"id": "top", "text": "top 5 by failures"}
     ],
-    "answer": [0, 1, 2, 3],
+    "answer": ["table", "filter", "summarize", "top"],
     "explanation": "Correct order: 1) Start with table `exceptions`, 2) Filter to last day `where timestamp > ago(1d)`, 3) Aggregate by type `summarize failures = count() by type`, 4) Get top 5 `top 5 by failures`.",
     "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
   },
@@ -296,12 +296,12 @@
     "type": "build-list",
     "question": "Put these query fragments in order to find average request duration by name, sorted descending:",
     "choices": [
-      "requests",
-      "where timestamp > ago(1h)",
-      "summarize avg(duration) by name",
-      "order by avg_duration desc"
+      {"id": "table", "text": "requests"},
+      {"id": "filter", "text": "where timestamp > ago(1h)"},
+      {"id": "summarize", "text": "summarize avg(duration) by name"},
+      {"id": "order", "text": "order by avg_duration desc"}
     ],
-    "answer": [0, 1, 2, 3],
+    "answer": ["table", "filter", "summarize", "order"],
     "explanation": "Correct order: 1) Start with table, 2) Filter by time, 3) Aggregate with summarize, 4) Sort with order by. The aggregate creates a new column 'avg_duration' which can then be used for sorting.",
     "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
   },
@@ -377,12 +377,12 @@
     "type": "build-list",
     "question": "Put these in order to create a time chart of exception counts per hour for the last day:",
     "choices": [
-      "exceptions",
-      "where timestamp > ago(1d)",
-      "summarize count() by bin(timestamp, 1h)",
-      "render timechart"
+      {"id": "table", "text": "exceptions"},
+      {"id": "filter", "text": "where timestamp > ago(1d)"},
+      {"id": "summarize", "text": "summarize count() by bin(timestamp, 1h)"},
+      {"id": "render", "text": "render timechart"}
     ],
-    "answer": [0, 1, 2, 3],
+    "answer": ["table", "filter", "summarize", "render"],
     "explanation": "Correct order: 1) Start with exceptions table, 2) Filter to last day, 3) Aggregate count by 1-hour bins, 4) Render as timechart. The `bin()` function groups timestamps into intervals.",
     "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
   },
@@ -524,12 +524,12 @@
     "type": "build-list",
     "question": "Put these in order to find requests with failures and their corresponding dependencies:",
     "choices": [
-      "requests | where success == false",
-      "project operation_Id, requestName = name, resultCode",
-      "join kind=inner (dependencies | project operation_Id, dependencyName = name, target)",
-      "on operation_Id"
+      {"id": "filter", "text": "requests | where success == false"},
+      {"id": "project", "text": "project operation_Id, requestName = name, resultCode"},
+      {"id": "join", "text": "join kind=inner (dependencies | project operation_Id, dependencyName = name, target)"},
+      {"id": "on", "text": "on operation_Id"}
     ],
-    "answer": [0, 1, 2, 3],
+    "answer": ["filter", "project", "join", "on"],
     "explanation": "Correct order: 1) Filter requests to failures, 2) Select and rename columns, 3) Join with dependencies table, 4) Specify join key. This traces one request end-to-end.",
     "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
   },

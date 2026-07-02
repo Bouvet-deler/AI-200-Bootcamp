@@ -99,6 +99,7 @@ Weights are defined in `src/lib/examWeights.ts` and can be adjusted as needed.
 - **Bundler**: Vite 5
 - **Language**: TypeScript 5
 - **Styling**: Plain CSS (no framework)
+- **Font**: Inter from Google Fonts
 
 ## Scripts
 
