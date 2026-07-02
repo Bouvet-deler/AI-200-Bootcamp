@@ -159,5 +159,475 @@
     "answer": [1],
     "explanation": "`project` selects/chooses specific columns, similar to SQL's SELECT. `where` filters rows, `summarize` aggregates, `extend` adds columns.",
     "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-011",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "What does the `distinct` operator do in KQL?",
+    "choices": [
+      "Returns only unique rows",
+      "Counts distinct values",
+      "Removes duplicate columns",
+      "Filters to a specific value"
+    ],
+    "answer": [0],
+    "explanation": "The `distinct` operator returns only unique/distinct rows, similar to SQL's DISTINCT. It removes duplicate rows from the result set.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-012",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which operator combines rows from multiple tables?",
+    "choices": [
+      "`join`",
+      "`union`",
+      "`merge`",
+      "`combine`"
+    ],
+    "answer": [1],
+    "explanation": "`union` combines rows from multiple tables into a single result set, similar to SQL's UNION. `join` combines columns from tables based on a key.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-013",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which operator is used to create a chart visualization in KQL?",
+    "choices": [
+      "`chart`",
+      "`graph`",
+      "`render`",
+      "`plot`"
+    ],
+    "answer": [2],
+    "explanation": "The `render` operator is used to create visualizations like timechart, barchart, etc. in KQL.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-014",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "multi",
+    "question": "Which of these are time filtering functions in KQL? (Select all that apply)",
+    "choices": [
+      "`ago()`",
+      "`between()`",
+      "`now()`",
+      "`startofday()`",
+      "`endofweek()`"
+    ],
+    "answer": [0, 1, 2, 3, 4],
+    "explanation": "All of these are valid time functions in KQL. `ago()` returns a timespan before now, `between()` creates a time range, `now()` returns current UTC time, `startofday()` and `endofweek()` are time truncation functions.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-015",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "What is the severity level for ERROR logs in Application Insights?",
+    "choices": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ],
+    "answer": [3],
+    "explanation": "In Application Insights, severity levels are: 0=Verbose, 1=Information, 2=Warning, 3=Error, 4=Critical. So ERROR is level 3.",
+    "reference": "../../04-secure-monitor/kql/README.md#test-yourself"
+  },
+  {
+    "id": "kql-016",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which operator would you use to remove specific columns from the result?",
+    "choices": [
+      "`project-away`",
+      "`project`",
+      "`remove`",
+      "`exclude`"
+    ],
+    "answer": [0],
+    "explanation": "`project-away` is used to drop/remove specific columns. For example: `requests | project-away duration, resultCode`.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-017",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "What does `take 10` do in a KQL query?",
+    "choices": [
+      "Returns the first 10 rows (no ordering guarantee)",
+      "Returns 10 random rows",
+      "Returns the top 10 rows sorted by a column",
+      "Returns rows with exactly 10 matches"
+    ],
+    "answer": [0],
+    "explanation": "`take N` returns arbitrary rows - it's for a quick peek at some data, not sorted or guaranteed. Use `top N by col` or `order by ... | take N` for ordered results.",
+    "reference": "../../04-secure-monitor/kql/README.md#exam-gotchas"
+  },
+  {
+    "id": "kql-018",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which operator is the default join type in KQL?",
+    "choices": [
+      "inner",
+      "leftouter",
+      "innerunique",
+      "fullouter"
+    ],
+    "answer": [2],
+    "explanation": "The default join type in KQL is `innerunique` which deduplicates the left side key. This is different from SQL's default INNER JOIN.",
+    "reference": "../../04-secure-monitor/kql/README.md#exam-gotchas"
+  },
+  {
+    "id": "kql-019",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "build-list",
+    "question": "Put these query fragments in order to find average request duration by name, sorted descending:",
+    "choices": [
+      "requests",
+      "where timestamp > ago(1h)",
+      "summarize avg(duration) by name",
+      "order by avg_duration desc"
+    ],
+    "answer": [0, 1, 2, 3],
+    "explanation": "Correct order: 1) Start with table, 2) Filter by time, 3) Aggregate with summarize, 4) Sort with order by. The aggregate creates a new column 'avg_duration' which can then be used for sorting.",
+    "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
+  },
+  {
+    "id": "kql-020",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which table would contain data about outbound HTTP calls from your application?",
+    "choices": [
+      "`requests`",
+      "`dependencies`",
+      "`exceptions`",
+      "`traces`"
+    ],
+    "answer": [1],
+    "explanation": "The `dependencies` table contains outbound calls your app made (to a DB, another API, etc.). `requests` is for incoming HTTP requests.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-021",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "multi",
+    "question": "Which operators can be used to filter data in KQL? (Select all that apply)",
+    "choices": [
+      "`where`",
+      "`filter`",
+      "`has`",
+      "`contains`",
+      "`matches regex`"
+    ],
+    "answer": [0, 2, 3, 4],
+    "explanation": "`where` is the primary filter operator. `has` checks for whole-word matches (case-insensitive), `contains` checks for substring (case-insensitive), and `matches regex` uses regex patterns. There is no `filter` operator.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-022",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "What is the purpose of the `operation_Id` column in Application Insights tables?",
+    "choices": [
+      "Uniquely identifies a single telemetry item",
+      "Correlates multiple telemetry items from the same operation",
+      "Identifies the Azure operation that created the resource",
+      "Tracks the order of operations"
+    ],
+    "answer": [1],
+    "explanation": "`operation_Id` is a correlation ID that links together all telemetry items (requests, dependencies, exceptions, traces) from the same end-to-end operation. This allows you to trace a request across multiple services.",
+    "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
+  },
+  {
+    "id": "kql-023",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which query will find all requests that took longer than 1 second?",
+    "choices": [
+      "`requests | where duration > 1000`",
+      "`requests | where duration > 1`",
+      "`requests | where duration > timespan(1s)`",
+      "`requests | where duration > 1000ms`"
+    ],
+    "answer": [0],
+    "explanation": "In Application Insights, duration is stored in milliseconds. So `duration > 1000` means longer than 1 second (1000ms). The other options either use wrong units or syntax.",
+    "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
+  },
+  {
+    "id": "kql-024",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "build-list",
+    "question": "Put these in order to create a time chart of exception counts per hour for the last day:",
+    "choices": [
+      "exceptions",
+      "where timestamp > ago(1d)",
+      "summarize count() by bin(timestamp, 1h)",
+      "render timechart"
+    ],
+    "answer": [0, 1, 2, 3],
+    "explanation": "Correct order: 1) Start with exceptions table, 2) Filter to last day, 3) Aggregate count by 1-hour bins, 4) Render as timechart. The `bin()` function groups timestamps into intervals.",
+    "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
+  },
+  {
+    "id": "kql-025",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "What does `sort by` do differently from `order by` in KQL?",
+    "choices": [
+      "`sort by` is case-sensitive",
+      "`sort by` sorts descending by default",
+      "`sort by` is stable (preserves order of equal elements)",
+      "There is no difference"
+    ],
+    "answer": [2],
+    "explanation": "`sort by` is a stable sort that preserves the relative order of rows with equal sort keys, while `order by` does not guarantee this. Otherwise they work similarly.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-026",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "multi",
+    "question": "Which of these aggregate functions are available in `summarize`? (Select all that apply)",
+    "choices": [
+      "`count()`",
+      "`sum()`",
+      "`avg()`",
+      "`min()`",
+      "`max()`",
+      "`median()`"
+    ],
+    "answer": [0, 1, 2, 3, 4],
+    "explanation": "All of these aggregate functions are available in KQL's summarize operator: count, sum, avg, min, max. There is no built-in median() function.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-028",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which operator extracts fields from a string column using a pattern?",
+    "choices": [
+      "`extract`",
+      "`parse`",
+      "`split`",
+      "`tokenize`"
+    ],
+    "answer": [1],
+    "explanation": "The `parse` operator extracts fields out of a string column using a pattern. For example: `parse message with 'Processing order ' orderId:long`.",
+    "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
+  },
+  {
+    "id": "kql-029",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "What is the result of `requests | count`?",
+    "choices": [
+      "Returns a single row with the count of all requests",
+      "Returns the count per request name",
+      "Returns all request rows with a count column added",
+      "Returns an error"
+    ],
+    "answer": [0],
+    "explanation": "`count` (as an operator, not a function) returns a single row with the total count of all rows. To count by groups, use `summarize count() by col`.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-030",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which query correctly counts distinct users?",
+    "choices": [
+      "`requests | count distinct user_Id`",
+      "`requests | distinct user_Id | count`",
+      "`requests | summarize count() by distinct user_Id`",
+      "`requests | count user_Id`"
+    ],
+    "answer": [1],
+    "explanation": "To count distinct values: first use `distinct` to get unique values, then `count`: `requests | distinct user_Id | count`. Alternatively: `requests | summarize dcount(user_Id)`.",
+    "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
+  },
+  {
+    "id": "kql-031",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "multi",
+    "question": "Which tables can contain custom application logs? (Select all that apply)",
+    "choices": [
+      "`traces`",
+      "`customEvents`",
+      "`requests`",
+      "`exceptions`",
+      "`dependencies`"
+    ],
+    "answer": [0, 1],
+    "explanation": "Custom application logs go into `traces` (via logging framework) and `customEvents` (for custom named events). The other tables are for specific telemetry types.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-032",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "What does `top 5 by duration` do?",
+    "choices": [
+      "Returns the 5 newest rows sorted by duration",
+      "Returns the 5 rows with the highest duration values",
+      "Returns the 5 most recent rows and sorts them by duration",
+      "Returns rows where duration is in the top 5 values"
+    ],
+    "answer": [1],
+    "explanation": "`top N by col` returns the N rows with the highest values in the specified column. It's equivalent to `order by col desc | take N`.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-033",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "How do you perform a case-insensitive string comparison in KQL?",
+    "choices": [
+      "`==`",
+      "`=~`",
+      "`===`",
+      "`equals`"
+    ],
+    "answer": [1],
+    "explanation": "Use `=~` for case-insensitive equality. `==` is case-sensitive. This is a classic exam gotcha.",
+    "reference": "../../04-secure-monitor/kql/README.md#exam-gotchas"
+  },
+  {
+    "id": "kql-034",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "build-list",
+    "question": "Put these in order to find requests with failures and their corresponding dependencies:",
+    "choices": [
+      "requests | where success == false",
+      "project operation_Id, requestName = name, resultCode",
+      "join kind=inner (dependencies | project operation_Id, dependencyName = name, target)",
+      "on operation_Id"
+    ],
+    "answer": [0, 1, 2, 3],
+    "explanation": "Correct order: 1) Filter requests to failures, 2) Select and rename columns, 3) Join with dependencies table, 4) Specify join key. This traces one request end-to-end.",
+    "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
+  },
+  {
+    "id": "kql-035",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which function returns the current UTC timestamp in KQL?",
+    "choices": [
+      "`now()`",
+      "`utcnow()`",
+      "`datetime()",
+      "`current_timestamp()`"
+    ],
+    "answer": [0],
+    "explanation": "`now()` returns the current UTC timestamp. All timestamps in Azure Monitor are UTC.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-036",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "multi",
+    "question": "What information is stored in the `requests` table? (Select all that apply)",
+    "choices": [
+      "Incoming HTTP request name",
+      "Request duration",
+      "Result code",
+      "Success status",
+      "Outbound dependency calls"
+    ],
+    "answer": [0, 1, 2, 3],
+    "explanation": "The `requests` table contains: name (request name), duration, resultCode, success. Outbound calls go in the `dependencies` table.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-037",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "What is the difference between `has` and `contains` in KQL?",
+    "choices": [
+      "`has` is case-sensitive, `contains` is case-insensitive",
+      "`has` matches whole words, `contains` matches substrings",
+      "`has` is faster than `contains`",
+      "There is no difference"
+    ],
+    "answer": [1],
+    "explanation": "`has` checks for whole-word matches (case-insensitive) while `contains` checks for substring matches (also case-insensitive). `has` is more efficient than `contains`.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-038",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which query finds all WARNING level traces from the last hour?",
+    "choices": [
+      "`traces | where severityLevel == 2`",
+      "`traces | where severityLevel == 'WARNING'`",
+      "`traces | where severityLevel == 1`",
+      "`traces | where message contains 'WARNING'`"
+    ],
+    "answer": [0],
+    "explanation": "Severity levels are numeric: 0=Verbose, 1=Information, 2=Warning, 3=Error, 4=Critical. So WARNING is level 2. The comparison must be numeric, not string.",
+    "reference": "../../04-secure-monitor/kql/README.md#test-yourself"
+  },
+  {
+    "id": "kql-039",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "What does `between(ago(1d) .. ago(1h))` represent?",
+    "choices": [
+      "From 1 day ago to 1 hour ago",
+      "From 1 hour ago to now",
+      "From now to 1 day from now",
+      "From 1 hour ago to 1 day from now"
+    ],
+    "answer": [0],
+    "explanation": "`between(ago(1d) .. ago(1h))` creates a time range from 1 day ago to 1 hour ago. The `..` operator creates an inclusive range.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-040",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which operator would you use to rename a column in the result?",
+    "choices": [
+      "`rename`",
+      "`project`",
+      "`extend`",
+      "`set`"
+    ],
+    "answer": [1],
+    "explanation": "Use `project` with the syntax `project newName = oldName` or `project oldName as newName`. There is no dedicated `rename` operator in KQL.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
   }
 ]
