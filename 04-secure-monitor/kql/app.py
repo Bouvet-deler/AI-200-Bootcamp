@@ -44,8 +44,11 @@ def process_order(order_id: int) -> None:
         logger.exception("Failed to process order %s", order_id)
 
 def validate_inventory(item: str, quantity: int) -> bool:
-    # A helper function that logs a custom event
-    # Custom events appear in the 'customEvents' table in Application Insights
+    # A helper that logs a warning for invalid input.
+    # NOTE: logger.warning(...) goes to the 'traces' table (with severityLevel = 2),
+    # NOT the 'customEvents' table. Emitting a real custom event requires the
+    # OpenTelemetry events API (e.g. track_event) — plain logging never lands in
+    # customEvents.
     if quantity < 0:
         logger.warning("Invalid quantity %s for item %s", quantity, item)
         return False

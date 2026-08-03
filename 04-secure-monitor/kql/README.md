@@ -132,7 +132,9 @@ APPINSIGHTS="ai200-appinsights"
 # 1. Create the resource group (the container for everything below).
 az group create --name "$RG" --location "$LOCATION"
 
-# 2. The 'monitor-control-service' extension may be needed for some monitor commands.
+# 2. One-time-per-machine: add the 'application-insights' CLI extension
+#    (provides the 'az monitor app-insights' commands; it's a client-side add-on,
+#    not something tied to your Azure account — safe to re-run, it's a no-op if present).
 az extension add --name application-insights --only-show-errors
 
 # 3. Create the Log Analytics workspace — the store that holds the log tables.
@@ -182,15 +184,14 @@ Prefer the browser? Create the same resources in the [Azure Portal](https://port
    - Resource group: `ai200-rg`
    - Name: `ai200-appinsights`
    - Region: `West Europe`
-   - Resource Mode: **Classic**
-   - Application Type: **ASP.NET web application** (or any — type doesn't matter for this demo)
+   - Resource Mode: **Workspace-based** (Classic mode was retired in Feb 2024 — new resources must be workspace-based)
    - **Important:** Under "Workspace", select your `ai200-logs` Log Analytics workspace
    - Click **Review + create** → **Create**
 
 5. **Get the connection string:**
    - Navigate to your Application Insights resource (`ai200-appinsights`)
-   - In the left menu: **API Access** → **Overview**
-   - Copy the **Connection String** value
+   - On the **Overview** blade, copy the **Connection String** value shown near the top
+     (the older *Instrumentation Key* is deprecated — use the connection string)
 
 6. **Set it as environment variable:**
    ```bash
@@ -311,9 +312,6 @@ Telemetry takes **1–3 minutes** to appear. Then open **Application Insights �
 portal and query it.
 
 > **Tip:** To deactivate the virtual environment when done: `deactivate`
-
-Telemetry takes **1–3 minutes** to appear. Then open **Application Insights → Logs** in the
-portal and query it.
 
 ---
 
