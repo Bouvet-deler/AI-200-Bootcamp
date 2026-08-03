@@ -213,16 +213,16 @@
     "domain": "04-secure-monitor",
     "topic": "kql",
     "type": "multi",
-    "question": "Which of these are time filtering functions in KQL? (Select all that apply)",
+    "question": "Which of these are valid time-related expressions used for filtering in KQL? (Select all that apply)",
     "choices": [
       "`ago()`",
-      "`between()`",
+      "`between`",
       "`now()`",
       "`startofday()`",
       "`endofweek()`"
     ],
     "answer": [0, 1, 2, 3, 4],
-    "explanation": "All of these are valid time functions in KQL. `ago()` returns a timespan before now, `between()` creates a time range, `now()` returns current UTC time, `startofday()` and `endofweek()` are time truncation functions.",
+    "explanation": "All of these are valid. `ago()` returns a timespan before now, `now()` returns current UTC time, and `startofday()`/`endofweek()` are datetime truncation functions. Note that `between` is an operator (`x between (a .. b)`), not a function — the others are functions.",
     "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
   },
   {
@@ -334,8 +334,8 @@
       "`contains`",
       "`matches regex`"
     ],
-    "answer": [0, 2, 3, 4],
-    "explanation": "`where` is the primary filter operator. `has` checks for whole-word matches (case-insensitive), `contains` checks for substring (case-insensitive), and `matches regex` uses regex patterns. There is no `filter` operator.",
+    "answer": [0, 1, 2, 3, 4],
+    "explanation": "`where` is the primary filter operator, and `filter` is an exact alias for it (per the KQL docs, `where` and `filter` are equivalent). `has` checks for whole-word matches (case-insensitive), `contains` checks for substring (case-insensitive), and `matches regex` uses regex patterns.",
     "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
   },
   {
@@ -398,8 +398,8 @@
       "`sort by` is stable (preserves order of equal elements)",
       "There is no difference"
     ],
-    "answer": [2],
-    "explanation": "`sort by` is a stable sort that preserves the relative order of rows with equal sort keys, while `order by` does not guarantee this. Otherwise they work similarly.",
+    "answer": [3],
+    "explanation": "There is no difference — the KQL docs state that the `sort` and `order` operators are equivalent (`sort by` and `order by` are exact synonyms). Both default to descending order; neither guarantees a stable sort.",
     "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
   },
   {
@@ -542,7 +542,7 @@
     "choices": [
       "`now()`",
       "`utcnow()`",
-      "`datetime()",
+      "`datetime()`",
       "`current_timestamp()`"
     ],
     "answer": [0],
