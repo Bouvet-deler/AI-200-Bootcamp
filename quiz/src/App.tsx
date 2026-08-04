@@ -13,14 +13,19 @@ function shuffleArray<T>(array: T[]): T[] {
   return result;
 }
 
-// Generate a full exam with weighted sampling
-function generateFullExam(): Question[] {
+// Generate a full exam with weighted sampling.
+// `requestedCount` is how many questions the user asked for (100 = "All").
+function generateFullExam(requestedCount: number): Question[] {
 
   const exam: Question[] = [];
   const questionsPerDomain: Record<string, number> = {};
 
-  // Calculate how many questions per domain based on weights
-  const totalQuestions = Math.min(allQuestions.length, 50); // Cap at 50 for a full exam
+  // Calculate how many questions per domain based on weights.
+  // "All" (100) means every question we have; otherwise honour the request,
+  // never exceeding the number of questions that actually exist.
+  const totalQuestions = requestedCount === 100
+    ? allQuestions.length
+    : Math.min(allQuestions.length, requestedCount);
   Object.entries(EXAM_WEIGHTS).forEach(([domain, weight]) => {
     questionsPerDomain[domain] = Math.round(totalQuestions * weight);
   });
@@ -61,7 +66,7 @@ function App() {
   // Generate questions based on mode
   const questions = useMemo(() => {
     if (mode === 'full-exam') {
-      return generateFullExam();
+      return generateFullExam(questionCount);
     }
     // Per-topic mode - limit to selected count
     const topicQuestions = questionsByTopic[selectedTopic] || [];
@@ -166,14 +171,14 @@ function App() {
     if (!currentQuestion) return;
 
     const userAnswers = selectedAnswers[currentQuestionIndex] || [];
-    
+
     // For single, check if the single answer matches
     // For multi, check if all selected answers are in the correct answer and vice versa
     // For build-list, check if the ordered array matches exactly
     let isCorrect = false;
     if (currentQuestion.type === 'single') {
       const userAnswersNum = userAnswers as number[];
-      isCorrect = userAnswersNum.length > 0 && 
+      isCorrect = userAnswersNum.length > 0 &&
         currentQuestion.answer.length > 0 &&
         userAnswersNum[0] === currentQuestion.answer[0];
     } else if (currentQuestion.type === 'multi') {
@@ -222,8 +227,8 @@ function App() {
     }
   };
 
-  const progress = questions.length > 0 
-    ? `${currentQuestionIndex + 1} / ${questions.length}` 
+  const progress = questions.length > 0
+    ? `${currentQuestionIndex + 1} / ${questions.length}`
     : '0 / 0';
 
   // Reset quiz when mode, topic, or question count changes
@@ -276,25 +281,25 @@ function App() {
           <span>{darkMode ? 'Dark' : 'Light'}</span>
         </div>
         <div className="mode-selector">
-          <div 
+          <div
             className={`mode-option ${mode === 'per-topic' ? 'selected' : ''}`}
             onClick={() => setMode('per-topic')}
           >
-            <input 
-              type="radio" 
-              checked={mode === 'per-topic'} 
+            <input
+              type="radio"
+              checked={mode === 'per-topic'}
               onChange={() => setMode('per-topic')}
             />
             <div className="custom-radio"></div>
             <span>Per Topic</span>
           </div>
-          <div 
+          <div
             className={`mode-option ${mode === 'full-exam' ? 'selected' : ''}`}
             onClick={() => setMode('full-exam')}
           >
-            <input 
-              type="radio" 
-              checked={mode === 'full-exam'} 
+            <input
+              type="radio"
+              checked={mode === 'full-exam'}
               onChange={() => setMode('full-exam')}
             />
             <div className="custom-radio"></div>
@@ -302,38 +307,44 @@ function App() {
           </div>
         </div>
 
-        {mode === 'per-topic' && (
-          <div className="topic-selector">
-            <label htmlFor="topic-select">Topic:</label>
-            <div className="select-wrapper">
-              <select 
-                id="topic-select" 
-                value={selectedTopic} 
-                onChange={(e) => setSelectedTopic(e.target.value)}
-              >
-                {availableTopics.map(topic => (
-                  <option key={topic} value={topic}>{topic}</option>
-                ))}
-              </select>
-            </div>
-            
-            <label htmlFor="question-count">Questions:</label>
-            <div className="select-wrapper">
-              <select
-                id="question-count"
-                value={questionCount}
-                onChange={(e) => setQuestionCount(Number(e.target.value))}
-              >
-                <option value="5">5</option>
-                <option value="10">10</option>
-                <option value="20">20</option>
-                <option value="30">30</option>
-                <option value="50">50</option>
-                <option value="100">All</option>
-              </select>
-            </div>
+        <div className="topic-selector">
+          {mode === 'per-topic' && (
+            <>
+              <span className="topic-wrapper">
+              <label htmlFor="topic-select">Topic:</label>
+              <div className="select-wrapper">
+                <select
+                  id="topic-select"
+                  value={selectedTopic}
+                  onChange={(e) => setSelectedTopic(e.target.value)}
+                >
+                  {availableTopics.map(topic => (
+                    <option key={topic} value={topic}>{topic}</option>
+                  ))}
+                </select>
+              </div>
+              </span>
+            </>
+          )}
+
+            <span className="topic-wrapper">
+          <label htmlFor="question-count">Questions:</label>
+          <div className="select-wrapper">
+            <select
+              id="question-count"
+              value={questionCount}
+              onChange={(e) => setQuestionCount(Number(e.target.value))}
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+              <option value="50">50</option>
+              <option value="100">All</option>
+            </select>
           </div>
-        )}
+            </span>
+        </div>
 
         <div className="progress">
           Question {progress} | Score: {score}
@@ -386,12 +397,12 @@ function App() {
                       })}
                     </div>
                   </div>
-                  
+
                   <div className="build-list-arrow">
                     <span>&#8594;</span>
                   </div>
-                  
-                  <div 
+
+                  <div
                     className="build-list-ordered"
                     onDragOver={(e) => {
                       if (showAnswer) return;
@@ -417,13 +428,13 @@ function App() {
                       <ul className="build-list-ordered-list">
                         {(selectedAnswers[currentQuestionIndex] as string[]).map((choiceId, position) => {
                           const choiceText = getChoiceText(choiceId);
-                          const isCorrect = showAnswer && 
+                          const isCorrect = showAnswer &&
                             (currentQuestion.answer as string[])[position] === choiceId;
-                          const isWrong = showAnswer && 
+                          const isWrong = showAnswer &&
                             (currentQuestion.answer as string[])[position] !== choiceId;
-                          
+
                           return (
-                            <li 
+                            <li
                               key={choiceId}
                               draggable={!showAnswer}
                               onDragStart={(e) => {
@@ -456,7 +467,7 @@ function App() {
                               <span className="build-list-position">{position + 1}.</span>
                               <span className="build-list-item-text">{choiceText}</span>
                               {!showAnswer && (
-                                <button 
+                                <button
                                   className="build-list-remove-btn"
                                   onClick={() => handleRemoveFromList(choiceId)}
                                 >
@@ -493,7 +504,7 @@ function App() {
                   const isMultiSelect = currentQuestion.type === 'multi';
 
                   // For multi-select, use empty indicator (CSS handles it); for single, use letters
-                  const indicator = isMultiSelect 
+                  const indicator = isMultiSelect
                     ? ''
                     : String.fromCharCode(65 + index);
 
@@ -521,15 +532,15 @@ function App() {
             </div>
 
             {!showAnswer ? (
-              <button 
-                className="submit-btn" 
+              <button
+                className="submit-btn"
                 onClick={handleSubmit}
-                disabled={!selectedAnswers[currentQuestionIndex] || 
-                  (currentQuestion.type === 'build-list' 
+                disabled={!selectedAnswers[currentQuestionIndex] ||
+                  (currentQuestion.type === 'build-list'
                     ? selectedAnswers[currentQuestionIndex].length !== currentQuestion.answer.length
                     : selectedAnswers[currentQuestionIndex].length === 0)}
               >
-                {currentQuestion.type === 'build-list' 
+                {currentQuestion.type === 'build-list'
                   ? `Submit Order (${selectedAnswers[currentQuestionIndex] ? selectedAnswers[currentQuestionIndex].length : 0}/${currentQuestion.answer.length})`
                   : 'Submit Answer'}
               </button>

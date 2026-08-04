@@ -1,0 +1,810 @@
+[
+  {
+    "id": "kv-001",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is the primary purpose of Azure Key Vault?",
+    "choices": [
+      "To store and manage virtual machine images",
+      "To securely store and manage secrets, keys, and certificates",
+      "To host web applications",
+      "To provide a managed database service"
+    ],
+    "answer": [1],
+    "explanation": "Azure Key Vault is a cloud service for securely storing and managing secrets, keys, and certificates used by applications and services. It solves the problem of hardcoded credentials in code or configuration files.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#what-it-is"
+  },
+  {
+    "id": "kv-002",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which of the following is NOT a type of object that can be stored in Azure Key Vault?",
+    "choices": [
+      "Secrets",
+      "Keys",
+      "Certificates",
+      "Virtual Machines"
+    ],
+    "answer": [3],
+    "explanation": "Azure Key Vault stores secrets, keys, and certificates. Virtual Machines are compute resources, not objects stored in Key Vault.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-003",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is the maximum size of a secret that can be stored in Azure Key Vault?",
+    "choices": [
+      "1 KB",
+      "10 KB",
+      "25 KB",
+      "100 KB"
+    ],
+    "answer": [2],
+    "explanation": "Secrets in Azure Key Vault can be up to 25 KB each. This is sufficient for most sensitive configuration values like connection strings, passwords, and API keys.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-004",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which authentication method is recommended for applications running on Azure services?",
+    "choices": [
+      "Connection strings",
+      "Service Principal with client secret",
+      "Managed Identity",
+      "Username and password"
+    ],
+    "answer": [2],
+    "explanation": "Managed Identity is the recommended authentication method for Azure-hosted applications. Azure automatically creates and manages the identity, so there are no credentials to manage or rotate.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-005",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "multi",
+    "question": "Which of the following are valid authentication methods for Azure Key Vault? (Select all that apply)",
+    "choices": [
+      "Managed Identity",
+      "Service Principal",
+      "User Identity",
+      "Connection String",
+      "Shared Access Signature (SAS)"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "Valid authentication methods for Key Vault include: Managed Identity (for Azure-hosted resources), Service Principal (standalone identity), and User Identity (for development/testing). Connection strings and SAS are not authentication methods for Key Vault.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-006",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What happens when you update a secret in Azure Key Vault?",
+    "choices": [
+      "The old secret is deleted permanently",
+      "A new version is created and the old version is kept for recovery",
+      "The secret name changes automatically",
+      "The application using it must be redeployed immediately"
+    ],
+    "answer": [1],
+    "explanation": "When you update a secret, a new version is created and the old version is kept. This versioning enables safe rotation — applications can continue to use the old version if needed, while new requests get the latest version.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-007",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is the purpose of soft delete in Azure Key Vault?",
+    "choices": [
+      "To encrypt secrets at rest",
+      "To retain deleted items for a configurable period before permanent deletion",
+      "To automatically rotate secrets",
+      "To compress secrets to save space"
+    ],
+    "answer": [1],
+    "explanation": "Soft delete retains deleted items (secrets, keys, certificates, vaults) for a configurable period (7-90 days) before permanent deletion. This provides a safety net against accidental deletion.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-008",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What does purge protection do in Azure Key Vault?",
+    "choices": [
+      "Prevents permanent deletion until it is disabled",
+      "Automatically purges old versions of secrets",
+      "Encrypts all secrets with a master key",
+      "Prevents creation of new secrets"
+    ],
+    "answer": [0],
+    "explanation": "Purge protection prevents permanent deletion of Key Vault items until it is explicitly disabled. Even with soft delete enabled, items can be purged (permanently deleted) unless purge protection is enabled.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-009",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which tier of Azure Key Vault supports HSM-backed keys?",
+    "choices": [
+      "Basic",
+      "Standard",
+      "Premium",
+      "Free"
+    ],
+    "answer": [2],
+    "explanation": "The Premium tier of Azure Key Vault supports HSM-backed keys (Hardware Security Modules), which are required for certain compliance scenarios like FIPS 140-2 Level 2/3. Standard tier supports software-backed keys.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-010",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which Azure service is best suited for storing application configuration settings?",
+    "choices": [
+      "Azure Key Vault",
+      "Azure App Configuration",
+      "Azure Storage",
+      "Azure SQL Database"
+    ],
+    "answer": [1],
+    "explanation": "Azure App Configuration is designed for storing application configuration settings and feature flags. Azure Key Vault is for secrets, keys, and certificates. However, App Configuration can reference secrets stored in Key Vault.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
+  },
+  {
+    "id": "kv-011",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is the default authentication order for DefaultAzureCredential?",
+    "choices": [
+      "Azure CLI → Managed Identity → Environment Variables → Visual Studio Code",
+      "Environment Variables → Managed Identity → Visual Studio Code → Azure CLI → Azure PowerShell",
+      "Managed Identity → Service Principal → Azure CLI",
+      "Azure PowerShell → Azure CLI → Managed Identity"
+    ],
+    "answer": [1],
+    "explanation": "DefaultAzureCredential tries authentication methods in this order: 1) Environment variables, 2) Managed Identity, 3) Visual Studio Code, 4) Azure CLI, 5) Azure PowerShell. This allows the same code to work locally and in production.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
+  },
+  {
+    "id": "kv-012",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "multi",
+    "question": "Which of the following are valid RBAC roles for Azure Key Vault? (Select all that apply)",
+    "choices": [
+      "Key Vault Reader",
+      "Key Vault Secrets User",
+      "Key Vault Contributor",
+      "Key Vault Owner",
+      "Key Vault Administrator"
+    ],
+    "answer": [0, 1, 2, 4],
+    "explanation": "Valid Key Vault RBAC roles include: Key Vault Reader (read metadata), Key Vault Secrets User (read secret values), Key Vault Contributor (manage the vault), and Key Vault Administrator (full control). Key Vault Owner is not a standard role.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-013",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is the maximum length for a Key Vault name?",
+    "choices": [
+      "16 characters",
+      "24 characters",
+      "32 characters",
+      "64 characters"
+    ],
+    "answer": [1],
+    "explanation": "Key Vault names must be globally unique across all Azure subscriptions and are limited to 3-24 characters (alphanumeric only).",
+    "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
+  },
+  {
+    "id": "kv-014",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which CLI command creates a new secret in Azure Key Vault?",
+    "choices": [
+      "az keyvault secret create",
+      "az keyvault secret set",
+      "az keyvault secret add",
+      "az keyvault secret new"
+    ],
+    "answer": [1],
+    "explanation": "The az keyvault secret set command creates a new secret or updates an existing one in Azure Key Vault.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#setup"
+  },
+  {
+    "id": "kv-015",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which command retrieves the value of a secret from Azure Key Vault?",
+    "choices": [
+      "az keyvault secret get",
+      "az keyvault secret show",
+      "az keyvault secret retrieve",
+      "az keyvault secret read"
+    ],
+    "answer": [1],
+    "explanation": "The az keyvault secret show command retrieves a secret from Azure Key Vault. Use --query value --output tsv to get just the value as plain text.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#setup"
+  },
+  {
+    "id": "kv-016",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What happens to an application when a secret is rotated in Key Vault?",
+    "choices": [
+      "The application automatically gets the new value on the next read",
+      "The application must be restarted to pick up the new value",
+      "The application must be redeployed with the new value",
+      "The old value is no longer accessible"
+    ],
+    "answer": [0],
+    "explanation": "Applications get the latest version of a secret on the next read. However, if the application caches the secret value, it may continue using the old value until the cache is refreshed. Proper caching strategies should be implemented for seamless rotation.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
+  },
+  {
+    "id": "kv-017",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which type of object in Key Vault can be used for TLS/SSL certificates?",
+    "choices": [
+      "Secrets",
+      "Keys",
+      "Certificates",
+      "All of the above"
+    ],
+    "answer": [2],
+    "explanation": "Certificates in Azure Key Vault are X.509 certificates that can be used for TLS/SSL and authentication. They contain a public key + private key pair with a certificate.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-018",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which command lists all versions of a specific secret?",
+    "choices": [
+      "az keyvault secret list",
+      "az keyvault secret list-versions",
+      "az keyvault secret show --all-versions",
+      "az keyvault secret get-versions"
+    ],
+    "answer": [1],
+    "explanation": "The az keyvault secret list-versions command lists all versions of a specific secret in Azure Key Vault.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#worked-examples"
+  },
+  {
+    "id": "kv-019",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is the SLA for Azure Key Vault Standard tier?",
+    "choices": [
+      "99.0%",
+      "99.5%",
+      "99.9%",
+      "99.99%"
+    ],
+    "answer": [2],
+    "explanation": "Azure Key Vault Standard tier has a 99.9% Service Level Agreement (SLA) with automatic failover.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-020",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which of these is a valid key type for cryptographic operations in Key Vault?",
+    "choices": [
+      "AES",
+      "RSA",
+      "DES",
+      "SHA"
+    ],
+    "answer": [1],
+    "explanation": "RSA is a valid key type for cryptographic operations in Azure Key Vault. EC (Elliptic Curve) is also supported. AES and DES are symmetric encryption algorithms, not key types stored in Key Vault. SHA is a hashing algorithm.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-021",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "multi",
+    "question": "Which of the following can be done with Azure Key Vault secrets? (Select all that apply)",
+    "choices": [
+      "Store connection strings",
+      "Store API keys",
+      "Store passwords",
+      "Store virtual machine images",
+      "Set expiration dates"
+    ],
+    "answer": [0, 1, 2, 4],
+    "explanation": "Azure Key Vault secrets can store connection strings, API keys, passwords, and other sensitive data. Secrets can have expiration dates. Virtual machine images are not stored in Key Vault.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-022",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is the purpose of Access Policies in Azure Key Vault?",
+    "choices": [
+      "To encrypt secrets at rest",
+      "To control which users and applications can perform operations on secrets, keys, and certificates",
+      "To automatically rotate secrets",
+      "To backup and restore secrets"
+    ],
+    "answer": [1],
+    "explanation": "Access Policies in Azure Key Vault provide granular control over which users and applications can perform operations (get, list, set, delete, recover, purge) on secrets, keys, or certificates. This is the legacy access control model.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-023",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which command grants a service principal access to secrets in a Key Vault using Access Policies?",
+    "choices": [
+      "az keyvault grant-access",
+      "az keyvault set-policy",
+      "az keyvault assign-role",
+      "az keyvault add-user"
+    ],
+    "answer": [1],
+    "explanation": "The az keyvault set-policy command grants access to secrets, keys, or certificates in a Key Vault using the Access Policies model.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#worked-examples"
+  },
+  {
+    "id": "kv-024",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which command enables Azure RBAC for a Key Vault?",
+    "choices": [
+      "az keyvault enable-rbac",
+      "az keyvault update --enabled-for-rbac-authorization true",
+      "az keyvault set-rbac true",
+      "az keyvault convert-to-rbac"
+    ],
+    "answer": [1],
+    "explanation": "The az keyvault update --enabled-for-rbac-authorization true command enables Azure RBAC for a Key Vault.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#worked-examples"
+  },
+  {
+    "id": "kv-025",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is a disabled secret in Azure Key Vault?",
+    "choices": [
+      "A secret that has been deleted and can be recovered",
+      "A secret that cannot be retrieved but still exists",
+      "A secret that has been encrypted",
+      "A secret that has expired"
+    ],
+    "answer": [1],
+    "explanation": "A disabled secret in Azure Key Vault cannot be retrieved but still exists. This is useful for temporarily disabling access without losing the secret value.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#test-yourself"
+  },
+  {
+    "id": "kv-026",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "multi",
+    "question": "Which of the following are network security options for Azure Key Vault? (Select all that apply)",
+    "choices": [
+      "Public endpoint",
+      "Private endpoint",
+      "Firewall",
+      "Service endpoints",
+      "VPN Gateway"
+    ],
+    "answer": [0, 1, 2, 3],
+    "explanation": "Network security options for Azure Key Vault include: Public endpoint (default), Private endpoint (VNet-only access), Firewall (IP range restrictions), and Service endpoints (Azure service traffic). VPN Gateway is not a Key Vault-specific feature.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-027",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is the difference between secrets and keys in Azure Key Vault?",
+    "choices": [
+      "Secrets are for passwords, keys are for encryption",
+      "Secrets are string values, keys are cryptographic material",
+      "Keys are string values, secrets are cryptographic material",
+      "There is no difference"
+    ],
+    "answer": [1],
+    "explanation": "Secrets in Azure Key Vault are string key-value pairs used for sensitive data like passwords and connection strings. Keys are cryptographic material (RSA, EC) used for encryption, decryption, signing, and verification operations.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
+  },
+  {
+    "id": "kv-028",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which Python library is used to interact with secrets in Azure Key Vault?",
+    "choices": [
+      "azure-keyvault",
+      "azure-keyvault-secrets",
+      "azure-secrets",
+      "azure-vault"
+    ],
+    "answer": [1],
+    "explanation": "The azure-keyvault-secrets Python library is used to interact with secrets in Azure Key Vault. Similarly, azure-keyvault-keys is used for keys, and azure-keyvault-certificates for certificates.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#hands-on-python"
+  },
+  {
+    "id": "kv-029",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which Python library provides DefaultAzureCredential?",
+    "choices": [
+      "azure-identity",
+      "azure-authentication",
+      "azure-credentials",
+      "azure-security"
+    ],
+    "answer": [0],
+    "explanation": "The azure-identity Python library provides DefaultAzureCredential and other credential classes for authenticating with Azure services.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#hands-on-python"
+  },
+  {
+    "id": "kv-030",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "build-list",
+    "question": "Put these steps in the correct order to retrieve a secret from Key Vault using Python:",
+    "choices": [
+      {"id": "create-credential", "text": "Create DefaultAzureCredential"},
+      {"id": "create-client", "text": "Create SecretClient with vault URL and credential"},
+      {"id": "get-secret", "text": "Call client.get_secret(secret_name)"},
+      {"id": "access-value", "text": "Access the .value property of the returned secret"}
+    ],
+    "answer": ["create-credential", "create-client", "get-secret", "access-value"],
+    "explanation": "Correct order: 1) Create credential, 2) Create client with vault URL and credential, 3) Call get_secret with the secret name, 4) Access the .value property to get the actual secret value.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#hands-on-python"
+  },
+  {
+    "id": "kv-031",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is the primary benefit of using Managed Identity with Azure Key Vault?",
+    "choices": [
+      "It provides the highest level of encryption",
+      "It eliminates the need to manage credentials in code or configuration",
+      "It allows access from any location",
+      "It automatically rotates all secrets"
+    ],
+    "answer": [1],
+    "explanation": "The primary benefit of Managed Identity is that it eliminates the need to manage credentials in code or configuration. Azure automatically creates and manages the identity for your Azure resources.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-032",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which Key Vault tier is required for HSM-backed keys?",
+    "choices": [
+      "Basic",
+      "Standard",
+      "Premium",
+      "Enterprise"
+    ],
+    "answer": [2],
+    "explanation": "The Premium tier is required for HSM-backed keys (Hardware Security Modules). Standard tier supports software-backed keys only.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-033",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "How can App Configuration reference secrets from Key Vault?",
+    "choices": [
+      "Using a direct connection string",
+      "Using a Key Vault reference in the value",
+      "Using a shared access signature",
+      "Using a REST API call"
+    ],
+    "answer": [1],
+    "explanation": "App Configuration can reference Key Vault secrets using a Key Vault reference in the value, like @Microsoft.KeyVault(SecretUri=https://myvault.vault.azure.net/secrets/mysecret). When the application reads from App Configuration, it automatically retrieves the secret from Key Vault.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#worked-examples"
+  },
+  {
+    "id": "kv-034",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which command creates an RSA key in Azure Key Vault?",
+    "choices": [
+      "az keyvault key create --kty RSA --size 2048",
+      "az keyvault key create --type RSA --size 2048",
+      "az keyvault key new --kty RSA --size 2048",
+      "az keyvault key generate --algorithm RSA --size 2048"
+    ],
+    "answer": [0],
+    "explanation": "The az keyvault key create --kty RSA --size 2048 command creates an RSA key in Azure Key Vault. The --kty parameter specifies the key type (RSA or EC).",
+    "reference": "../../04-secure-monitor/key-vault/README.md#setup"
+  },
+  {
+    "id": "kv-035",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is the default soft delete retention period for Azure Key Vault?",
+    "choices": [
+      "7 days",
+      "30 days",
+      "90 days",
+      "180 days"
+    ],
+    "answer": [0],
+    "explanation": "The default soft delete retention period is 7 days, but it can be configured between 7 and 90 days. In our setup example, we explicitly set it to 7 days.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#setup"
+  },
+  {
+    "id": "kv-036",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "multi",
+    "question": "Which of the following are operations that can be performed on secrets in Key Vault? (Select all that apply)",
+    "choices": [
+      "Create/Set",
+      "Get/Retrieve",
+      "List",
+      "Delete",
+      "Recover",
+      "Purge"
+    ],
+    "answer": [0, 1, 2, 3, 4, 5],
+    "explanation": "All of these are valid operations on secrets in Azure Key Vault: Create/Set, Get/Retrieve, List, Delete (soft), Recover (from soft delete), and Purge (permanent deletion, if purge protection is disabled).",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-037",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which command recovers a soft-deleted secret in Azure Key Vault?",
+    "choices": [
+      "az keyvault secret recover",
+      "az keyvault secret restore",
+      "az keyvault secret undelete",
+      "az keyvault secret retrieve"
+    ],
+    "answer": [0],
+    "explanation": "The az keyvault secret recover command recovers a soft-deleted secret in Azure Key Vault, as long as it's within the soft delete retention period.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#test-yourself"
+  },
+  {
+    "id": "kv-038",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What happens when purge protection is enabled on a Key Vault?",
+    "choices": [
+      "Secrets cannot be deleted",
+      "Deleted items cannot be purged until purge protection is disabled",
+      "All secrets are automatically encrypted",
+      "The vault cannot be accessed without additional authentication"
+    ],
+    "answer": [1],
+    "explanation": "When purge protection is enabled, deleted items (vaults, secrets, keys, certificates) cannot be permanently purged until purge protection is explicitly disabled. This protects against accidental permanent deletion.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
+  },
+  {
+    "id": "kv-039",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which command permanently deletes (purges) a secret from Azure Key Vault?",
+    "choices": [
+      "az keyvault secret delete --purge",
+      "az keyvault secret purge",
+      "az keyvault secret remove",
+      "az keyvault secret hard-delete"
+    ],
+    "answer": [1],
+    "explanation": "The az keyvault secret purge command permanently deletes a soft-deleted secret from Azure Key Vault. This requires purge protection to be disabled first.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#test-yourself"
+  },
+  {
+    "id": "kv-040",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "multi",
+    "question": "Which of the following are true about secret names in Azure Key Vault? (Select all that apply)",
+    "choices": [
+      "Secret names are case-insensitive",
+      "Secret names can contain hyphens",
+      "Secret names can start with a hyphen",
+      "Secret names have a maximum length of 127 characters",
+      "Secret names can contain spaces"
+    ],
+    "answer": [0, 1, 3],
+    "explanation": "Secret names in Azure Key Vault are: case-insensitive, can contain alphanumeric characters and hyphens, have a max length of 127 characters. They CANNOT start or end with a hyphen, and cannot contain spaces.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
+  },
+  {
+    "id": "kv-041",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is the purpose of the Key Vault URI?",
+    "choices": [
+      "To uniquely identify the vault for API calls",
+      "To encrypt data before sending to Azure",
+      "To authenticate with Azure AD",
+      "To store the vault's secrets locally"
+    ],
+    "answer": [0],
+    "explanation": "The Key Vault URI (e.g., https://myvault.vault.azure.net/) uniquely identifies the vault and is used in API calls and SDK operations to specify which vault to interact with.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#setup"
+  },
+  {
+    "id": "kv-042",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which command sets attributes on a secret, such as enabling or disabling it?",
+    "choices": [
+      "az keyvault secret set-attributes",
+      "az keyvault secret update",
+      "az keyvault secret modify",
+      "az keyvault secret configure"
+    ],
+    "answer": [0],
+    "explanation": "The az keyvault secret set-attributes command is used to set attributes on a secret, such as enabling/disabling it, setting expiration dates, or setting content types.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#test-yourself"
+  },
+  {
+    "id": "kv-043",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is the primary difference between Access Policies and Azure RBAC for Key Vault?",
+    "choices": [
+      "Access Policies are vault-specific, RBAC is Azure-wide",
+      "Access Policies use roles, RBAC uses permissions",
+      "Access Policies are for secrets only, RBAC is for keys only",
+      "There is no difference"
+    ],
+    "answer": [0],
+    "explanation": "The primary difference is scope: Access Policies are vault-specific and provide granular control per vault. Azure RBAC is the standard Azure role-based access control that can be applied at various scopes (subscription, resource group, individual resource).",
+    "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
+  },
+  {
+    "id": "kv-044",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "build-list",
+    "question": "Put these steps in order to set up a Key Vault and store a secret using CLI:",
+    "choices": [
+      {"id": "login", "text": "az login"},
+      {"id": "create-rg", "text": "az group create --name myrg --location westeurope"},
+      {"id": "create-kv", "text": "az keyvault create --name myvault --resource-group myrg"},
+      {"id": "set-secret", "text": "az keyvault secret set --name MySecret --vault-name myvault --value MyValue"}
+    ],
+    "answer": ["login", "create-rg", "create-kv", "set-secret"],
+    "explanation": "Correct order: 1) Login to Azure CLI, 2) Create resource group, 3) Create Key Vault, 4) Set secret. You must authenticate first, then create the container (resource group), then the vault itself, before storing secrets.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#setup"
+  },
+  {
+    "id": "kv-045",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which command shows the vault URI for a Key Vault?",
+    "choices": [
+      "az keyvault show --name myvault --query properties.vaultUri",
+      "az keyvault uri --name myvault",
+      "az keyvault get-uri --name myvault",
+      "az keyvault list --name myvault --query vaultUri"
+    ],
+    "answer": [0],
+    "explanation": "The az keyvault show --name myvault --query properties.vaultUri --output tsv command shows the vault URI for a Key Vault.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#setup"
+  },
+  {
+    "id": "kv-046",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is the maximum RSA key size supported in Standard tier?",
+    "choices": [
+      "1024 bits",
+      "2048 bits",
+      "3072 bits",
+      "4096 bits"
+    ],
+    "answer": [3],
+    "explanation": "The Standard tier of Azure Key Vault supports RSA keys up to 4096 bits (RSA 2048, 3072, 4096). EC keys are also supported (P-256, P-384, P-521).",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-047",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which of these is NOT a valid secret permission in Access Policies?",
+    "choices": [
+      "get",
+      "list",
+      "set",
+      "execute"
+    ],
+    "answer": [3],
+    "explanation": "Valid secret permissions in Access Policies are: get, list, set, delete, recover, purge, backup, restore. 'execute' is not a valid permission for secrets.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#worked-examples"
+  },
+  {
+    "id": "kv-048",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "multi",
+    "question": "Which of the following Azure services can have a Managed Identity? (Select all that apply)",
+    "choices": [
+      "Virtual Machines",
+      "App Services",
+      "Azure Functions",
+      "Storage Accounts",
+      "Azure Kubernetes Service"
+    ],
+    "answer": [0, 1, 2, 4],
+    "explanation": "Virtual Machines, App Services, Azure Functions, and Azure Kubernetes Service can all have Managed Identities. Storage Accounts do not have Managed Identities (they use other authentication methods).",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-049",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "What is the primary use case for Azure Key Vault certificates?",
+    "choices": [
+      "Storing database passwords",
+      "TLS/SSL for web applications",
+      "Encryption of data at rest",
+      "API authentication"
+    ],
+    "answer": [1],
+    "explanation": "The primary use case for Azure Key Vault certificates is TLS/SSL for web applications. Certificates contain X.509 certificates with public/private key pairs that can be used for TLS/SSL and authentication.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+  },
+  {
+    "id": "kv-050",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "Which environment variable is used by DefaultAzureCredential to authenticate with a service principal?",
+    "choices": [
+      "AZURE_CLIENT_ID",
+      "AZURE_SUBSCRIPTION_ID",
+      "AZURE_RESOURCE_GROUP",
+      "AZURE_VAULT_NAME"
+    ],
+    "answer": [0],
+    "explanation": "DefaultAzureCredential uses AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID environment variables for service principal authentication. AZURE_CLIENT_ID is the client ID of the service principal.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#hands-on-python"
+  }
+]

@@ -289,6 +289,12 @@ body::before {
   font-weight: 600;
 }
 
+.topic-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 /* Topic Selector - Centered and styled */
 .topic-selector {
   margin: 1rem auto;
@@ -296,7 +302,6 @@ body::before {
   flex-wrap: wrap;
   gap: 1rem;
   justify-content: center;
-  align-items: center;
   padding: 1.25rem;
   background: var(--glass-bg);
   backdrop-filter: blur(8px);
@@ -304,10 +309,13 @@ body::before {
   border: 1px solid var(--border-color);
   width: 100%;
   max-width: 600px;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .topic-selector label {
   color: var(--text-secondary);
+  width: 6em;
   font-weight: 600;
   font-size: 0.95rem;
 }
