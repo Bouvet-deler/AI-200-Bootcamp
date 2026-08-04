@@ -1,0 +1,386 @@
+[
+  {
+    "id": "app-config-001",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "What kind of data is Azure App Configuration designed to store?",
+    "choices": [
+      "Secrets like passwords, API keys, and certificates",
+      "Non-secret application settings and feature flags",
+      "Application log and telemetry data",
+      "Blob and file storage for large binary objects"
+    ],
+    "answer": [1],
+    "explanation": "App Configuration is a central store for non-secret application settings and feature flags. Secrets (passwords, keys, certificates) belong in Key Vault. App Configuration can hold a *reference* to a Key Vault secret, but never the secret value itself.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#what-it-is"
+  },
+  {
+    "id": "app-config-002",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "You need the same configuration key to return a different value in dev versus prod. Which App Configuration feature do you use?",
+    "choices": [
+      "Content types",
+      "Labels",
+      "Snapshots",
+      "Separate keys, one per environment"
+    ],
+    "answer": [1],
+    "explanation": "Labels are the per-environment mechanism: the same key can hold a different value per label (e.g. `dev`, `prod`). You don't create separate keys per environment.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#core-concepts"
+  },
+  {
+    "id": "app-config-003",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "How does App Configuration store a database password that lives in Key Vault?",
+    "choices": [
+      "It copies the secret value into App Configuration for fast reads",
+      "It stores a Key Vault reference — a URI pointing at the secret, not the value",
+      "It encrypts the secret and stores the ciphertext",
+      "It cannot store anything related to Key Vault secrets"
+    ],
+    "answer": [1],
+    "explanation": "A Key Vault reference is a key whose value is a URI pointing at the secret in Key Vault. The secret value never sits in App Configuration, and the app needs its own Key Vault permission to resolve it.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#core-concepts"
+  },
+  {
+    "id": "app-config-004",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "An app reads a Key Vault reference from App Configuration but fails to get the secret value. What is the most likely cause?",
+    "choices": [
+      "The reference must be created with a special CLI command",
+      "The app's identity lacks permission to read the secret in Key Vault",
+      "Key Vault references can only be resolved from .NET, not Python",
+      "App Configuration must be on the Standard tier to resolve references"
+    ],
+    "answer": [1],
+    "explanation": "App Configuration only hands back the reference (URI). Resolving the actual secret requires the app's identity to have its OWN read permission on the Key Vault secret. Access to App Configuration does not grant access to Key Vault.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#exam-gotchas"
+  },
+  {
+    "id": "app-config-005",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "What is a feature flag in App Configuration, technically?",
+    "choices": [
+      "A separate Azure resource linked to the store",
+      "A specially-namespaced key (prefix `.appconfig.featureflag/`) whose value is on/off JSON",
+      "A label named 'feature' applied to any key",
+      "A snapshot that toggles keys on and off"
+    ],
+    "answer": [1],
+    "explanation": "A feature flag is just an ordinary key with the reserved prefix `.appconfig.featureflag/` and a feature-flag content type. Its value is JSON describing an on/off toggle you can flip without redeploying.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#core-concepts"
+  },
+  {
+    "id": "app-config-006",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "Which RBAC role lets an identity READ key-values (but not write them) from an App Configuration store?",
+    "choices": [
+      "Contributor",
+      "App Configuration Data Reader",
+      "App Configuration Data Owner",
+      "Reader"
+    ],
+    "answer": [1],
+    "explanation": "App Configuration Data Reader grants read access to the key-values. Data Owner adds write. Contributor and Reader are resource-management roles and do NOT grant data-plane read/write.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#core-concepts"
+  },
+  {
+    "id": "app-config-007",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "A user has the Contributor role on an App Configuration store but gets 'forbidden' when reading key-values with Entra ID auth. Why?",
+    "choices": [
+      "Contributor only manages the resource, not the data plane; they need Data Reader/Owner",
+      "Contributor is a read-only role",
+      "They must also be a Global Administrator",
+      "Entra ID auth is not supported by App Configuration"
+    ],
+    "answer": [0],
+    "explanation": "Contributor manages the resource (create/delete/configure the store) but does not grant data-plane access to the key-values. Reading/writing data requires App Configuration Data Reader or Data Owner.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#exam-gotchas"
+  },
+  {
+    "id": "app-config-008",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "multi",
+    "question": "Which are valid ways for an application to authenticate to App Configuration? (Select all that apply)",
+    "choices": [
+      "A connection string (access key)",
+      "Entra ID via a managed identity with a data-plane role",
+      "Entra ID via DefaultAzureCredential in development",
+      "A Key Vault reference"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "You authenticate with either a connection string (access key) or Entra ID — via a managed identity in Azure or DefaultAzureCredential (your `az login`) in dev. A Key Vault reference is a kind of stored value, not an authentication method.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#core-concepts"
+  },
+  {
+    "id": "app-config-009",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "In the key `App:Api:Timeout`, what does the `:` character mean to App Configuration?",
+    "choices": [
+      "It creates real folders/containers in the store",
+      "It is a naming convention for hierarchy; the store is actually a flat list of keys",
+      "It separates the key from its label",
+      "It marks the value as a Key Vault reference"
+    ],
+    "answer": [1],
+    "explanation": "`:` is just a naming convention that implies hierarchy. App Configuration stores a flat list of keys — there are no real folders. The label is a separate field, not part of the key string.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#core-concepts"
+  },
+  {
+    "id": "app-config-010",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "Which is the recommended, most-tested way for a production app to authenticate to App Configuration?",
+    "choices": [
+      "A connection string stored in an environment variable",
+      "Entra ID with a managed identity and a data-plane RBAC role (passwordless)",
+      "An account key embedded in the app's source code",
+      "A shared access signature (SAS) token"
+    ],
+    "answer": [1],
+    "explanation": "Entra ID with a managed identity + a data-plane role (Data Reader/Owner) is the recommended passwordless approach — there is no secret to store or rotate. Connection strings work but are a shared secret you must protect.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#exam-gotchas"
+  },
+  {
+    "id": "app-config-011",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "You deleted an App Configuration store and immediately try to recreate one with the same name, but it fails. Why?",
+    "choices": [
+      "Store names can never be reused",
+      "Soft-delete reserves the name until the retention window elapses or you purge it",
+      "You must wait 24 hours after any create operation",
+      "The Free tier only allows one store ever"
+    ],
+    "answer": [1],
+    "explanation": "Soft-delete retains a deleted store (and reserves its name) for a recovery window. To reuse the name immediately, purge the deleted store.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#cleanup"
+  },
+  {
+    "id": "app-config-012",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "multi",
+    "question": "Which capabilities does the Standard tier add over the Free tier of App Configuration? (Select all that apply)",
+    "choices": [
+      "Geo-replication (replicas)",
+      "A financially-backed SLA",
+      "Higher storage limits",
+      "The ability to store feature flags"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "Standard adds geo-replication, an SLA, and higher limits. Feature flags are available on both tiers — they are just specially-namespaced keys, not a paid feature.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#exam-gotchas"
+  },
+  {
+    "id": "app-config-013",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "What is an App Configuration snapshot?",
+    "choices": [
+      "A backup of the entire Azure subscription",
+      "An immutable, named, point-in-time set of key-values",
+      "A live view that updates as keys change",
+      "A copy of the store's access keys"
+    ],
+    "answer": [1],
+    "explanation": "A snapshot is an immutable, named, point-in-time collection of key-values — useful for pinning a known-good config or rolling back.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#core-concepts"
+  },
+  {
+    "id": "app-config-014",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "Which Python class from the `azure-appconfiguration` SDK represents a plain key/value setting?",
+    "choices": [
+      "ConfigurationSetting",
+      "FeatureFlagConfigurationSetting",
+      "SecretReferenceConfigurationSetting",
+      "AzureAppConfigurationClient"
+    ],
+    "answer": [0],
+    "explanation": "`ConfigurationSetting(key=..., value=...)` represents a plain key/value. `FeatureFlagConfigurationSetting` is for feature flags, `SecretReferenceConfigurationSetting` for Key Vault references, and `AzureAppConfigurationClient` is the client.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#hands-on-python"
+  },
+  {
+    "id": "app-config-015",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "Which client method reads a single setting back from App Configuration in the Python SDK?",
+    "choices": [
+      "list_configuration_settings",
+      "get_configuration_setting",
+      "set_configuration_setting",
+      "read_key"
+    ],
+    "answer": [1],
+    "explanation": "`get_configuration_setting(key=..., label=...)` reads one setting. `set_configuration_setting` writes one, and `list_configuration_settings` streams multiple matching settings.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#hands-on-python"
+  },
+  {
+    "id": "app-config-016",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "Which library loads App Configuration settings into a dict-like object in one call and auto-resolves Key Vault references — the pattern Azure recommends for apps?",
+    "choices": [
+      "azure-appconfiguration (the raw SDK)",
+      "azure-appconfiguration-provider",
+      "azure-identity",
+      "azure-keyvault-secrets"
+    ],
+    "answer": [1],
+    "explanation": "The `azure-appconfiguration-provider` library's `load(...)` reads settings into a dict-like object, auto-resolves Key Vault references, and integrates feature management. The raw `azure-appconfiguration` SDK requires explicit get/set calls.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#core-concepts"
+  },
+  {
+    "id": "app-config-017",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "Which CLI command grants your signed-in user read access to an App Configuration store's data via Entra ID?",
+    "choices": [
+      "az appconfig kv set --key ...",
+      "az role assignment create --role \"App Configuration Data Reader\" --scope <store-id>",
+      "az appconfig credential list",
+      "az role assignment create --role \"Reader\" --scope <store-id>"
+    ],
+    "answer": [1],
+    "explanation": "You grant the data-plane role `App Configuration Data Reader` (or Data Owner for write) scoped to the store's resource ID. `Reader` is a resource-management role and does not grant data-plane access.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#setup"
+  },
+  {
+    "id": "app-config-018",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "multi",
+    "question": "Which statements about labels are true? (Select all that apply)",
+    "choices": [
+      "The same key can have different values under different labels",
+      "A label is a separate field from the key, not part of the key string",
+      "You read a specific environment's value by passing both key and label",
+      "Labels encrypt the value at rest"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "A label is a separate axis on a key: the same key can carry different values per label, and you retrieve one by passing key + label. Labels have nothing to do with encryption.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#core-concepts"
+  },
+  {
+    "id": "app-config-019",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "A teammate says 'just put the DB password in App Configuration so everything reads one store.' What's the correct guidance?",
+    "choices": [
+      "Agree — App Configuration is a secure secret store",
+      "Store the secret in Key Vault and put a Key Vault reference in App Configuration",
+      "Store the password as a feature flag",
+      "Store the password in a snapshot for immutability"
+    ],
+    "answer": [1],
+    "explanation": "Secrets belong in Key Vault. Keep the password in Key Vault and store a Key Vault reference in App Configuration, so the app still reads one store but the secret value stays protected in Key Vault.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#exam-gotchas"
+  },
+  {
+    "id": "app-config-020",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "build-list",
+    "question": "Put these Azure CLI steps in order to create an App Configuration store, seed a key, and read its value:",
+    "choices": [
+      {"id": "group", "text": "az group create --name <rg> --location westeurope"},
+      {"id": "create", "text": "az appconfig create --name <store> --resource-group <rg> --sku Free"},
+      {"id": "set", "text": "az appconfig kv set --name <store> --key App:Greeting --value Hello --yes"},
+      {"id": "show", "text": "az appconfig kv show --name <store> --key App:Greeting --query value"}
+    ],
+    "answer": ["group", "create", "set", "show"],
+    "explanation": "Correct order: 1) create the resource group, 2) create the App Configuration store inside it, 3) set a key-value, 4) read the value back. You must create the store before you can write keys, and write a key before you can read it.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#setup"
+  },
+  {
+    "id": "app-config-021",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "build-list",
+    "question": "Put these Python SDK steps in order to write and read back a labeled setting:",
+    "choices": [
+      {"id": "client", "text": "client = AzureAppConfigurationClient.from_connection_string(conn)"},
+      {"id": "build", "text": "setting = ConfigurationSetting(key='App:Greeting', label='prod', value='Hi')"},
+      {"id": "set", "text": "client.set_configuration_setting(setting)"},
+      {"id": "get", "text": "client.get_configuration_setting(key='App:Greeting', label='prod')"}
+    ],
+    "answer": ["client", "build", "set", "get"],
+    "explanation": "Correct order: 1) create the client, 2) build the ConfigurationSetting (with its label), 3) write it, 4) read it back by key + label. The label narrows the read to the prod value.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#hands-on-python"
+  },
+  {
+    "id": "app-config-022",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "What is the main benefit of using a feature flag instead of a regular config value to turn a feature on or off?",
+    "choices": [
+      "It encrypts the feature's code",
+      "You can toggle the feature without redeploying the application",
+      "It automatically scales the feature across regions",
+      "It stores the feature's source code in Azure"
+    ],
+    "answer": [1],
+    "explanation": "Feature flags let you enable/disable a feature at runtime with no redeploy — flip the flag in App Configuration and the app picks up the change.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#core-concepts"
+  },
+  {
+    "id": "app-config-023",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "Which CLI command retrieves the connection string an app would use for access-key authentication?",
+    "choices": [
+      "az appconfig kv list --name <store>",
+      "az appconfig credential list --name <store> --resource-group <rg>",
+      "az appconfig feature list --name <store>",
+      "az appconfig show --name <store>"
+    ],
+    "answer": [1],
+    "explanation": "`az appconfig credential list` returns the access keys, including the Primary/Secondary connection strings. `az appconfig show` returns resource metadata (like the endpoint), not the credentials.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#setup"
+  },
+  {
+    "id": "app-config-024",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "In the Python SDK, which method would you use to stream all keys matching `App:*`?",
+    "choices": [
+      "get_configuration_setting(key='App:*')",
+      "list_configuration_settings(key_filter='App:*')",
+      "set_configuration_setting(key='App:*')",
+      "get_keys(prefix='App:')"
+    ],
+    "answer": [1],
+    "explanation": "`list_configuration_settings(key_filter='App:*')` streams every matching setting (the `*` is a wildcard). `get_configuration_setting` reads exactly one key.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#worked-examples"
+  }
+]
