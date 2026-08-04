@@ -1,0 +1,404 @@
+[
+  {
+    "id": "otel-001",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "What is OpenTelemetry?",
+    "choices": [
+      "A vendor-neutral, open standard and SDK for producing telemetry (traces, metrics, logs)",
+      "An Azure-only logging service that replaces Application Insights",
+      "A KQL query engine for analyzing telemetry",
+      "A dashboard product for visualizing metrics"
+    ],
+    "answer": [0],
+    "explanation": "OpenTelemetry (OTel) is a vendor-neutral, open standard plus SDK for generating telemetry. You instrument your code once against the OTel API and can export to any backend (Azure Monitor, Jaeger, Prometheus, ...). In Azure, the backend is Application Insights, which you then query with KQL.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#what-it-is"
+  },
+  {
+    "id": "otel-002",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "multi",
+    "question": "Which are the three signals defined by OpenTelemetry? (Select all that apply)",
+    "choices": [
+      "Traces",
+      "Metrics",
+      "Logs",
+      "Alerts",
+      "Dashboards"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "OpenTelemetry defines three signals: traces (a request's journey across services), metrics (numeric measurements over time), and logs (timestamped text records). Alerts and dashboards are features of the backend (Azure Monitor), not OTel signals.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#what-it-is"
+  },
+  {
+    "id": "otel-003",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "What is the relationship between a trace and a span?",
+    "choices": [
+      "A trace is a single unit of work; a span is a collection of traces",
+      "A trace is a tree of spans representing one end-to-end operation; a span is a single unit of work within it",
+      "They are two words for the same thing",
+      "A span is the backend; a trace is the query language"
+    ],
+    "answer": [1],
+    "explanation": "A trace represents one logical end-to-end operation (e.g. 'checkout') and is made up of spans. Each span is a single unit of work with a name, start/end time (a duration), and optional attributes. The span with no parent is the root span.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
+  },
+  {
+    "id": "otel-004",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "Which single function does the Azure Monitor OpenTelemetry Distro provide to wire OpenTelemetry to Application Insights?",
+    "choices": [
+      "`enable_app_insights()`",
+      "`configure_azure_monitor()`",
+      "`start_tracing()`",
+      "`connect_opentelemetry()`"
+    ],
+    "answer": [1],
+    "explanation": "`configure_azure_monitor(connection_string=...)` from the `azure-monitor-opentelemetry` package configures traces, metrics, and logs and points them at Application Insights in one call. This is Microsoft's recommended onboarding path.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#hands-on-python"
+  },
+  {
+    "id": "otel-005",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "Which Python package is the recommended way to send OpenTelemetry data to Application Insights?",
+    "choices": [
+      "`opencensus-ext-azure`",
+      "`applicationinsights`",
+      "`azure-monitor-opentelemetry`",
+      "`azure-appinsights-sdk`"
+    ],
+    "answer": [2],
+    "explanation": "`azure-monitor-opentelemetry` (the Azure Monitor OpenTelemetry Distro) bundles the OTel SDK plus the Azure exporter. `opencensus-ext-azure` is the retired OpenCensus approach — OpenTelemetry replaced OpenCensus, so pick the OTel/distro answer.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#exam-gotchas"
+  },
+  {
+    "id": "otel-006",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "What is the current, recommended value used to point telemetry at an Application Insights resource?",
+    "choices": [
+      "The instrumentation key",
+      "The connection string",
+      "The subscription ID",
+      "The workspace resource ID"
+    ],
+    "answer": [1],
+    "explanation": "The connection string is the current way to point telemetry at Application Insights. The bare instrumentation key is legacy/deprecated — a classic 'which is right' exam distractor.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#exam-gotchas"
+  },
+  {
+    "id": "otel-007",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "In Application Insights, which column correlates all telemetry belonging to one end-to-end operation (the OpenTelemetry trace ID)?",
+    "choices": [
+      "`session_Id`",
+      "`operation_Id`",
+      "`trace_Id`",
+      "`request_Id`"
+    ],
+    "answer": [1],
+    "explanation": "The OpenTelemetry trace ID surfaces as the `operation_Id` correlation column in Application Insights. You join telemetry on `operation_Id` in KQL to follow one request across requests, dependencies, exceptions, and traces.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
+  },
+  {
+    "id": "otel-008",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "What makes tracing 'distributed' across multiple services?",
+    "choices": [
+      "Each service writes to the same database table",
+      "Context propagation via the W3C `traceparent` header carries the trace context between services",
+      "The Azure exporter merges traces by timestamp",
+      "KQL joins unrelated requests automatically"
+    ],
+    "answer": [1],
+    "explanation": "When service A calls service B, A injects the trace context into the W3C `traceparent` request header; B reads it and continues the SAME trace. This context propagation is what stitches one request together across many services.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
+  },
+  {
+    "id": "otel-009",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "You want to see how long each step of a single checkout request took as it moved across services. Which signal answers this?",
+    "choices": [
+      "Metrics",
+      "Logs",
+      "Traces",
+      "Alerts"
+    ],
+    "answer": [2],
+    "explanation": "Traces answer 'what happened during this one request and how long did each step take?' — they are the tree of timed spans for a single operation. Metrics answer 'how many/how much over time', and logs are free-text records.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#exam-gotchas"
+  },
+  {
+    "id": "otel-010",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "You want to track the number of orders processed per minute as a numeric value over time. Which signal fits best?",
+    "choices": [
+      "Traces",
+      "Metrics",
+      "Logs",
+      "Spans"
+    ],
+    "answer": [1],
+    "explanation": "Metrics are numeric measurements over time (counts, latency, queue depth). A counter incremented per order, aggregated over time, is a metric — it lands in the customMetrics table in Application Insights.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#what-it-is"
+  },
+  {
+    "id": "otel-011",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "What is the difference between auto-instrumentation and manual instrumentation?",
+    "choices": [
+      "Auto-instrumentation only works in Azure; manual works anywhere",
+      "Auto-instrumentation records spans for known libraries/frameworks for free; manual instrumentation is spans you create for your own business logic",
+      "Auto-instrumentation is for metrics; manual is for traces",
+      "There is no difference"
+    ],
+    "answer": [1],
+    "explanation": "Auto-instrumentation gives you request and dependency spans from instrumented libraries (Flask, requests, psycopg, ...) without touching that code. Manual instrumentation is where you create your own spans for business logic OTel can't see. Real apps use both.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
+  },
+  {
+    "id": "otel-012",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "A pure in-process calculation with no library calls produces no span. How do you get telemetry for it?",
+    "choices": [
+      "Enable auto-instrumentation harder",
+      "Create a manual span around it with the tracer (e.g. `with tracer.start_as_current_span(...)`)",
+      "Add a KQL query for it",
+      "It is impossible to instrument in-process code"
+    ],
+    "answer": [1],
+    "explanation": "Auto-instrumentation only covers known libraries/frameworks. For your own in-process business logic you must create a manual span, e.g. `with tracer.start_as_current_span('reprice basket'):`.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
+  },
+  {
+    "id": "otel-013",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "What is the main purpose of sampling in OpenTelemetry?",
+    "choices": [
+      "To encrypt telemetry in transit",
+      "To keep a representative fraction of traces, reducing telemetry volume and cost",
+      "To speed up KQL queries",
+      "To remove personally identifiable information"
+    ],
+    "answer": [1],
+    "explanation": "Sampling keeps a representative fraction of traces (e.g. 5%) to control telemetry volume and cost. The Azure distro supports fixed-rate sampling.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
+  },
+  {
+    "id": "otel-014",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "Why does sampling never produce an orphan child span whose parent was dropped?",
+    "choices": [
+      "Because child spans are always kept",
+      "Because sampling is trace-consistent: the decision is made once at the root and propagated, so a trace is kept or dropped as a whole",
+      "Because the exporter re-creates missing parents",
+      "Because KQL fills in the gaps"
+    ],
+    "answer": [1],
+    "explanation": "Sampling is trace-consistent. The keep/drop decision is made once at the root and propagated to all child spans, so an entire trace is kept or dropped together — you never get a child whose parent was sampled out.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
+  },
+  {
+    "id": "otel-015",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "Why must a short-lived Python script pause (or explicitly flush) before exiting after emitting telemetry?",
+    "choices": [
+      "Application Insights rate-limits new resources",
+      "Telemetry is buffered and flushed in the background (BatchSpanProcessor); exiting immediately can drop the un-flushed tail",
+      "The connection string expires after each run",
+      "Python requires a sleep after every network call"
+    ],
+    "answer": [1],
+    "explanation": "The SDK batches spans and flushes them in the background (BatchSpanProcessor). A script that exits immediately can lose the un-flushed telemetry, so you sleep or flush before exiting. Data also takes 1-3 minutes to appear regardless.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#exam-gotchas"
+  },
+  {
+    "id": "otel-016",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "An incoming HTTP request (a server span) lands in which Application Insights table?",
+    "choices": [
+      "`dependencies`",
+      "`requests`",
+      "`traces`",
+      "`exceptions`"
+    ],
+    "answer": [1],
+    "explanation": "Server spans (incoming requests) land in the `requests` table. Outbound/client spans go to `dependencies`, log records to `traces`, and recorded exceptions to `exceptions`.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
+  },
+  {
+    "id": "otel-017",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "An auto-instrumented outbound HTTP call your app makes (a client span) lands in which table?",
+    "choices": [
+      "`requests`",
+      "`dependencies`",
+      "`customMetrics`",
+      "`customEvents`"
+    ],
+    "answer": [1],
+    "explanation": "Client spans — outbound calls your app makes to a DB, another API, etc. — land in the `dependencies` table, sharing the operation_Id of the request that triggered them.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
+  },
+  {
+    "id": "otel-018",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "The `configure_azure_monitor()` call also routes standard Python `logging` output. Which table do those log lines appear in?",
+    "choices": [
+      "`requests`",
+      "`traces`",
+      "`exceptions`",
+      "`customMetrics`"
+    ],
+    "answer": [1],
+    "explanation": "Log records (e.g. `logger.info(...)`) land in the `traces` table, each with a severityLevel. This is the same `traces` table you query in the KQL topic.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
+  },
+  {
+    "id": "otel-019",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "What are span attributes?",
+    "choices": [
+      "The start and end timestamps of a span",
+      "Key/value tags that add searchable context to a span (e.g. order.id = 42)",
+      "The child spans nested under a span",
+      "The exporter configuration for a span"
+    ],
+    "answer": [1],
+    "explanation": "Attributes are key/value tags on a span that record searchable context about the operation, such as `order.id` or `http.method`. They are how you enrich a span with domain-specific detail.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
+  },
+  {
+    "id": "otel-020",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "In the OpenTelemetry pipeline, what is the job of the exporter?",
+    "choices": [
+      "To define the API your code calls",
+      "To translate the batched telemetry and ship it to a backend (e.g. Application Insights)",
+      "To sample traces at the root",
+      "To store telemetry as KQL tables"
+    ],
+    "answer": [1],
+    "explanation": "The pipeline is API -> SDK -> exporter. The API is what your code calls, the SDK records/batches/samples, and the exporter translates and ships the telemetry to a backend. The Azure Monitor exporter sends to Application Insights.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
+  },
+  {
+    "id": "otel-021",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "build-list",
+    "question": "Put these in the correct order to instrument a Python app with the Azure Monitor OpenTelemetry Distro:",
+    "choices": [
+      {"id": "install", "text": "pip install azure-monitor-opentelemetry"},
+      {"id": "connstr", "text": "Set APPLICATIONINSIGHTS_CONNECTION_STRING to your resource's connection string"},
+      {"id": "configure", "text": "Call configure_azure_monitor(connection_string=...)"},
+      {"id": "instrument", "text": "Create spans / metrics and emit logs in your app code"}
+    ],
+    "answer": ["install", "connstr", "configure", "instrument"],
+    "explanation": "Correct order: 1) install the distro, 2) provide the connection string (usually via env var), 3) call configure_azure_monitor() to wire the OTel pipeline to Application Insights, 4) then your spans, metrics, and logs are exported.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#hands-on-python"
+  },
+  {
+    "id": "otel-022",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "What does 'vendor-neutral' mean in the context of OpenTelemetry?",
+    "choices": [
+      "It only works with open-source backends",
+      "You instrument your code once against the OTel API and can export to any backend without rewriting the app",
+      "It is free of charge for all Azure customers",
+      "It does not require a connection string"
+    ],
+    "answer": [1],
+    "explanation": "Vendor-neutral means you instrument once against the OpenTelemetry API and can point the telemetry at any compatible backend (Azure Monitor, Jaeger, Prometheus, Datadog, ...) just by swapping the exporter — no app rewrite.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#what-it-is"
+  },
+  {
+    "id": "otel-023",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "Distributed tracing shows that a downstream service is starting a brand-new trace instead of continuing the caller's trace. What is the most likely cause?",
+    "choices": [
+      "Sampling dropped the trace",
+      "Context propagation is broken — the `traceparent` header wasn't passed, or that hop is uninstrumented",
+      "The connection string is wrong",
+      "The metric counter was not incremented"
+    ],
+    "answer": [1],
+    "explanation": "If a downstream service starts a new trace, the trace context (W3C `traceparent` header) wasn't propagated — typically because the outbound or inbound hop isn't instrumented, or the header was stripped. Fixing propagation restores the single end-to-end trace.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#exam-gotchas"
+  },
+  {
+    "id": "otel-024",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "Which statement about the root span of a trace is correct?",
+    "choices": [
+      "It has no parent span",
+      "It is always the shortest span",
+      "It is the exporter's configuration span",
+      "It is created only when sampling is disabled"
+    ],
+    "answer": [0],
+    "explanation": "The root span is the top of the trace tree — it has no parent span ID. All other spans in the trace descend from it, and they all share the same trace ID (operation_Id).",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
+  },
+  {
+    "id": "otel-025",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "multi",
+    "question": "Which of these does the Azure Monitor OpenTelemetry Distro configure with its single setup call? (Select all that apply)",
+    "choices": [
+      "Traces",
+      "Metrics",
+      "Logs",
+      "KQL saved queries",
+      "Azure RBAC roles"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "configure_azure_monitor() sets up all three signals — traces, metrics, and logs — and exports them to Application Insights. It does not manage KQL saved queries or Azure RBAC roles.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#hands-on-python"
+  }
+]
