@@ -1,0 +1,386 @@
+[
+  {
+    "id": "acr-001",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "What is Azure Container Registry (ACR)?",
+    "choices": [
+      "A managed Kubernetes cluster for running containers",
+      "A private, managed Docker/OCI registry for storing container images in Azure",
+      "A CI/CD pipeline service for building source code",
+      "A service for storing application secrets and certificates"
+    ],
+    "answer": [1],
+    "explanation": "ACR is a private, managed Docker/OCI registry hosted in Azure — your own private Docker Hub for storing and distributing container images. Running containers is AKS/Container Apps/ACI; secrets belong in Key Vault.",
+    "reference": "../../01-containers/acr/README.md#what-it-is"
+  },
+  {
+    "id": "acr-002",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "A registry named `ai200acr` holds a repository `web-api`. What is the fully-qualified reference to its `v1.0` image?",
+    "choices": [
+      "ai200acr.azure.com/web-api/v1.0",
+      "ai200acr.azurecr.io/web-api:v1.0",
+      "web-api.ai200acr.azurecr.io:v1.0",
+      "azurecr.io/ai200acr/web-api:v1.0"
+    ],
+    "answer": [1],
+    "explanation": "A registry's login server is always `<name>.azurecr.io`, and a full image reference is `<registry>.azurecr.io/<repository>:<tag>` — here `ai200acr.azurecr.io/web-api:v1.0`.",
+    "reference": "../../01-containers/acr/README.md#what-it-is"
+  },
+  {
+    "id": "acr-003",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "How are objects nested inside Azure Container Registry?",
+    "choices": [
+      "Registry → images → repositories",
+      "Repository → registry → images",
+      "Registry → repositories → images (by tag or digest)",
+      "Image → registry → tag"
+    ],
+    "answer": [2],
+    "explanation": "A registry contains many repositories; each repository contains many image versions identified by a mutable tag or an immutable digest. Registry → repositories → images.",
+    "reference": "../../01-containers/acr/README.md#core-concepts"
+  },
+  {
+    "id": "acr-004",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "What is the key advantage of `az acr build` (ACR Tasks) over `docker build`?",
+    "choices": [
+      "It builds the image in the cloud, so you don't need a local Docker daemon",
+      "It produces smaller images automatically",
+      "It only works with Windows containers",
+      "It skips pushing the image to save time"
+    ],
+    "answer": [0],
+    "explanation": "`az acr build` runs the build on ACR's cloud builders — no local Docker required — and it both builds AND pushes the image in a single command, streaming the log back to you.",
+    "reference": "../../01-containers/acr/README.md#core-concepts"
+  },
+  {
+    "id": "acr-005",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "Running `az acr build --registry myacr --image web-api:v1 .` is equivalent to which pair of local commands?",
+    "choices": [
+      "docker pull + docker run",
+      "docker build + docker push",
+      "docker login + docker tag",
+      "docker save + docker load"
+    ],
+    "answer": [1],
+    "explanation": "`az acr build` builds the Dockerfile AND pushes the resulting image, so it replaces both `docker build` and `docker push` — and runs them in ACR's cloud instead of on your machine.",
+    "reference": "../../01-containers/acr/README.md#core-concepts"
+  },
+  {
+    "id": "acr-006",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "multi",
+    "question": "Which events can automatically trigger an ACR Task to rebuild an image? (Select all that apply)",
+    "choices": [
+      "A commit to the linked source-code repository",
+      "An update to the base image referenced in the Dockerfile's FROM",
+      "A defined schedule (timer)",
+      "A user signing in to the Azure portal"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "ACR Tasks support three automatic triggers: source-code commit, base-image update (so your image gets rebuilt when its base is patched), and a schedule. A portal sign-in is not a trigger.",
+    "reference": "../../01-containers/acr/README.md#core-concepts"
+  },
+  {
+    "id": "acr-007",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "A running App Service needs to PULL images from ACR but never push. Which data-plane role should its managed identity have?",
+    "choices": [
+      "AcrPush",
+      "AcrPull",
+      "Contributor",
+      "AcrDelete"
+    ],
+    "answer": [1],
+    "explanation": "AcrPull grants read/pull access — exactly what a running service needs. AcrPush adds write/push (for build pipelines), and you should not over-grant a runtime service.",
+    "reference": "../../01-containers/acr/README.md#core-concepts"
+  },
+  {
+    "id": "acr-008",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "A CI/CD pipeline needs to push newly built images into ACR. Which role does it require?",
+    "choices": [
+      "AcrPull",
+      "AcrPush",
+      "Reader",
+      "AcrDelete"
+    ],
+    "answer": [1],
+    "explanation": "AcrPush grants pull AND push (read/write). AcrPull is read-only, so a pipeline that pushes images needs AcrPush.",
+    "reference": "../../01-containers/acr/README.md#core-concepts"
+  },
+  {
+    "id": "acr-009",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "Which statement about the ACR admin account is correct?",
+    "choices": [
+      "It is enabled by default and recommended for production",
+      "It is disabled by default and intended for testing only",
+      "It provides per-repository scoped credentials",
+      "It is the only way to authenticate to ACR"
+    ],
+    "answer": [1],
+    "explanation": "The admin account is a single shared username/password that is DISABLED by default and meant for testing/quick demos only. Production should use Entra ID / managed identity.",
+    "reference": "../../01-containers/acr/README.md#exam-gotchas"
+  },
+  {
+    "id": "acr-010",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "What does `az aks update --name <cluster> --resource-group <rg> --attach-acr <registry>` do?",
+    "choices": [
+      "Copies all images from the registry into the AKS nodes",
+      "Grants the AKS cluster's managed identity the AcrPull role on the registry",
+      "Enables the ACR admin account for the cluster",
+      "Creates image pull secrets in every namespace"
+    ],
+    "answer": [1],
+    "explanation": "`--attach-acr` assigns the cluster's managed identity the AcrPull role on the registry, so AKS can pull images with no image pull secrets stored in YAML.",
+    "reference": "../../01-containers/acr/README.md#core-concepts"
+  },
+  {
+    "id": "acr-011",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "Which statement about tags versus digests is correct?",
+    "choices": [
+      "Both tags and digests are immutable",
+      "Tags are mutable and can be re-pointed to a new image; a digest always identifies the exact same bytes",
+      "Digests are mutable; tags never change",
+      "Neither can be used to pull an image"
+    ],
+    "answer": [1],
+    "explanation": "A tag is a mutable label — re-pushing the same tag moves it to a new image. A digest (`sha256:...`) is a content hash and is immutable, so it always refers to the exact same image content.",
+    "reference": "../../01-containers/acr/README.md#core-concepts"
+  },
+  {
+    "id": "acr-012",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "For a production deployment that must be perfectly reproducible, how should you reference an image?",
+    "choices": [
+      "Always use the `latest` tag",
+      "Pin the image by its digest (`@sha256:...`)",
+      "Use a randomly generated tag each deploy",
+      "Reference the repository name with no tag"
+    ],
+    "answer": [1],
+    "explanation": "Digests are immutable, so pinning `<repo>@sha256:...` guarantees the exact same image every time. Avoid `latest` in production because a tag can silently move to a different image.",
+    "reference": "../../01-containers/acr/README.md#exam-gotchas"
+  },
+  {
+    "id": "acr-013",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "You want to enable anonymous (unauthenticated) pull on a registry. Which minimum SKU is required?",
+    "choices": [
+      "Basic",
+      "Standard",
+      "Premium",
+      "Any SKU supports it"
+    ],
+    "answer": [1],
+    "explanation": "Anonymous pull requires at least the Standard tier (also available on Premium). It is NOT available on Basic. Pushing still requires authentication.",
+    "reference": "../../01-containers/acr/README.md#core-concepts"
+  },
+  {
+    "id": "acr-014",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "multi",
+    "question": "Which features are available ONLY on the Premium SKU of ACR? (Select all that apply)",
+    "choices": [
+      "Geo-replication across regions",
+      "Private Link / private endpoints",
+      "Repository-scoped tokens and scope maps",
+      "Pushing and pulling images with Entra ID RBAC"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "Geo-replication, Private Link, content trust, customer-managed keys, availability zones, and repository-scoped tokens/scope maps are all Premium-only. Entra ID RBAC (AcrPull/AcrPush) works on every tier.",
+    "reference": "../../01-containers/acr/README.md#exam-gotchas"
+  },
+  {
+    "id": "acr-015",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "You must serve container images from a single registry with low latency to users in three regions. Which ACR capability do you use, and which SKU is required?",
+    "choices": [
+      "Anonymous pull, on Standard",
+      "Geo-replication, on Premium",
+      "Webhooks, on Basic",
+      "Scope maps, on Standard"
+    ],
+    "answer": [1],
+    "explanation": "Geo-replication puts replicas of one registry in multiple regions for low-latency pulls and resilience. It is a Premium-only feature.",
+    "reference": "../../01-containers/acr/README.md#exam-gotchas"
+  },
+  {
+    "id": "acr-016",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "You need to grant a partner access to pull from ONE repository only, without creating an Entra ID identity for them. Which ACR feature fits?",
+    "choices": [
+      "The admin account",
+      "Repository-scoped tokens with scope maps (Premium)",
+      "AcrPull assigned at the subscription scope",
+      "Anonymous pull"
+    ],
+    "answer": [1],
+    "explanation": "Repository-scoped tokens tied to a scope map grant granular per-repository permissions with a standalone credential — no Entra identity required. This is a Premium feature.",
+    "reference": "../../01-containers/acr/README.md#core-concepts"
+  },
+  {
+    "id": "acr-017",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "A security requirement says the registry must not be reachable over the public internet and must use a private endpoint inside your VNet. Which SKU supports this?",
+    "choices": [
+      "Basic",
+      "Standard",
+      "Premium",
+      "It is not possible with ACR"
+    ],
+    "answer": [2],
+    "explanation": "Private Link / private endpoints for ACR require the Premium tier.",
+    "reference": "../../01-containers/acr/README.md#exam-gotchas"
+  },
+  {
+    "id": "acr-018",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "Which ACR capability lets you cryptographically sign images so consumers can verify their integrity — and on which SKU?",
+    "choices": [
+      "Content trust / image signing, on Premium",
+      "Anonymous pull, on Standard",
+      "Webhooks, on Basic",
+      "Admin account, on any SKU"
+    ],
+    "answer": [0],
+    "explanation": "Content trust (image signing) is a Premium-only feature that lets publishers sign images and consumers verify them. Image quarantine is also Premium.",
+    "reference": "../../01-containers/acr/README.md#core-concepts"
+  },
+  {
+    "id": "acr-019",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "What does `az acr login --name myacr` do?",
+    "choices": [
+      "Enables the admin account on the registry",
+      "Logs your local Docker client into the registry using your Entra ID token — no password stored",
+      "Creates a new registry named myacr",
+      "Assigns you the AcrPull role"
+    ],
+    "answer": [1],
+    "explanation": "`az acr login` uses your existing Entra ID token to authenticate your Docker client to the registry — the recommended passwordless path. It does not enable the admin account or assign roles.",
+    "reference": "../../01-containers/acr/README.md#core-concepts"
+  },
+  {
+    "id": "acr-020",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "Which data-plane role is required to delete images/manifests from a registry?",
+    "choices": [
+      "AcrPull",
+      "AcrPush",
+      "AcrDelete",
+      "Reader"
+    ],
+    "answer": [2],
+    "explanation": "AcrDelete grants permission to delete images and manifests. AcrPull is read-only and AcrPush is read/write (pull + push) but does not by itself grant delete.",
+    "reference": "../../01-containers/acr/README.md#core-concepts"
+  },
+  {
+    "id": "acr-021",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "multi",
+    "question": "Which are valid ways to authenticate to an Azure Container Registry? (Select all that apply)",
+    "choices": [
+      "Entra ID with `az acr login` (token-based)",
+      "A service's managed identity granted AcrPull",
+      "The admin account (username/password), if enabled",
+      "A Key Vault reference"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "You authenticate with Entra ID (via `az acr login`, or a managed identity granted AcrPull/AcrPush) or, for testing, the admin account. A Key Vault reference is an App Configuration concept, not an ACR authentication method.",
+    "reference": "../../01-containers/acr/README.md#core-concepts"
+  },
+  {
+    "id": "acr-022",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "Which command copies an image from Docker Hub straight into your registry without a local docker pull/push?",
+    "choices": [
+      "az acr build",
+      "az acr import",
+      "az acr login",
+      "az acr repository delete"
+    ],
+    "answer": [1],
+    "explanation": "`az acr import` copies an image from another registry (e.g. Docker Hub) directly into your ACR — great for mirroring public base images — with no local Docker involved.",
+    "reference": "../../01-containers/acr/README.md#worked-examples"
+  },
+  {
+    "id": "acr-023",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "build-list",
+    "question": "Put these Azure CLI steps in order to create a registry and build+push an image into it using ACR Tasks:",
+    "choices": [
+      {"id": "group", "text": "az group create --name <rg> --location westeurope"},
+      {"id": "create", "text": "az acr create --name <registry> --resource-group <rg> --sku Basic"},
+      {"id": "build", "text": "az acr build --registry <registry> --image web-api:v1.0 ."},
+      {"id": "list", "text": "az acr repository list --name <registry>"}
+    ],
+    "answer": ["group", "create", "build", "list"],
+    "explanation": "Correct order: 1) create the resource group, 2) create the registry inside it, 3) build+push the image with ACR Tasks (no local Docker), 4) list the repositories to confirm it landed.",
+    "reference": "../../01-containers/acr/README.md#setup"
+  },
+  {
+    "id": "acr-024",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "build-list",
+    "question": "Order these Python steps to list a registry's repositories with the azure-containerregistry SDK:",
+    "choices": [
+      {"id": "cred", "text": "credential = DefaultAzureCredential()"},
+      {"id": "client", "text": "client = ContainerRegistryClient(endpoint, credential)"},
+      {"id": "repos", "text": "for repository in client.list_repository_names():"},
+      {"id": "tags", "text": "for tag in client.list_tag_properties(repository):"}
+    ],
+    "answer": ["cred", "client", "repos", "tags"],
+    "explanation": "Correct order: 1) build the credential (passwordless Entra ID), 2) create the ContainerRegistryClient with the endpoint + credential, 3) loop over repository names, 4) for each repository loop over its tag properties.",
+    "reference": "../../01-containers/acr/README.md#hands-on-python"
+  }
+]
