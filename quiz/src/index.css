@@ -562,17 +562,21 @@ body::before {
 }
 
 .build-list-container {
+  /* Stack the "Available Choices" and "Your Order" sections vertically
+     (available on top, ordered list below) — much more readable than the
+     old side-by-side columns, which squeezed each side and overflowed. */
   display: flex;
-  gap: 1.5rem;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: stretch;
   margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-  justify-content: center;
 }
 
 .build-list-available {
-  flex: 1;
-  min-width: 250px;
+  /* Full width of the card now that we stack vertically. min-width: 0 lets
+     this flex child shrink so its contents can wrap instead of overflow. */
+  width: 100%;
+  min-width: 0;
 }
 
 .build-list-available h4,
@@ -585,7 +589,11 @@ body::before {
 }
 
 .build-list-available-choices {
+  /* Flow the available choices into as many columns as fit (each at least
+     240px wide). Because they now sit on top of the ordered list, a grid
+     keeps them compact instead of a tall single column. */
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 0.5rem;
 }
 
@@ -604,7 +612,9 @@ body::before {
 
 .build-list-choice-item {
   display: flex;
-  align-items: center;
+  /* Align to the top so the letter badge stays put when the text wraps
+     onto multiple lines. */
+  align-items: flex-start;
   gap: 0.75rem;
   padding: 0.85rem 1.25rem;
   background: var(--bg-secondary);
@@ -643,18 +653,31 @@ body::before {
   font-family: inherit;
 }
 
+/* Choice text (available list): allow it to wrap and break long words/URLs
+   instead of stretching the row and overflowing the card.
+   min-width: 0 overrides a flex item's default min-width: auto, which is
+   what normally forces the parent to grow past its bounds. */
+.build-list-choice-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
 .build-list-arrow {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 1rem;
+  padding: 0.25rem 0;
   color: var(--text-muted);
   font-size: 1.5rem;
 }
 
 .build-list-ordered {
-  flex: 1;
-  min-width: 250px;
+  /* Full width beneath the available choices; min-width: 0 lets the rows
+     inside shrink and wrap. */
+  width: 100%;
+  min-width: 0;
   min-height: 150px;
   background: var(--glass-bg);
   backdrop-filter: blur(8px);
@@ -671,7 +694,8 @@ body::before {
 
 .build-list-ordered-item {
   display: flex;
-  align-items: center;
+  /* Top-align so the drag handle / position number stay put as text wraps. */
+  align-items: flex-start;
   gap: 0.75rem;
   padding: 0.85rem 1.25rem;
   margin-bottom: 0.5rem;
@@ -715,6 +739,9 @@ body::before {
 
 .build-list-item-text {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
   font-weight: 500;
 }
 
@@ -889,15 +916,6 @@ body::before {
 
   .choice {
     padding: 1rem;
-  }
-
-  .build-list-container {
-    flex-direction: column;
-  }
-
-  .build-list-arrow {
-    transform: rotate(90deg);
-    padding: 1rem 0;
   }
 
   .mode-selector {

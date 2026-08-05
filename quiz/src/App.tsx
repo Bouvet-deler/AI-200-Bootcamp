@@ -53,8 +53,14 @@ function generateFullExam(requestedCount: number): Question[] {
 type QuizMode = 'per-topic' | 'full-exam';
 
 function App() {
-  const [mode, setMode] = useState<QuizMode>('per-topic');
-  const [selectedTopic, setSelectedTopic] = useState<string>('04-secure-monitor/kql');
+  const [mode, setMode] = useState<QuizMode>('full-exam');
+  // Default the topic to the first entry in the sorted topic list (currently
+  // "01-containers/...") rather than a hard-coded topic, so switching to
+  // "Per Topic" starts at the top of the list. The arrow function passed to
+  // useState is a "lazy initializer" — React runs it once on first render.
+  const [selectedTopic, setSelectedTopic] = useState<string>(
+    () => Object.keys(questionsByTopic).sort()[0] ?? ''
+  );
   const [questionCount, setQuestionCount] = useState<number>(10);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<(number | string)[][]>([]);
@@ -399,7 +405,7 @@ function App() {
                   </div>
 
                   <div className="build-list-arrow">
-                    <span>&#8594;</span>
+                    <span>&#8595;</span>
                   </div>
 
                   <div
