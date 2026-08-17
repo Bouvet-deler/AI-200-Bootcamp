@@ -116,19 +116,64 @@ telemetry and something to query.
 > - **[CLI](#cli-setup)** — Copy-paste commands below (requires [Azure CLI](https://learn.microsoft.com/cli/azure/))
 > - **[Azure Portal (Web UI)](#portal-setup)** — Point-and-click in your browser
 
-### CLI Setup
+### Set your variables
 
-Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first).
-Replace the `<placeholders>`.
+The CLI commands in **Setup** and **Cleanup** reference these as **shell variables** — set them
+once for your shell, then run the `az` commands as written. (The Portal method doesn't use
+these.) What each one is:
+
+- **`RG`** — resource group: the folder that holds your related Azure resources.
+- **`LOCATION`** — the Azure region to deploy into.
+- **`WORKSPACE`** — name for the Log Analytics workspace (the store that holds the log tables).
+- **`APPINSIGHTS`** — name for the Application Insights resource.
+
+The variable *names* are identical everywhere; only the **assignment syntax** differs by shell,
+so copy the block that matches yours:
 
 ```bash
-# Pick names/region once so the later commands can reuse them.
-# (These are shell variables — plain text substitution, nothing Azure-specific yet.)
-RG="ai200-rg"                 # a resource group = a folder that holds related Azure resources
-LOCATION="westeurope"          # the Azure region to deploy into
-WORKSPACE="ai200-logs"         # name for the Log Analytics workspace
+# bash / zsh — Linux, and macOS (its default shell)
+RG="ai200-rg"
+LOCATION="westeurope"
+WORKSPACE="ai200-logs"
 APPINSIGHTS="ai200-appinsights"
+```
 
+```fish
+# fish — Linux / macOS
+set RG ai200-rg
+set LOCATION westeurope
+set WORKSPACE ai200-logs
+set APPINSIGHTS ai200-appinsights
+```
+
+```powershell
+# PowerShell — Windows (also cross-platform)
+$RG = "ai200-rg"
+$LOCATION = "westeurope"
+$WORKSPACE = "ai200-logs"
+$APPINSIGHTS = "ai200-appinsights"
+```
+
+```bat
+:: Command Prompt (cmd.exe) — Windows
+set RG=ai200-rg
+set LOCATION=westeurope
+set WORKSPACE=ai200-logs
+set APPINSIGHTS=ai200-appinsights
+```
+
+> **Referencing the variables in the commands below.** The `az` snippets are written bash-style
+> (`"$RG"`) and work unchanged in **bash/zsh, fish, and PowerShell** (all expand `$RG`). In
+> **cmd**, write **`%RG%`** instead. The `\` at the end of long commands is a *bash*
+> line-continuation — in PowerShell use a backtick `` ` ``, in cmd use `^`, or just put the whole
+> command on one line.
+
+### CLI Setup
+
+Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first), after
+[setting your variables](#set-your-variables) above.
+
+```bash
 # 1. Create the resource group (the container for everything below).
 az group create --name "$RG" --location "$LOCATION"
 
@@ -211,13 +256,10 @@ Run this when you're done experimenting, or whenever you want to start fresh.
 
 ### CLI Cleanup
 
-Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first).
-Use the same variable names from the [CLI Setup](#cli-setup) above, or replace with your own.
+Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first). Set `RG`
+as shown in [Set your variables](#set-your-variables), then:
 
 ```bash
-# Pick names/region to match what you created in Setup.
-RG="ai200-rg"                 # the resource group containing all your resources
-
 # Delete the entire resource group and everything in it.
 # This removes: Log Analytics workspace, Application Insights, and any other resources in the group.
 # The '--yes' flag skips the confirmation prompt. Use '--no-wait' to not wait for completion.
