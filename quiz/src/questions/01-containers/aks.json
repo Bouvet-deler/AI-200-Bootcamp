@@ -1,0 +1,402 @@
+[
+  {
+    "id": "aks-001",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "What does Azure manage for you in Azure Kubernetes Service (AKS), and what do you pay for?",
+    "choices": [
+      "Azure manages the worker nodes for free; you pay for the control plane",
+      "Azure manages the control plane for free; you pay for the worker node VMs",
+      "Azure manages everything for free; AKS has no compute cost",
+      "You manage both the control plane and the nodes; Azure only bills for storage"
+    ],
+    "answer": [1],
+    "explanation": "AKS is managed Kubernetes: Azure runs the control plane (API server, scheduler, etcd) at no charge. You pay for the worker node VMs in your node pools (and extras like a LoadBalancer public IP).",
+    "reference": "../../01-containers/aks/README.md#what-it-is"
+  },
+  {
+    "id": "aks-002",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "Which kubectl command applies a manifest declaratively — making the cluster match the desired state described in a YAML file?",
+    "choices": [
+      "kubectl run -f deployment.yaml",
+      "kubectl create deployment webapp",
+      "kubectl apply -f deployment.yaml",
+      "kubectl exec -f deployment.yaml"
+    ],
+    "answer": [2],
+    "explanation": "`kubectl apply -f <file>` is the declarative command: it reconciles the cluster to match the manifest and is safely re-runnable. `kubectl create`/`run` are one-shot imperative commands.",
+    "reference": "../../01-containers/aks/README.md#deploy-with-manifests"
+  },
+  {
+    "id": "aks-003",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "You need a Kubernetes object that keeps 3 replicas of your app running and performs rolling updates. Which object do you declare?",
+    "choices": [
+      "A bare Pod",
+      "A Service",
+      "A Deployment",
+      "A ConfigMap"
+    ],
+    "answer": [2],
+    "explanation": "A Deployment declares desired state (e.g. 3 replicas), manages a ReplicaSet to keep that many pods alive, and performs rolling updates and rollbacks. A bare Pod is a single disposable instance with none of that.",
+    "reference": "../../01-containers/aks/README.md#core-concepts"
+  },
+  {
+    "id": "aks-004",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "Which Service type gives your application a public external IP on AKS?",
+    "choices": [
+      "ClusterIP",
+      "NodePort",
+      "LoadBalancer",
+      "Headless"
+    ],
+    "answer": [2],
+    "explanation": "A `LoadBalancer` Service provisions an Azure Load Balancer with a public external IP. ClusterIP (the default) is internal-only; NodePort exposes a high port on each node but is rarely the intended public-access answer.",
+    "reference": "../../01-containers/aks/README.md#core-concepts"
+  },
+  {
+    "id": "aks-005",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "What is the default Service type, and who can reach it?",
+    "choices": [
+      "LoadBalancer — reachable from the public internet",
+      "ClusterIP — reachable only from inside the cluster",
+      "NodePort — reachable on every node's public IP",
+      "Ingress — reachable via a hostname"
+    ],
+    "answer": [1],
+    "explanation": "The default Service type is ClusterIP, which is reachable only from within the cluster. You need LoadBalancer or an Ingress to expose an app externally.",
+    "reference": "../../01-containers/aks/README.md#core-concepts"
+  },
+  {
+    "id": "aks-006",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "Which command merges an AKS cluster's connection info and credentials into your local kubeconfig so plain `kubectl` commands target that cluster?",
+    "choices": [
+      "az aks create",
+      "az aks get-credentials",
+      "az aks update --attach-acr",
+      "kubectl config use-context"
+    ],
+    "answer": [1],
+    "explanation": "`az aks get-credentials --resource-group <rg> --name <cluster>` merges the cluster's entry into ~/.kube/config. Without it, kubectl doesn't know how to reach or authenticate to the cluster. It does not create the cluster.",
+    "reference": "../../01-containers/aks/README.md#setup"
+  },
+  {
+    "id": "aks-007",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "Pods on your AKS cluster are stuck in ImagePullBackOff pulling an image from your Azure Container Registry. What is the most likely fix?",
+    "choices": [
+      "Restart the control plane",
+      "Attach the ACR so the cluster's managed identity gets the AcrPull role",
+      "Add a LoadBalancer Service",
+      "Increase the node count"
+    ],
+    "answer": [1],
+    "explanation": "ImagePullBackOff from ACR usually means the cluster can't authenticate to the registry. `az aks update --attach-acr <acr>` grants the cluster's managed identity the AcrPull role — no imagePullSecrets needed. (Also verify the image name/tag.)",
+    "reference": "../../01-containers/aks/README.md#exam-gotchas"
+  },
+  {
+    "id": "aks-008",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "Which role does `az aks update --attach-acr <acr>` grant, and to which identity?",
+    "choices": [
+      "Contributor, to your user account",
+      "AcrPush, to the ACR admin user",
+      "AcrPull, to the cluster's managed identity",
+      "Reader, to the node pool"
+    ],
+    "answer": [2],
+    "explanation": "Attaching an ACR grants the cluster's managed identity the AcrPull role on that registry, so nodes can pull images without imagePullSecrets in the manifest.",
+    "reference": "../../01-containers/aks/README.md#core-concepts"
+  },
+  {
+    "id": "aks-009",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "A pod shows STATUS CrashLoopBackOff. What does that indicate?",
+    "choices": [
+      "The image could not be pulled from the registry",
+      "The container starts but keeps exiting, so Kubernetes restarts it repeatedly",
+      "The pod cannot be scheduled onto any node",
+      "The Service has no endpoints"
+    ],
+    "answer": [1],
+    "explanation": "CrashLoopBackOff means the image pulled fine but the container starts and then exits over and over (app crash, bad config, or failing liveness probe), so Kubernetes keeps restarting it with growing back-off. Read the logs with `kubectl logs <pod> -p`.",
+    "reference": "../../01-containers/aks/README.md#worked-examples"
+  },
+  {
+    "id": "aks-010",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "A pod is stuck in the Pending phase. What is the most common cause?",
+    "choices": [
+      "The application inside the container crashed",
+      "The image tag does not exist",
+      "It can't be scheduled — no node has enough CPU/memory (or a constraint can't be met)",
+      "The readiness probe is failing"
+    ],
+    "answer": [2],
+    "explanation": "Pending means the pod hasn't been scheduled onto a node yet — usually insufficient CPU/memory to satisfy its resource requests, or a NotReady node. `kubectl describe pod` shows a FailedScheduling event.",
+    "reference": "../../01-containers/aks/README.md#worked-examples"
+  },
+  {
+    "id": "aks-011",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "Which single command is the most useful for seeing why a specific pod is stuck — showing its events, image, probe config, and container states?",
+    "choices": [
+      "kubectl get pods",
+      "kubectl describe pod <pod-name>",
+      "kubectl apply -f pod.yaml",
+      "kubectl rollout status"
+    ],
+    "answer": [1],
+    "explanation": "`kubectl describe pod <pod-name>` prints the pod's events plus each container's State/Last State and Reason — the go-to command for diagnosing scheduling failures, image pull errors, and probe failures.",
+    "reference": "../../01-containers/aks/README.md#worked-examples"
+  },
+  {
+    "id": "aks-012",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "A container in CrashLoopBackOff has already restarted. Which command shows the logs from the crashed (previous) run?",
+    "choices": [
+      "kubectl logs <pod>",
+      "kubectl logs <pod> -p",
+      "kubectl logs <pod> -f",
+      "kubectl describe pod <pod>"
+    ],
+    "answer": [1],
+    "explanation": "`kubectl logs <pod> -p` (--previous) reads the logs of the previous, terminated container instance — essential for CrashLoopBackOff, where the current container may be too short-lived to inspect. `-f` follows live logs of the current container.",
+    "reference": "../../01-containers/aks/README.md#worked-examples"
+  },
+  {
+    "id": "aks-013",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "Your LoadBalancer Service returns nothing and `kubectl get endpoints` shows it has NO endpoints. What's the most likely cause?",
+    "choices": [
+      "The cluster control plane is down",
+      "The Service selector matches no ready pods (wrong label or a failing readiness probe)",
+      "ACR is not attached to the cluster",
+      "The namespace was deleted"
+    ],
+    "answer": [1],
+    "explanation": "A Service routes to pods matched by its selector that are also Ready. Empty endpoints means no pod matches the selector's labels, or matching pods are failing their readiness probe and thus excluded from the endpoint list.",
+    "reference": "../../01-containers/aks/README.md#worked-examples"
+  },
+  {
+    "id": "aks-014",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "From inside a running pod, which command tests in-cluster connectivity to another Service by DNS name?",
+    "choices": [
+      "kubectl logs <pod> -- curl http://webapp",
+      "kubectl describe service webapp",
+      "kubectl exec -it <pod> -- curl http://webapp.demo:80/",
+      "kubectl apply -f service.yaml"
+    ],
+    "answer": [2],
+    "explanation": "`kubectl exec -it <pod> -- curl http://<service>.<namespace>:<port>/` runs a command inside the pod, exercising in-cluster DNS resolution and Service routing end-to-end — the standard connectivity check.",
+    "reference": "../../01-containers/aks/README.md#worked-examples"
+  },
+  {
+    "id": "aks-015",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "What is the difference between a liveness probe and a readiness probe?",
+    "choices": [
+      "Liveness gates traffic; readiness restarts the container",
+      "Liveness restarts the container when it fails; readiness removes the pod from Service traffic when it fails",
+      "They are identical; the names are interchangeable",
+      "Readiness restarts the node; liveness restarts the pod"
+    ],
+    "answer": [1],
+    "explanation": "A failing liveness probe causes Kubernetes to restart the container. A failing readiness probe leaves the container running but removes the pod from the Service's endpoints, so it receives no traffic until it passes.",
+    "reference": "../../01-containers/aks/README.md#exam-gotchas"
+  },
+  {
+    "id": "aks-016",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "Where should you store a NON-secret setting (like a greeting string) versus a sensitive value (like an API key) for a pod?",
+    "choices": [
+      "Both in a ConfigMap",
+      "Non-secret in a ConfigMap; sensitive value in a Secret",
+      "Both in a Secret",
+      "Non-secret in a Secret; sensitive value in a ConfigMap"
+    ],
+    "answer": [1],
+    "explanation": "Non-secret configuration goes in a ConfigMap; sensitive values go in a Secret (stored base64-encoded, not strongly encrypted by default). Don't put passwords or keys in a ConfigMap.",
+    "reference": "../../01-containers/aks/README.md#core-concepts"
+  },
+  {
+    "id": "aks-017",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "How are values in a Kubernetes Secret stored by default?",
+    "choices": [
+      "Strongly encrypted with a customer-managed key",
+      "Base64-encoded (encoding, not strong encryption by default)",
+      "As plaintext in the manifest only",
+      "Hashed and unrecoverable"
+    ],
+    "answer": [1],
+    "explanation": "By default a Secret stores values base64-encoded — that is encoding, not encryption. Anyone who can read the Secret can decode it. Use RBAC, and enable encryption-at-rest for real protection.",
+    "reference": "../../01-containers/aks/README.md#core-concepts"
+  },
+  {
+    "id": "aks-018",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "A pod's container was terminated with reason OOMKilled. What happened?",
+    "choices": [
+      "The image was not found in the registry",
+      "The container exceeded its memory limit and was killed",
+      "The pod could not be scheduled",
+      "The readiness probe failed"
+    ],
+    "answer": [1],
+    "explanation": "OOMKilled means the container used more memory than its configured `limits.memory` and was killed by the kernel's out-of-memory handler. Raise the memory limit or fix the leak.",
+    "reference": "../../01-containers/aks/README.md#worked-examples"
+  },
+  {
+    "id": "aks-019",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "`kubectl logs` only shows a running pod's live output. Where do AKS container logs get retained and made searchable for later KQL queries?",
+    "choices": [
+      "In the pod's local disk forever",
+      "In Container Insights, which ships stdout/stderr to a Log Analytics workspace",
+      "In the ACR registry",
+      "In the kubeconfig file"
+    ],
+    "answer": [1],
+    "explanation": "Container Insights (Azure Monitor for containers) collects pod stdout/stderr and metrics into a Log Analytics workspace, where they survive pod restarts and can be queried with KQL. `kubectl logs` is live-only (aside from one previous run via -p).",
+    "reference": "../../01-containers/aks/README.md#core-concepts"
+  },
+  {
+    "id": "aks-020",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "multi",
+    "question": "Which commands help you troubleshoot why a pod is failing? (Select all that apply)",
+    "choices": [
+      "kubectl describe pod <pod>",
+      "kubectl logs <pod>",
+      "kubectl get events",
+      "az aks get-credentials"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "`describe pod` shows events and container states, `logs` shows what the app printed, and `get events` surfaces cluster-level failures (scheduling, image pull, probes). `az aks get-credentials` just sets up kubeconfig — it isn't a diagnostic command.",
+    "reference": "../../01-containers/aks/README.md#worked-examples"
+  },
+  {
+    "id": "aks-021",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "multi",
+    "question": "Which statements about the AKS cluster hierarchy are correct? (Select all that apply)",
+    "choices": [
+      "A cluster contains one or more node pools",
+      "A node pool contains nodes (worker VMs)",
+      "A pod is the smallest deployable unit and usually runs one container",
+      "A node runs inside a pod"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "The nesting is Cluster → node pool → node (VM) → pod → container. A node does NOT run inside a pod — it's the other way around: pods run on nodes.",
+    "reference": "../../01-containers/aks/README.md#core-concepts"
+  },
+  {
+    "id": "aks-022",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "multi",
+    "question": "Which statements correctly contrast ImagePullBackOff and CrashLoopBackOff? (Select all that apply)",
+    "choices": [
+      "ImagePullBackOff means the image could not be fetched (bad name/tag or registry auth)",
+      "CrashLoopBackOff means the container pulled but keeps starting and exiting",
+      "Attaching ACR (AcrPull) can fix ImagePullBackOff caused by missing registry auth",
+      "Both states mean the pod could not be scheduled to a node"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "ImagePullBackOff is about fetching the image; CrashLoopBackOff is about the container repeatedly exiting after it started. Neither is a scheduling problem — that's the Pending phase (FailedScheduling).",
+    "reference": "../../01-containers/aks/README.md#exam-gotchas"
+  },
+  {
+    "id": "aks-023",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "build-list",
+    "question": "Order the steps to deploy an app to a freshly created AKS cluster and confirm the rollout:",
+    "choices": [
+      {"id": "creds", "text": "az aks get-credentials --resource-group <rg> --name <cluster>"},
+      {"id": "deploy", "text": "kubectl apply -f deployment.yaml"},
+      {"id": "service", "text": "kubectl apply -f service.yaml"},
+      {"id": "status", "text": "kubectl rollout status deployment/webapp"}
+    ],
+    "answer": ["creds", "deploy", "service", "status"],
+    "explanation": "First pull cluster credentials so kubectl can reach the cluster, then apply the Deployment, then the Service that fronts it, then verify the rollout completed. (A single combined manifest works too, but the order of connect → deploy → expose → verify holds.)",
+    "reference": "../../01-containers/aks/README.md#deploy-with-manifests"
+  },
+  {
+    "id": "aks-024",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "build-list",
+    "question": "Pods are in ImagePullBackOff after deploying. Order the troubleshooting steps to diagnose and fix it:",
+    "choices": [
+      {"id": "get", "text": "kubectl get pods  (see STATUS = ImagePullBackOff)"},
+      {"id": "describe", "text": "kubectl describe pod <pod>  (Events show the pull/auth failure)"},
+      {"id": "attach", "text": "az aks update --attach-acr <acr>  (grant AcrPull)"},
+      {"id": "verify", "text": "kubectl get pods  (confirm STATUS = Running)"}
+    ],
+    "answer": ["get", "describe", "attach", "verify"],
+    "explanation": "Spot the failing status, describe the pod to read the Events explaining the pull/auth failure, attach the ACR so the cluster's managed identity gets AcrPull, then re-check that pods reach Running.",
+    "reference": "../../01-containers/aks/README.md#worked-examples"
+  },
+  {
+    "id": "aks-025",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "Which best describes the difference between a Deployment, a Pod, and a Service?",
+    "choices": [
+      "They are three names for the same object",
+      "A Pod is a running instance; a Deployment keeps N pods alive and does rolling updates; a Service is a stable network endpoint in front of pods",
+      "A Service runs containers; a Deployment stores config; a Pod exposes an IP",
+      "A Deployment is a single container; a Pod is a group of nodes; a Service is a VM"
+    ],
+    "answer": [1],
+    "explanation": "A Pod is one disposable running instance; a Deployment maintains a desired number of pods and performs rolling updates/rollbacks; a Service provides a stable name/IP that load-balances across the pods it selects.",
+    "reference": "../../01-containers/aks/README.md#core-concepts"
+  }
+]

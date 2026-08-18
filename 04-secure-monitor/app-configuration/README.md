@@ -251,18 +251,59 @@ Goal: create an App Configuration store and seed a few keys, so you have somethi
 > - **[CLI](#cli-setup)** — Copy-paste commands below (requires [Azure CLI](https://learn.microsoft.com/cli/azure/))
 > - **[Azure Portal (Web UI)](#portal-setup)** — Point-and-click in your browser
 
-### CLI Setup
+### Set your variables
 
-Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first).
-Replace the `<placeholders>`.
+The CLI commands in **Setup** and **Cleanup** reference these as **shell variables** — set them
+once for your shell, then run the `az` commands as written. (The Portal method doesn't use
+these.) What each one is:
+
+- **`RG`** — resource group: the folder that holds your related Azure resources.
+- **`LOCATION`** — the Azure region to deploy into.
+- **`APPCONFIG`** — the App Configuration store name; must be **globally unique**.
+
+The variable *names* are identical everywhere; only the **assignment syntax** differs by shell,
+so copy the block that matches yours:
 
 ```bash
-# Pick names/region once so the later commands can reuse them.
-# (These are shell variables — plain text substitution, nothing Azure-specific yet.)
-RG="ai200-rg"                 # a resource group = a folder that holds related Azure resources
-LOCATION="westeurope"          # the Azure region to deploy into
-APPCONFIG="ai200-appconfig"    # name for the App Configuration store (must be globally unique)
+# bash / zsh — Linux, and macOS (its default shell)
+RG="ai200-rg"
+LOCATION="westeurope"
+APPCONFIG="ai200-appconfig"
+```
 
+```fish
+# fish — Linux / macOS
+set RG ai200-rg
+set LOCATION westeurope
+set APPCONFIG ai200-appconfig
+```
+
+```powershell
+# PowerShell — Windows (also cross-platform)
+$RG = "ai200-rg"
+$LOCATION = "westeurope"
+$APPCONFIG = "ai200-appconfig"
+```
+
+```bat
+:: Command Prompt (cmd.exe) — Windows
+set RG=ai200-rg
+set LOCATION=westeurope
+set APPCONFIG=ai200-appconfig
+```
+
+> **Referencing the variables in the commands below.** The `az` snippets are written bash-style
+> (`"$RG"`) and work unchanged in **bash/zsh, fish, and PowerShell** (all expand `$RG`). In
+> **cmd**, write **`%RG%`** instead. The `\` at the end of long commands is a *bash*
+> line-continuation — in PowerShell use a backtick `` ` ``, in cmd use `^`, or just put the whole
+> command on one line.
+
+### CLI Setup
+
+Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first), after
+[setting your variables](#set-your-variables) above.
+
+```bash
 # 1. Create the resource group (skip if you already made one in another topic).
 az group create --name "$RG" --location "$LOCATION"
 
@@ -383,11 +424,9 @@ name.
 
 ### CLI Cleanup
 
-```bash
-# Use the same names from Setup.
-RG="ai200-rg"
-APPCONFIG="ai200-appconfig"
+Set `RG` and `APPCONFIG` as shown in [Set your variables](#set-your-variables), then:
 
+```bash
 # Delete just the App Configuration store...
 az appconfig delete --name "$APPCONFIG" --resource-group "$RG" --yes
 

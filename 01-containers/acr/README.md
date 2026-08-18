@@ -194,19 +194,60 @@ and tags for `app.py` to read.
 > - **[CLI](#cli-setup)** — Copy-paste commands below (requires [Azure CLI](https://learn.microsoft.com/cli/azure/))
 > - **[Azure Portal (Web UI)](#portal-setup)** — Point-and-click in your browser
 
-### CLI Setup
+### Set your variables
 
-Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first).
-Replace the `<placeholders>`.
+The CLI commands in **Setup** and **Cleanup** reference these as **shell variables** — set them
+once for your shell, then run the `az` commands as written. (The Portal method doesn't use
+these.) What each one is:
+
+- **`RG`** — resource group: the folder that holds your related Azure resources.
+- **`LOCATION`** — the Azure region to deploy into.
+- **`ACR`** — the registry name; must be **globally unique**, letters + digits only (no dashes).
+  The random suffix helps keep it unique.
+
+The variable *names* are identical everywhere; only the **assignment syntax** differs by shell,
+so copy the block that matches yours:
 
 ```bash
-# Pick names/region once so the later commands can reuse them.
-# (These are shell variables — plain text substitution, nothing Azure-specific yet.)
-RG="ai200-rg"                 # a resource group = a folder that holds related Azure resources
-LOCATION="westeurope"          # the Azure region to deploy into
-ACR="ai200acr$RANDOM"          # registry name: GLOBALLY UNIQUE, letters+digits only, no dashes
-                               # ($RANDOM appends a number to help avoid name clashes)
+# bash / zsh — Linux, and macOS (its default shell)
+RG="ai200-rg"
+LOCATION="westeurope"
+ACR="ai200acr$RANDOM"
+```
 
+```fish
+# fish — Linux / macOS
+set RG ai200-rg
+set LOCATION westeurope
+set ACR ai200acr(random)
+```
+
+```powershell
+# PowerShell — Windows (also cross-platform)
+$RG = "ai200-rg"
+$LOCATION = "westeurope"
+$ACR = "ai200acr$(Get-Random)"
+```
+
+```bat
+:: Command Prompt (cmd.exe) — Windows
+set RG=ai200-rg
+set LOCATION=westeurope
+set ACR=ai200acr%RANDOM%
+```
+
+> **Referencing the variables in the commands below.** The `az` snippets are written bash-style
+> (`"$RG"`) and work unchanged in **bash/zsh, fish, and PowerShell** (all expand `$RG`). In
+> **cmd**, write **`%RG%`** instead. The `\` at the end of long commands is a *bash*
+> line-continuation — in PowerShell use a backtick `` ` ``, in cmd use `^`, or just put the whole
+> command on one line.
+
+### CLI Setup
+
+Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first), after
+[setting your variables](#set-your-variables) above.
+
+```bash
 # 1. Create the resource group (skip if you already made one in another topic).
 az group create --name "$RG" --location "$LOCATION"
 
@@ -305,11 +346,10 @@ Goal: delete the resources created above to avoid storage charges and free the r
 
 ### CLI Cleanup
 
-```bash
-# Use the same names from Setup.
-RG="ai200-rg"
-ACR="<your-registry-name>"     # the exact name you created
+Set `RG` and `ACR` (to the **exact** registry name you created) as shown in
+[Set your variables](#set-your-variables), then:
 
+```bash
 # Delete just the registry (and all its images)...
 az acr delete --name "$ACR" --resource-group "$RG" --yes
 

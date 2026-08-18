@@ -1,0 +1,97 @@
+# A complete manifest for a tiny web app, split into 5 objects with '---' separators.
+# '---' is YAML's "document separator": one file can hold many Kubernetes objects.
+#
+# It matches the workload app.py later inspects (namespace 'demo', deployment 'webapp',
+# container port 8080).
+#
+# Replace <acr-login-server> with your registry's login server (e.g. ai200acr123.azurecr.io)
+# and push an image named 'webapp:v1' to it, OR swap the 'image:' line for a public image such
+# as 'mcr.microsoft.com/azuredocs/aks-helloworld:v1' (which listens on port 80 — change
+# containerPort/targetPort/probe ports to 80 if you use it).
+#
+# Apply it with:  kubectl apply -f webapp.yaml
+
+# --- 1) A Namespace to isolate this demo -------------------------------------
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+---
+# --- 2) A ConfigMap: NON-secret settings injected as env vars ----------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webapp-config
+  namespace: demo
+data:
+  GREETING: "Hello from AKS"        # plain text; safe to see
+---
+# --- 3) A Secret: sensitive settings, base64-encoded (NOT strong encryption) -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: webapp-secret
+  namespace: demo
+type: Opaque
+stringData:                          # 'stringData' lets you write PLAINTEXT; k8s base64-encodes it
+  API_KEY: "super-secret-value"
+---
+# --- 4) The Deployment: desired state = 3 replicas of our image --------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp
+  namespace: demo
+spec:
+  replicas: 3                        # keep 3 pods running at all times
+  selector:
+    matchLabels:
+      app: webapp                    # this Deployment owns pods labeled app=webapp
+  template:                          # the "pod recipe" the Deployment stamps out
+    metadata:
+      labels:
+        app: webapp                  # pods get this label (must match selector above)
+    spec:
+      containers:
+        - name: webapp
+          image: <acr-login-server>/webapp:v1   # pulled from ACR (AcrPull grants access)
+          ports:
+            - containerPort: 8080    # the port your app listens on inside the container
+          envFrom:
+            - configMapRef:
+                name: webapp-config  # inject every ConfigMap key as an env var
+            - secretRef:
+                name: webapp-secret  # inject every Secret key as an env var
+          resources:
+            requests:                # guaranteed amount (used to SCHEDULE the pod)
+              cpu: "100m"            # 100 millicores = 0.1 CPU
+              memory: "128Mi"
+            limits:                  # hard cap (exceed memory -> pod is OOMKilled)
+              cpu: "250m"
+              memory: "256Mi"
+          readinessProbe:            # gate TRAFFIC: only in the Service once this passes
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:             # RESTART the container if this keeps failing
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+# --- 5) A LoadBalancer Service: stable name + PUBLIC external IP --------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp
+  namespace: demo
+spec:
+  type: LoadBalancer               # provisions an Azure Load Balancer with a public IP
+  selector:
+    app: webapp                    # send traffic to pods labeled app=webapp
+  ports:
+    - port: 80                     # the port the Service listens on (public)
+      targetPort: 8080             # forwarded to this container port
