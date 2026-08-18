@@ -1,0 +1,290 @@
+[
+  {
+    "id": "app-service-containers-001",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "What is Azure App Service when used with containers?",
+    "choices": [
+      "A managed Kubernetes cluster for running container workloads",
+      "A managed web-app hosting PaaS that can run a container image instead of raw code",
+      "A serverless container platform that scales to zero by default",
+      "A CI/CD pipeline service that builds and deploys container images"
+    ],
+    "answer": [1],
+    "explanation": "Azure App Service is a managed web-app hosting Platform-as-a-Service (PaaS) that can run your app from a container image, while Azure handles the servers, scaling, and TLS certificates. Kubernetes is AKS; serverless scale-to-zero is Container Apps; CI/CD pipelines are separate services.",
+    "reference": "../../01-containers/app-service-containers/README.md#what-it-is"
+  },
+  {
+    "id": "app-service-containers-002",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "How many containers can a single Azure App Service web app run?",
+    "choices": [
+      "One container per app",
+      "Multiple containers in a pod",
+      "Unlimited containers per app",
+      "Up to 5 containers per app"
+    ],
+    "answer": [0],
+    "explanation": "App Service runs exactly one container per web app. For multi-container workloads, you need Azure Container Apps or AKS. App Service is designed for single-container web apps and APIs.",
+    "reference": "../../01-containers/app-service-containers/README.md#core-concepts"
+  },
+  {
+    "id": "app-service-containers-003",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "What is the minimum App Service Plan tier that supports Linux containers with deployment slots?",
+    "choices": [
+      "Free (F1)",
+      "Basic (B1)",
+      "Standard (S1)",
+      "Premium (P1)"
+    ],
+    "answer": [2],
+    "explanation": "Linux containers are NOT supported on Free or Basic tiers. Standard (S1) is the minimum tier that supports Linux containers AND deployment slots. Basic tiers lack both Linux container support and deployment slots.",
+    "reference": "../../01-containers/app-service-containers/README.md#app-service-plans-the-compute-behind-your-container"
+  },
+  {
+    "id": "app-service-containers-004",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "Which setting MUST match between your container and the App Service configuration?",
+    "choices": [
+      "The container name",
+      "The startup command",
+      "The port the container listens on",
+      "The Dockerfile location"
+    ],
+    "answer": [2],
+    "explanation": "The Port setting in App Service MUST match the port your container actually listens on. App Service does NOT auto-detect the port from the image. Mismatched ports result in 502 Bad Gateway errors.",
+    "reference": "../../01-containers/app-service-containers/README.md#container-specific-settings"
+  },
+  {
+    "id": "app-service-containers-005",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "What role does an App Service app's managed identity need on Azure Container Registry to pull images?",
+    "choices": [
+      "AcrPush",
+      "AcrPull",
+      "AcrDelete",
+      "Reader"
+    ],
+    "answer": [1],
+    "explanation": "The app's system-assigned managed identity needs the AcrPull role on the ACR to pull images. AcrPush is for pushing images (CI/CD pipelines); AcrDelete is for deleting images; Reader is for viewing registry metadata but not pulling images.",
+    "reference": "../../01-containers/app-service-containers/README.md#managed-identity-and-acr-pull-permissions"
+  },
+  {
+    "id": "app-service-containers-006",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "What is the primary method for injecting environment variables into an App Service container?",
+    "choices": [
+      "Docker ENV instructions in the image",
+      "App Settings in the App Service configuration",
+      "Command-line arguments to the container",
+      "Azure Key Vault direct integration"
+    ],
+    "answer": [1],
+    "explanation": "App Settings in the App Service configuration are injected as environment variables into the running container. You can also use Key Vault references within App Settings for secrets, but the primary method is App Settings.",
+    "reference": "../../01-containers/app-service-containers/README.md#core-concepts"
+  },
+  {
+    "id": "app-service-containers-007",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "What feature allows you to test a new container image with zero downtime before promoting it to production?",
+    "choices": [
+      "Blue-green deployments",
+      "Deployment slots with swap",
+      "Container rollouts",
+      "Canary releases"
+    ],
+    "answer": [1],
+    "explanation": "Deployment slots are live staging environments with their own hostname. You can deploy a different container image to a slot (e.g., staging), test it, then swap it with production instantly for zero-downtime deployment.",
+    "reference": "../../01-containers/app-service-containers/README.md#deployment-slots-for-containers"
+  },
+  {
+    "id": "app-service-containers-008",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "multi",
+    "question": "Which of the following are TRUE about App Service containers? (Select all that apply)",
+    "choices": [
+      "Containers run on Linux or Windows",
+      "App Service can auto-pull new image tags from ACR",
+      "You can mount Azure Files for persistent storage",
+      "App Service containers scale to zero when idle"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "App Service supports both Linux and Windows containers. It can auto-pull new image tags via Continuous Deployment. You can mount Azure Files or Blob Storage for persistent data. However, App Service containers do NOT scale to zero — they are always-on on paid tiers.",
+    "reference": "../../01-containers/app-service-containers/README.md#what-changes-with-containers"
+  },
+  {
+    "id": "app-service-containers-009",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "What happens to the old production container when you swap a staging slot into production?",
+    "choices": [
+      "It is restarted with the new configuration",
+      "It continues running alongside the new container",
+      "It is stopped and replaced by a new container from the new image",
+      "It is moved to the staging slot"
+    ],
+    "answer": [2],
+    "explanation": "When you swap slots, App Service moves the entire configuration (container image reference + all settings) from the source slot to production. The old production container is NOT restarted — a new container is started from the new image. This ensures zero downtime for the swap, but the app's startup time still applies.",
+    "reference": "../../01-containers/app-service-containers/README.md#deployment-slots-for-containers"
+  },
+  {
+    "id": "app-service-containers-010",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "What is the CLI command to create an App Service web app from a container image?",
+    "choices": [
+      "az webapp create --name <app> --deploy-container-image-name <image>",
+      "az webapp deploy --image <image> --name <app>",
+      "az container create --app-name <app> --image <image>",
+      "az appservice webapp new --container-image <image>"
+    ],
+    "answer": [0],
+    "explanation": "The correct command is `az webapp create` with the `--deploy-container-image-name` parameter (or `--runtime CONTAINER|<image>`). The other options are not valid Azure CLI commands for this purpose.",
+    "reference": "../../01-containers/app-service-containers/README.md#cli-setup"
+  },
+  {
+    "id": "app-service-containers-011",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "What is the symptom when an App Service container cannot pull an image from ACR due to missing permissions?",
+    "choices": [
+      "404 Not Found error",
+      "502 Bad Gateway error",
+      "Image pull failed or Unauthorized error",
+      "Container exits with code 137"
+    ],
+    "answer": [2],
+    "explanation": "When the App Service app's managed identity lacks the AcrPull role on ACR, the container cannot pull the image, resulting in an 'Image pull failed' or 'Unauthorized' error in the logs. 502 errors are typically due to port mismatches; 404 is not applicable; exit code 137 is an OOM kill.",
+    "reference": "../../01-containers/app-service-containers/README.md#managed-identity-and-acr-pull-permissions"
+  },
+  {
+    "id": "app-service-containers-012",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "What syntax do you use in App Service App Settings to reference a secret from Azure Key Vault?",
+    "choices": [
+      "{{KeyVault:secret-name}}",
+      "@Microsoft.KeyVault(SecretUri=<uri>)",
+      "keyvault://<vault>/<secret>",
+      "${KEYVAULT_SECRET_<name>}"
+    ],
+    "answer": [1],
+    "explanation": "The correct syntax is `@Microsoft.KeyVault(SecretUri=<secret-uri>)`. This tells App Service to resolve the value from Key Vault at runtime, so the secret never appears in your configuration.",
+    "reference": "../../01-containers/app-service-containers/README.md#container-specific-settings"
+  },
+  {
+    "id": "app-service-containers-013",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "Which Azure service should you choose for a single web app that needs the simplest managed hosting with container support?",
+    "choices": [
+      "Azure Kubernetes Service (AKS)",
+      "Azure Container Apps",
+      "Azure App Service (containers)",
+      "Azure Container Instances (ACI)"
+    ],
+    "answer": [2],
+    "explanation": "For a single web app/API with the simplest managed hosting, **App Service (containers)** is the right choice. AKS requires Kubernetes expertise; Container Apps is for serverless/microservices with scale-to-zero; ACI is for one-off containers without orchestration.",
+    "reference": "../../01-containers/README.md#the-three-hosts-at-a-glance"
+  },
+  {
+    "id": "app-service-containers-014",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "How do you enable automatic updates when the container image tag changes in ACR?",
+    "choices": [
+      "Set the container tag to 'latest' and enable Continuous Deployment",
+      "Configure a webhook in ACR to trigger App Service",
+      "Use az acr task create with an App Service trigger",
+      "Set auto-update=true in the container configuration"
+    ],
+    "answer": [0],
+    "explanation": "Enable Continuous Deployment (CI/CD) on the App Service app and ensure the container image uses a tag like 'latest'. This tells App Service to watch the registry and auto-pull when the tag is updated. The CLI command is `az webapp deployment container config --enable-ci true`.",
+    "reference": "../../01-containers/app-service-containers/README.md#container-specific-settings"
+  },
+  {
+    "id": "app-service-containers-015",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "Where can you view live stdout/stderr logs from a running App Service container?",
+    "choices": [
+      "App Service -> Log Stream",
+      "Container Insights in Log Analytics",
+      "App Service -> Diagnose and solve problems",
+      "The container console"
+    ],
+    "answer": [0],
+    "explanation": "The **Log Stream** feature in the App Service portal (or `az webapp log tail` CLI) shows live stdout/stderr from the running container. Container Insights requires setup; Diagnose and solve is for guided troubleshooting; the container console is an interactive shell, not log viewing.",
+    "reference": "../../01-containers/app-service-containers/README.md#logging-and-diagnostics-for-containers"
+  },
+  {
+    "id": "app-service-containers-016",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "What is the default port App Service expects a container to listen on?",
+    "choices": [
+      "80",
+      "8080",
+      "443",
+      "3000"
+    ],
+    "answer": [0],
+    "explanation": "The default port App Service expects is **80**. However, if your container listens on a different port (e.g., 8080), you MUST set the Port configuration in App Service to match. App Service does not auto-detect the port.",
+    "reference": "../../01-containers/app-service-containers/README.md#container-specific-settings"
+  },
+  {
+    "id": "app-service-containers-017",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "multi",
+    "question": "Which of these are characteristics of App Service containers? (Select all that apply)",
+    "choices": [
+      "Requires Kubernetes knowledge",
+      "Supports custom domains and TLS",
+      "Has ephemeral filesystem by default",
+      "Supports multi-container pods"
+    ],
+    "answer": [1, 2],
+    "explanation": "App Service containers support custom domains and TLS (with appropriate certificates). The filesystem is ephemeral by default — use Azure Files for persistence. However, App Service does NOT require Kubernetes knowledge (that's AKS) and does NOT support multi-container pods (that's Container Apps or AKS).",
+    "reference": "../../01-containers/app-service-containers/README.md#what-changes-with-containers"
+  },
+  {
+    "id": "app-service-containers-018",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "Which command grants an App Service app permission to pull from ACR?",
+    "choices": [
+      "az webapp update --attach-acr <acr>",
+      "az role assignment create --assignee <principal> --role AcrPull --scope <acr-id>",
+      "az acr grant --service <app> --permission pull",
+      "az appservice identity assign --name <app> --role AcrPull"
+    ],
+    "answer": [1],
+    "explanation": "The correct command is `az role assignment create` to assign the AcrPull role to the app's managed identity. Note that `az webapp create` with a container image often auto-grants AcrPull, but the manual method uses role assignment.",
+    "reference": "../../01-containers/app-service-containers/README.md#managed-identity-and-acr-pull-permissions"
+  }
+]
