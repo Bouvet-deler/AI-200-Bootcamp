@@ -1,0 +1,562 @@
+[
+  {
+    "id": "container-apps-keda-001",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What is Azure Container Apps (ACA)?",
+    "choices": [
+      "A managed Kubernetes cluster for running containers",
+      "A serverless containers platform that runs containers without managing infrastructure",
+      "A CI/CD pipeline service for building and deploying containers",
+      "A service for storing application secrets and configuration"
+    ],
+    "answer": [1],
+    "explanation": "Azure Container Apps is a serverless containers platform that lets you run containers without managing VMs, clusters, or orchestration. It abstracts away Kubernetes while using it under the hood.",
+    "reference": "../../01-containers/container-apps-keda/README.md#what-it-is"
+  },
+  {
+    "id": "container-apps-keda-002",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What does KEDA stand for and what is its role in Azure Container Apps?",
+    "choices": [
+      "Kubernetes Event-Driven Autoscaler — it automatically scales containers based on events",
+      "Key Encryption and Data Access — it manages secrets for container apps",
+      "Kubernetes Environment Deployment Agent — it deploys container images",
+      "Kernel Extension for Docker Applications — it optimizes container performance"
+    ],
+    "answer": [0],
+    "explanation": "KEDA stands for Kubernetes Event-Driven Autoscaler. It is built into Azure Container Apps and automatically scales your containers based on event sources like queue length, HTTP traffic, CPU usage, etc.",
+    "reference": "../../01-containers/container-apps-keda/README.md#what-it-is"
+  },
+  {
+    "id": "container-apps-keda-003",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What is the hierarchy of Azure Container Apps from largest to smallest scope?",
+    "choices": [
+      "Environment → Job → App → Container",
+      "Environment → App/Job → Container",
+      "Container → App → Job → Environment",
+      "Resource Group → Environment → App → Container"
+    ],
+    "answer": [1],
+    "explanation": "The hierarchy is: Environment (the workspace/network boundary) contains Apps and Jobs, which in turn contain Containers. Resource Group is at the Azure level, above Environment.",
+    "reference": "../../01-containers/container-apps-keda/README.md#1-architecture-environment-apps-containers-jobs-revisions"
+  },
+  {
+    "id": "container-apps-keda-004",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "Which feature enables safe rollouts, rollbacks, and A/B testing in Container Apps?",
+    "choices": [
+      "Deployment slots",
+      "Immutable revisions",
+      "Blue-green deployments via separate apps",
+      "Container versioning"
+    ],
+    "answer": [1],
+    "explanation": "Revisions are immutable versions of an app created on every deployment. They enable rollbacks, canary deployments, blue-green deployments, and A/B testing by splitting traffic between different revisions.",
+    "reference": "../../01-containers/container-apps-keda/README.md#2-revisions-immutable-deployments"
+  },
+  {
+    "id": "container-apps-keda-005",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What is the key difference between an App and a Job in Container Apps?",
+    "choices": [
+      "Apps are long-running services; Jobs run to completion and exit",
+      "Apps can only have one container; Jobs can have multiple containers",
+      "Apps use HTTP scaling; Jobs use queue-based scaling",
+      "Apps are for Python; Jobs are for other languages"
+    ],
+    "answer": [0],
+    "explanation": "Apps are long-running services (like web APIs). Jobs are event-driven or scheduled containers that run to completion and then exit — like batch processing or scheduled tasks.",
+    "reference": "../../01-containers/container-apps-keda/README.md#1-architecture-environment-apps-containers-jobs-revisions"
+  },
+  {
+    "id": "container-apps-keda-006",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "Which KEDA scaler type is automatically added for every Container App with ingress enabled?",
+    "choices": [
+      "cpu",
+      "memory",
+      "http",
+      "azure-queue"
+    ],
+    "answer": [2],
+    "explanation": "The HTTP scaler is automatically added for every app with ingress (external access) enabled. It scales based on concurrent HTTP requests.",
+    "reference": "../../01-containers/container-apps-keda/README.md#3-keda-event-driven-autoscaling"
+  },
+  {
+    "id": "container-apps-keda-007",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "multi",
+    "question": "Which of the following are valid KEDA scaler types in Azure Container Apps? (Select all that apply)",
+    "choices": [
+      "azure-servicebus",
+      "azure-cosmosdb",
+      "cron",
+      "azure-sql"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "Valid KEDA scaler types in ACA include azure-servicebus, azure-cosmosdb, and cron. azure-sql is NOT a supported KEDA scaler in Container Apps.",
+    "reference": "../../01-containers/container-apps-keda/README.md#3-keda-event-driven-autoscaling"
+  },
+  {
+    "id": "container-apps-keda-008",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What is the minimum number of replicas a Container App can scale to?",
+    "choices": [
+      "1 (always at least one instance running)",
+      "0 (scale to zero when idle)",
+      "2 (for high availability)",
+      "Depends on the pricing tier"
+    ],
+    "answer": [1],
+    "explanation": "Container Apps can scale to 0 replicas when idle, which means you pay nothing when there's no traffic. This is a key feature that differentiates it from App Service.",
+    "reference": "../../01-containers/container-apps-keda/README.md#what-it-is"
+  },
+  {
+    "id": "container-apps-keda-009",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "Which Azure service does NOT support true scale-to-zero?",
+    "choices": [
+      "Azure Container Apps",
+      "Azure Functions",
+      "Azure App Service (containers)",
+      "Azure Container Instances"
+    ],
+    "answer": [2],
+    "explanation": "Azure App Service does NOT support true scale-to-zero. Even when stopped, it bills for reserved capacity. Container Apps, Functions, and Container Instances all support scale-to-zero.",
+    "reference": "../../01-containers/container-apps-keda/README.md#exam-gotchas"
+  },
+  {
+    "id": "container-apps-keda-010",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What type of ingress should you use for a microservice that only needs to communicate with other services in the same environment?",
+    "choices": [
+      "external",
+      "internal",
+      "none",
+      "private"
+    ],
+    "answer": [1],
+    "explanation": "Use 'internal' ingress for services that only need to communicate within the environment's VNet. This makes them accessible to other apps in the same environment via internal DNS.",
+    "reference": "../../01-containers/container-apps-keda/README.md#4-ingress-and-networking"
+  },
+  {
+    "id": "container-apps-keda-011",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What role must you grant to a Container App's managed identity to allow it to pull images from Azure Container Registry?",
+    "choices": [
+      "AcrPush",
+      "AcrPull",
+      "Reader",
+      "Contributor"
+    ],
+    "answer": [1],
+    "explanation": "The AcrPull role grants read/pull access to Azure Container Registry. This is what a Container App needs to pull images. Use --registry-identity system and grant AcrPull on the registry.",
+    "reference": "../../01-containers/container-apps-keda/README.md#5-managed-identity"
+  },
+  {
+    "id": "container-apps-keda-012",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "A team needs a containerized web API that scales to zero when idle and processes messages from a Service Bus queue. Which Azure service should they use?",
+    "choices": [
+      "Azure App Service (containers)",
+      "Azure Kubernetes Service (AKS)",
+      "Azure Container Apps + KEDA",
+      "Azure Functions"
+    ],
+    "answer": [2],
+    "explanation": "Azure Container Apps + KEDA is the correct choice. It supports scale-to-zero, runs containers, and KEDA can scale based on Service Bus queue messages. App Service doesn't scale to zero. AKS requires managing Kubernetes. Functions doesn't run arbitrary containers.",
+    "reference": "../../01-containers/container-apps-keda/README.md#why-its-on-the-exam"
+  },
+  {
+    "id": "container-apps-keda-013",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What command creates a new Container Apps environment?",
+    "choices": [
+      "az containerapp create --name myenv --resource-group myrg",
+      "az containerapp env create --name myenv --resource-group myrg --location westeurope",
+      "az aca environment create --name myenv --resource-group myrg",
+      "az appservice plan create --name myenv --resource-group myrg"
+    ],
+    "answer": [1],
+    "explanation": "The correct command is 'az containerapp env create' with name, resource-group, and location parameters. The environment must exist before you can deploy apps into it.",
+    "reference": "../../01-containers/container-apps-keda/README.md#cli-setup"
+  },
+  {
+    "id": "container-apps-keda-014",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "multi",
+    "question": "Which of the following are true about revisions in Container Apps? (Select all that apply)",
+    "choices": [
+      "Revisions are created automatically on every deployment",
+      "Revisions can be modified after creation",
+      "Traffic can be split between multiple revisions",
+      "Revisions are immutable (cannot be changed)"
+    ],
+    "answer": [0, 2, 3],
+    "explanation": "Revisions are automatically created on every deployment, are immutable (cannot be changed), and traffic can be split between them for canary/blue-green deployments. They cannot be modified after creation.",
+    "reference": "../../01-containers/container-apps-keda/README.md#2-revisions-immutable-deployments"
+  },
+  {
+    "id": "container-apps-keda-015",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What is the default polling interval for KEDA scalers in Container Apps?",
+    "choices": [
+      "5 seconds",
+      "15 seconds",
+      "30 seconds",
+      "60 seconds"
+    ],
+    "answer": [2],
+    "explanation": "KEDA polls event sources every 30 seconds by default. This means scaling actions (both scale out and scale in) have a 30-60 second delay.",
+    "reference": "../../01-containers/container-apps-keda/README.md#exam-gotchas"
+  },
+  {
+    "id": "container-apps-keda-016",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "Which CLI flag enables scale-to-zero for a Container App?",
+    "choices": [
+      "--scale-to-zero",
+      "--min-replicas 0",
+      "--max-replicas 0",
+      "--auto-scale"
+    ],
+    "answer": [1],
+    "explanation": "The --min-replicas 0 flag enables scale-to-zero. You also need to set --max-replicas to a value greater than 0. The default min-replicas is 1 if not specified.",
+    "reference": "../../01-containers/container-apps-keda/README.md#hands-on-python"
+  },
+  {
+    "id": "container-apps-keda-017",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "Which ingress type should you use for a background worker that doesn't need external access?",
+    "choices": [
+      "external",
+      "internal",
+      "none",
+      "private"
+    ],
+    "answer": [2],
+    "explanation": "Use 'none' for containers that don't need any external or internal access — like background workers that process queues or perform scheduled tasks.",
+    "reference": "../../01-containers/container-apps-keda/README.md#4-ingress-and-networking"
+  },
+  {
+    "id": "container-apps-keda-018",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What is the maximum number of revisions that Container Apps retains by default?",
+    "choices": [
+      "10",
+      "25",
+      "50",
+      "100"
+    ],
+    "answer": [3],
+    "explanation": "By default, Container Apps retains the last 100 revisions. This can be configured if needed.",
+    "reference": "../../01-containers/container-apps-keda/README.md#exam-gotchas"
+  },
+  {
+    "id": "container-apps-keda-019",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "How do apps in the same Container Apps environment communicate with each other?",
+    "choices": [
+      "Via their external FQDN",
+      "Via internal DNS using the format <app-name>.<environment-name>.internal",
+      "Via IP addresses assigned to each container",
+      "Via Azure Service Bus"
+    ],
+    "answer": [1],
+    "explanation": "Apps in the same environment can communicate via internal DNS using the format <app-name>.<environment-name>.internal. This is automatic and doesn't require any additional configuration.",
+    "reference": "../../01-containers/container-apps-keda/README.md#5-managed-identity"
+  },
+  {
+    "id": "container-apps-keda-020",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What command would you use to split traffic between two revisions for a canary deployment?",
+    "choices": [
+      "az containerapp revision update --traffic-split old=95,new=5",
+      "az containerapp update --name myapp --traffic-split latest=95,v2=5",
+      "az containerapp deployment create --canary 5",
+      "az containerapp scale --revision v2 --percentage 5"
+    ],
+    "answer": [1],
+    "explanation": "Use 'az containerapp update --name <app> --traffic-split <revision1>=<percentage>,<revision2>=<percentage>' to split traffic between revisions. The percentages should add up to 100.",
+    "reference": "../../01-containers/container-apps-keda/README.md#8-update-and-create-a-new-revision"
+  },
+  {
+    "id": "container-apps-keda-021",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "Which scaler metadata property configures when to scale based on queue length for an azure-queue scaler?",
+    "choices": [
+      "queueLength",
+      "messageCount",
+      "queueSize",
+      "queueDepth"
+    ],
+    "answer": [0],
+    "explanation": "The queueLength metadata property specifies the threshold number of messages in the queue that triggers scaling. For example, queueLength: \"5\" means scale out when there are more than 5 messages.",
+    "reference": "../../01-containers/container-apps-keda/README.md#hands-on-python"
+  },
+  {
+    "id": "container-apps-keda-022",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "Which scaler metadata property configures when to scale based on HTTP traffic for an http scaler?",
+    "choices": [
+      "requestCount",
+      "httpRequests",
+      "concurrentRequests",
+      "requestRate"
+    ],
+    "answer": [2],
+    "explanation": "The concurrentRequests metadata property specifies how many concurrent HTTP requests trigger scaling. For example, concurrentRequests: \"50\" means scale out when there are more than 50 concurrent requests.",
+    "reference": "../../01-containers/container-apps-keda/README.md#hands-on-python"
+  },
+  {
+    "id": "container-apps-keda-023",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What is the purpose of the --revision-suffix flag when deploying a Container App?",
+    "choices": [
+      "To specify which revision to deploy",
+      "To create a named revision that can be used for traffic splitting",
+      "To set the maximum number of revisions to keep",
+      "To enable automatic rollback on failure"
+    ],
+    "answer": [1],
+    "explanation": "The --revision-suffix flag creates a named revision (e.g., --revision-suffix v2 creates a revision called 'v2'). This named revision can then be used for traffic splitting with other revisions.",
+    "reference": "../../01-containers/container-apps-keda/README.md#8-update-and-create-a-new-revision"
+  },
+  {
+    "id": "container-apps-keda-024",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "multi",
+    "question": "Which services support scale-to-zero? (Select all that apply)",
+    "choices": [
+      "Azure Container Apps",
+      "Azure Functions",
+      "Azure App Service (containers)",
+      "Azure Container Instances"
+    ],
+    "answer": [0, 1, 3],
+    "explanation": "Azure Container Apps, Azure Functions, and Azure Container Instances all support true scale-to-zero. Azure App Service does NOT — it bills for reserved capacity even when stopped.",
+    "reference": "../../01-containers/container-apps-keda/README.md#exam-gotchas"
+  },
+  {
+    "id": "container-apps-keda-025",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "build-list",
+    "question": "Put these steps in order to deploy a Container App with KEDA scaling:",
+    "choices": [
+      {"id": "env", "text": "Create a Container Apps environment"},
+      {"id": "rg", "text": "Create a resource group"},
+      {"id": "acr", "text": "Create an Azure Container Registry and push the container image"},
+      {"id": "app", "text": "Deploy the container app with scale rules"}
+    ],
+    "answer": ["rg", "env", "acr", "app"],
+    "explanation": "Correct order: 1) Create resource group, 2) Create Container Apps environment, 3) Create ACR and push image, 4) Deploy the app with scale rules. The environment must exist before deploying apps, and the image must be in ACR before the app can pull it.",
+    "reference": "../../01-containers/container-apps-keda/README.md#setup"
+  },
+  {
+    "id": "container-apps-keda-026",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What is the default maximum number of replicas per Container App?",
+    "choices": [
+      "10",
+      "20",
+      "30",
+      "100"
+    ],
+    "answer": [2],
+    "explanation": "The default maximum number of replicas per Container App is 30. This can be increased to a maximum of 100 per app if needed.",
+    "reference": "../../01-containers/container-apps-keda/README.md#exam-gotchas"
+  },
+  {
+    "id": "container-apps-keda-027",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "Which two types of managed identities are supported by Container Apps?",
+    "choices": [
+      "System-assigned and user-assigned",
+      "Built-in and custom",
+      "Primary and secondary",
+      "Azure AD and service principal"
+    ],
+    "answer": [0],
+    "explanation": "Container Apps supports both system-assigned managed identities (created automatically) and user-assigned managed identities (created separately and assigned to the app).",
+    "reference": "../../01-containers/container-apps-keda/README.md#5-managed-identity"
+  },
+  {
+    "id": "container-apps-keda-028",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What command would you use to view the logs of a running Container App?",
+    "choices": [
+      "az containerapp show --name myapp --resource-group myrg",
+      "az containerapp logs show --name myapp --resource-group myrg",
+      "az monitor activity-log list --resource /subscriptions/.../containerApps/myapp",
+      "az webapp log tail --name myapp --resource-group myrg"
+    ],
+    "answer": [1],
+    "explanation": "The correct command is 'az containerapp logs show --name <app> --resource-group <rg>' to view the application logs. Use --follow to stream logs in real-time.",
+    "reference": "../../01-containers/container-apps-keda/README.md#6-test-the-application"
+  },
+  {
+    "id": "container-apps-keda-029",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "Which feature is unique to Container Apps compared to Azure App Service (containers)?",
+    "choices": [
+      "Can run containerized applications",
+      "Can scale based on HTTP traffic",
+      "Can scale to zero when idle",
+      "Can use custom domains"
+    ],
+    "answer": [2],
+    "explanation": "The ability to scale to zero when idle is unique to Container Apps (and Functions, and Container Instances). App Service bills for reserved capacity and does not truly scale to zero.",
+    "reference": "../../01-containers/container-apps-keda/README.md#what-it-is"
+  },
+  {
+    "id": "container-apps-keda-030",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What is the format for internal DNS communication between apps in the same Container Apps environment?",
+    "choices": [
+      "<app-name>.<environment-name>.azurecontainerapps.io",
+      "<app-name>.<environment-name>.internal",
+      "<app-name>.<region>.internal",
+      "<app-name>.internal.<environment-name>"
+    ],
+    "answer": [1],
+    "explanation": "Apps in the same environment communicate via internal DNS using the format <app-name>.<environment-name>.internal. This is automatic and doesn't require any additional networking configuration.",
+    "reference": "../../01-containers/container-apps-keda/README.md#exam-gotchas"
+  },
+  {
+    "id": "container-apps-keda-031",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "Which KEDA scaler would you use to scale based on a cron schedule?",
+    "choices": [
+      "azure-queue",
+      "cron",
+      "timer",
+      "schedule"
+    ],
+    "answer": [1],
+    "explanation": "The 'cron' scaler type is used for scheduled scaling based on cron expressions. This allows you to scale up or down on a schedule.",
+    "reference": "../../01-containers/container-apps-keda/README.md#3-keda-event-driven-autoscaling"
+  },
+  {
+    "id": "container-apps-keda-032",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What happens when you update a Container App without specifying a --revision-suffix?",
+    "choices": [
+      "The existing revision is updated",
+      "A new revision is created with an auto-generated name",
+      "The deployment fails with an error",
+      "The app is restarted without creating a new revision"
+    ],
+    "answer": [1],
+    "explanation": "Every deployment creates a new revision, even without --revision-suffix. If you don't specify a suffix, a unique name is auto-generated. To use traffic splitting, you should specify a meaningful suffix.",
+    "reference": "../../01-containers/container-apps-keda/README.md#2-revisions-immutable-deployments"
+  },
+  {
+    "id": "container-apps-keda-033",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "multi",
+    "question": "Which are valid ingress types for a Container App? (Select all that apply)",
+    "choices": [
+      "external",
+      "internal",
+      "none",
+      "private"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "Valid ingress types are: external (publicly accessible), internal (only accessible within the environment's VNet), and none (no external access). There is no 'private' type.",
+    "reference": "../../01-containers/container-apps-keda/README.md#4-ingress-and-networking"
+  },
+  {
+    "id": "container-apps-keda-034",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "A scenario describes: 'A development team wants to deploy a containerized web API with the least operational overhead. They don't need Kubernetes expertise, want to scale to zero when idle, and need to process messages from a queue.' Which Azure service best fits this scenario?",
+    "choices": [
+      "Azure Kubernetes Service",
+      "Azure App Service (containers)",
+      "Azure Container Apps + KEDA",
+      "Azure Functions"
+    ],
+    "answer": [2],
+    "explanation": "Azure Container Apps + KEDA is the best fit. It requires no Kubernetes expertise (abstracted away), supports scale-to-zero, and KEDA provides event-driven scaling for queue processing. AKS requires K8s expertise. App Service doesn't scale to zero. Functions doesn't run arbitrary containers.",
+    "reference": "../../01-containers/container-apps-keda/README.md#why-its-on-the-exam"
+  },
+  {
+    "id": "container-apps-keda-035",
+    "domain": "01-containers",
+    "topic": "container-apps-keda",
+    "type": "single",
+    "question": "What command would you use to list all revisions of a Container App?",
+    "choices": [
+      "az containerapp list --name myapp --resource-group myrg",
+      "az containerapp revision list --name myapp --resource-group myrg",
+      "az containerapp show --name myapp --resource-group myrg",
+      "az containerapp history --name myapp --resource-group myrg"
+    ],
+    "answer": [1],
+    "explanation": "The correct command is 'az containerapp revision list --name <app> --resource-group <rg>' to list all revisions of a Container App.",
+    "reference": "../../01-containers/container-apps-keda/README.md#8-update-and-create-a-new-revision"
+  }
+]
