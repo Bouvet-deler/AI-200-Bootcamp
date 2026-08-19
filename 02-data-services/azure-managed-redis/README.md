@@ -159,9 +159,11 @@ This is critical for AI/ML applications working with embeddings.
 ```python
 # Store a vector embedding (e.g., 1536-dimensional from text-embedding-ada-002)
 vector = [0.1, 0.5, ..., 0.3]  # 1536 floats
+# FT.VECTORADD <index_name> <document_id> <vector>
 cache.execute_command("FT.VECTORADD", "idx:products", "product:123", vector)
 
 # Search for similar vectors (k=5 nearest neighbors)
+# FT.VECTORSEARCH <index_name> <query_pattern> <query_vector> KNN <k>
 results = cache.execute_command(
     "FT.VECTORSEARCH", "idx:products", "*", vector, "KNN", 5
 )
@@ -170,6 +172,7 @@ results = cache.execute_command(
 **Vector index creation:**
 ```bash
 # via redis-cli
+# FT.CREATE <index> ON <data_type> PREFIX <count> <prefix> SCHEMA <field> <type> <index_type> <params>...
 FT.CREATE idx:products ON JSON PREFIX 1 "product:" SCHEMA vector VECTOR FLAT 6 
   DIM 1536 DISTANCE_METRIC COSINE
 ```
@@ -727,6 +730,7 @@ r = redis.Redis(connection_pool=connection_pool)
 
 # Check if RediSearch module is available
 try:
+    # MODULE LIST - returns list of loaded modules
     module_list = r.execute_command("MODULE LIST")
     print("Redis modules:", module_list)
     has_redisearch = any(b"RediSearch" in str(m) for m in module_list)
@@ -768,11 +772,13 @@ print("\nCreating vector index...")
 index_name = "idx:products"
 try:
     # Delete index if it already exists
+    # FT.DROPINDEX <index_name> DD (DD = delete data)
     r.execute_command("FT.DROPINDEX", index_name, "DD")
 except:
     pass
 
 # Create the index
+# FT.CREATE <index> ON <data_type> PREFIX <count> <prefix> SCHEMA <field> <type> <index_type> <params>...
 result = r.execute_command(
     "FT.CREATE", index_name,
     "ON", "JSON",  # Store vectors in JSON documents
@@ -794,12 +800,14 @@ for product_id, vector in embeddings.items():
         "vector": vector
     }
     # Use JSON.SET to store the document
+    # JSON.SET <key> <path> <json_string>
     r.execute_command("JSON.SET", f"product:{product_id}", "$", json.dumps(doc))
     print(f"  Stored: product:{product_id}")
 
 # Verify documents
 print("\nVerifying stored documents:")
 for product_id in embeddings.keys():
+    # JSON.GET <key> [<path>] - returns JSON at key
     doc = r.execute_command("JSON.GET", f"product:{product_id}")
     print(f"  product:{product_id}: {doc}")
 
@@ -812,7 +820,7 @@ print("=" * 60)
 query_vector = [0.78, 0.22, 0.12]
 
 # Search for top 3 similar products
-# FT.VECTORSEARCH <index> <query> <vector> KNN <k> DIALECT 2
+# FT.VECTORSEARCH <index> <query_pattern> <vector> KNN <k> DIALECT <ver> RETURN <n> <field>...
 results = r.execute_command(
     "FT.VECTORSEARCH",
     index_name,
@@ -820,7 +828,7 @@ results = r.execute_command(
     query_vector,
     "KNN", "3",  # Top 3 results
     "DIALECT", "2",  # Use dialect 2 for vector search
-    "RETURN", "2", "name", "vector"  # Return name and vector
+    "RETURN", "2", "name", "vector"  # Return 2 fields: name and vector
 )
 
 print(f"\nQuery vector: {query_vector}")
@@ -834,6 +842,7 @@ for i, item in enumerate(results[1:]):  # Skip the first item (count)
 # Test with different query (similar to "mouse")
 print("\n" + "-" * 60)
 query_vector = [0.32, 0.58, 0.48]
+# FT.VECTORSEARCH <index> <query_pattern> <vector> KNN <k> DIALECT <ver> RETURN <n> <field>...
 results = r.execute_command(
     "FT.VECTORSEARCH",
     index_name,
