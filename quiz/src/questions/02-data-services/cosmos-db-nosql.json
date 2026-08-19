@@ -1,0 +1,883 @@
+[
+  {
+    "id": "cosmos-db-nosql-001",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is Azure Cosmos DB for NoSQL?",
+    "choices": [
+      "A relational database for storing structured data with tables",
+      "A fully managed, globally distributed NoSQL database that stores JSON documents",
+      "A key/value cache for fast data retrieval",
+      "A blob storage service for storing files"
+    ],
+    "answer": [1],
+    "explanation": "Azure Cosmos DB for NoSQL is a fully managed, globally distributed NoSQL database service that stores data as JSON documents in containers. It offers single-digit millisecond latency at any scale.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#what-it-is"
+  },
+  {
+    "id": "cosmos-db-nosql-002",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the resource hierarchy in Cosmos DB from top to bottom?",
+    "choices": [
+      "Account → Database → Container → Item",
+      "Database → Container → Account → Item",
+      "Container → Database → Account → Item",
+      "Item → Container → Database → Account"
+    ],
+    "answer": [0],
+    "explanation": "The resource hierarchy in Cosmos DB is Account (top-level, globally distributed) → Database (container for containers) → Container (holds items with partitioning/indexing policies) → Item (JSON documents).",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#1-resource-hierarchy"
+  },
+  {
+    "id": "cosmos-db-nosql-003",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which of the following is NOT a capability of Azure Cosmos DB for NoSQL?",
+    "choices": [
+      "Global distribution across regions",
+      "Automatic scaling of throughput and storage",
+      "Support for SQL queries on JSON documents",
+      "Automatic schema validation and enforcement"
+    ],
+    "answer": [3],
+    "explanation": "Cosmos DB is schema-flexible, meaning there is no automatic schema validation or enforcement. Each document can have different fields. The other options are all valid capabilities.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#what-it-is"
+  },
+  {
+    "id": "cosmos-db-nosql-004",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the purpose of the partition key in Cosmos DB?",
+    "choices": [
+      "To encrypt data at rest",
+      "To determine how data is distributed across physical partitions",
+      "To set the retention period for documents",
+      "To define the indexing policy for the container"
+    ],
+    "answer": [1],
+    "explanation": "The partition key determines how data is distributed across physical partitions. It affects query performance and should have high cardinality with even distribution.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#2-partitioning"
+  },
+  {
+    "id": "cosmos-db-nosql-005",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which partition key would be the BEST choice for a container storing user data with even distribution?",
+    "choices": [
+      "status (with values: active, inactive, pending)",
+      "userId (unique for each user)",
+      "country (with most users from one country)",
+      "timestamp (continuous increasing values)"
+    ],
+    "answer": [1],
+    "explanation": "userId is the best choice because it has high cardinality (many unique values) and is likely to be evenly distributed. Status has low cardinality, country can be uneven, and timestamp can create hot partitions.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#2-partitioning"
+  },
+  {
+    "id": "cosmos-db-nosql-006",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the maximum size for a single item (document) in Cosmos DB?",
+    "choices": [
+      "1MB",
+      "2MB",
+      "10MB",
+      "100MB"
+    ],
+    "answer": [1],
+    "explanation": "The maximum size for a single item (document) in Cosmos DB is 2MB. For larger data, consider storing large fields in blob storage with references.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#8-data-model"
+  },
+  {
+    "id": "cosmos-db-nosql-007",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the maximum size for a single logical partition in Cosmos DB?",
+    "choices": [
+      "1GB",
+      "5GB",
+      "10GB",
+      "20GB"
+    ],
+    "answer": [3],
+    "explanation": "A single logical partition cannot exceed 20GB of data. If a partition grows beyond this, you must migrate to a different partition key with higher cardinality.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#2-partitioning"
+  },
+  {
+    "id": "cosmos-db-nosql-008",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What happens when you perform a cross-partition query in Cosmos DB?",
+    "choices": [
+      "It automatically fails with an error",
+      "It costs significantly more Request Units (RUs) than a single-partition query",
+      "It is blocked by default and must be explicitly enabled",
+      "It has the same RU cost as any other query"
+    ],
+    "answer": [1],
+    "explanation": "A cross-partition query costs significantly more Request Units (RUs) than a single-partition query. It can cost 10-100x more. Always filter on the partition key when possible.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#exam-gotchas"
+  },
+  {
+    "id": "cosmos-db-nosql-009",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the typical RU cost for reading a 1KB item by its ID and partition key?",
+    "choices": [
+      "0.5 RU",
+      "1 RU",
+      "2 RUs",
+      "5 RUs"
+    ],
+    "answer": [1],
+    "explanation": "Reading a 1KB item by its ID and partition key (a point read) typically costs 1 Request Unit (RU). This is the most efficient way to read a single item.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#3-request-units-rus"
+  },
+  {
+    "id": "cosmos-db-nosql-010",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which consistency level is the DEFAULT for new Cosmos DB accounts?",
+    "choices": [
+      "Strong",
+      "Bounded Staleness",
+      "Session",
+      "Eventual"
+    ],
+    "answer": [2],
+    "explanation": "Session consistency is the default for new Cosmos DB accounts. It guarantees read-your-writes within the same client session.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#4-consistency-levels"
+  },
+  {
+    "id": "cosmos-db-nosql-011",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which consistency level offers the LOWEST latency and HIGHEST availability?",
+    "choices": [
+      "Strong",
+      "Bounded Staleness",
+      "Session",
+      "Eventual"
+    ],
+    "answer": [3],
+    "explanation": "Eventual consistency offers the lowest latency and highest availability because it has no consistency guarantees. Reads might not reflect recent writes.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#4-consistency-levels"
+  },
+  {
+    "id": "cosmos-db-nosql-012",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which consistency level guarantees READ-YOUR-WRITES within the same client session?",
+    "choices": [
+      "Strong",
+      "Bounded Staleness",
+      "Session",
+      "Consistent Prefix"
+    ],
+    "answer": [2],
+    "explanation": "Session consistency guarantees read-your-writes within the same client session. It provides a good balance of consistency, latency, and availability.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#4-consistency-levels"
+  },
+  {
+    "id": "cosmos-db-nosql-013",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which consistency level requires SINGLE REGION and is NOT available with multi-region writes?",
+    "choices": [
+      "Strong",
+      "Bounded Staleness",
+      "Session",
+      "Eventual"
+    ],
+    "answer": [0],
+    "explanation": "Strong consistency requires a single region and is not available with multi-region writes. It provides full consistency but at the cost of higher latency and lower availability.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#4-consistency-levels"
+  },
+  {
+    "id": "cosmos-db-nosql-014",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the consistency level that ensures no out-of-order writes?",
+    "choices": [
+      "Strong",
+      "Bounded Staleness",
+      "Session",
+      "Consistent Prefix"
+    ],
+    "answer": [3],
+    "explanation": "Consistent Prefix guarantees that if there are multiple writes, they will appear to all observers in the same order. It ensures no out-of-order writes.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#4-consistency-levels"
+  },
+  {
+    "id": "cosmos-db-nosql-015",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which capacity mode is BEST for predictable workloads?",
+    "choices": [
+      "Serverless",
+      "Provisioned",
+      "On-demand",
+      "Shared"
+    ],
+    "answer": [1],
+    "explanation": "Provisioned capacity mode is best for predictable workloads. You reserve RU/s capacity in advance, which is more cost-effective for steady, predictable workloads.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#3-request-units-rus"
+  },
+  {
+    "id": "cosmos-db-nosql-016",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which capacity mode is BEST for sporadic, unpredictable workloads?",
+    "choices": [
+      "Serverless",
+      "Provisioned",
+      "Standard",
+      "Premium"
+    ],
+    "answer": [0],
+    "explanation": "Serverless capacity mode is best for sporadic, unpredictable workloads. You pay per request (per operation + per hour storage) without reserving capacity.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#3-request-units-rus"
+  },
+  {
+    "id": "cosmos-db-nosql-017",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Where can provisioned throughput be allocated in Cosmos DB?",
+    "choices": [
+      "Only at the account level",
+      "Only at the container level",
+      "At the database level or container level",
+      "Only at the item level"
+    ],
+    "answer": [2],
+    "explanation": "Provisioned throughput can be allocated at either the database level (shared across all containers in the database) or at the container level (dedicated to a specific container).",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#3-request-units-rus"
+  },
+  {
+    "id": "cosmos-db-nosql-018",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the primary purpose of the indexing policy in Cosmos DB?",
+    "choices": [
+      "To determine which fields are automatically indexed for querying",
+      "To control access permissions for users",
+      "To set the retention period for documents",
+      "To configure backup schedules"
+    ],
+    "answer": [0],
+    "explanation": "The indexing policy determines which fields (paths) are automatically indexed for querying. It controls what gets indexed, the indexing mode (consistent, lazy, none), and index types.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#5-indexing-policies"
+  },
+  {
+    "id": "cosmos-db-nosql-019",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which indexing mode updates indexes ASYNCHRONOUSLY with writes?",
+    "choices": [
+      "Consistent",
+      "Lazy",
+      "None",
+      "Immediate"
+    ],
+    "answer": [1],
+    "explanation": "Lazy indexing mode updates indexes asynchronously with writes. This provides lower write latency but may result in stale reads until the index is updated.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#5-indexing-policies"
+  },
+  {
+    "id": "cosmos-db-nosql-020",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What index kind is used for geospatial queries (e.g., ST_DISTANCE, ST_WITHIN)?",
+    "choices": [
+      "Range",
+      "Hash",
+      "Spatial",
+      "Composite"
+    ],
+    "answer": [2],
+    "explanation": "Spatial index is used for geospatial queries that involve spatial data types like POINT, POLYGON, etc., with functions like ST_DISTANCE and ST_WITHIN.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#5-indexing-policies"
+  },
+  {
+    "id": "cosmos-db-nosql-021",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the effect of using wildcard paths (e.g., /*) in the includedPaths of an indexing policy?",
+    "choices": [
+      "It reduces write RU consumption",
+      "It indexes all fields (highest RU cost for writes)",
+      "It prevents any fields from being indexed",
+      "It only indexes numeric fields"
+    ],
+    "answer": [1],
+    "explanation": "Using wildcard paths (/*) in the includedPaths indexes all fields, which results in the highest RU cost for write operations. Excluding unnecessary paths can reduce write RU consumption.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#exam-gotchas"
+  },
+  {
+    "id": "cosmos-db-nosql-022",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which of the following improves query performance for queries with multiple conditions?",
+    "choices": [
+      "Increasing the provisioned RU/s",
+      "Using cross-partition queries",
+      "Creating composite indexes",
+      "Disabling indexing"
+    ],
+    "answer": [2],
+    "explanation": "Creating composite indexes can dramatically improve query performance for specific query patterns with multiple conditions. Composite indexes are arrays of paths with sort orders.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#5-indexing-policies"
+  },
+  {
+    "id": "cosmos-db-nosql-023",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the change feed in Cosmos DB?",
+    "choices": [
+      "A real-time notification service for container changes",
+      "A sorted, persisted log of all changes (inserts, updates, deletes) to a container",
+      "A backup mechanism for point-in-time recovery",
+      "A replication service for multi-region synchronization"
+    ],
+    "answer": [1],
+    "explanation": "The change feed is a sorted, persisted log of all changes (inserts, updates, deletes) to a container. It is automatically enabled for all containers and can be processed incrementally.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#7-change-feed"
+  },
+  {
+    "id": "cosmos-db-nosql-024",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which of the following is NOT included in the change feed?",
+    "choices": [
+      "Insert operations",
+      "Update operations",
+      "Delete operations",
+      "Query operations"
+    ],
+    "answer": [3],
+    "explanation": "The change feed includes insert, update, and delete operations. It does not include query operations. Each change includes metadata like operation type, timestamp, and resource ID.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#7-change-feed"
+  },
+  {
+    "id": "cosmos-db-nosql-025",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the purpose of checkpointing in change feed processing?",
+    "choices": [
+      "To validate data before processing",
+      "To track which changes have been processed",
+      "To encrypt the change feed data",
+      "To replicate changes to other regions"
+    ],
+    "answer": [1],
+    "explanation": "Checkpointing tracks which changes have been processed. This allows the change feed processor to resume from the last checkpoint if it fails or is restarted.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#7-change-feed"
+  },
+  {
+    "id": "cosmos-db-nosql-026",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the purpose of lease management in change feed processing?",
+    "choices": [
+      "To coordinate parallel processors across multiple partitions",
+      "To encrypt data in transit",
+      "To control access to containers",
+      "To set retention policies"
+    ],
+    "answer": [0],
+    "explanation": "Lease management coordinates parallel processors across multiple partitions. Each lease document represents a partition's processing state, allowing multiple consumers to process the change feed in parallel.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#7-change-feed"
+  },
+  {
+    "id": "cosmos-db-nosql-027",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is vector search in Cosmos DB used for?",
+    "choices": [
+      "Storing and retrieving vector embeddings and executing similarity search",
+      "Encryption of data at rest",
+      "Geospatial queries",
+      "Full-text search"
+    ],
+    "answer": [0],
+    "explanation": "Vector search in Cosmos DB is used for storing and retrieving vector embeddings (arrays of floats) and executing similarity search (k-nearest neighbor queries) for AI workloads.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#6-vector-search-preview"
+  },
+  {
+    "id": "cosmos-db-nosql-028",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the current status of vector search in Cosmos DB for NoSQL (as of 2024)?",
+    "choices": [
+      "General Availability (GA)",
+      "Preview",
+      "Deprecated",
+      "Not available"
+    ],
+    "answer": [1],
+    "explanation": "Vector search in Cosmos DB for NoSQL is in preview as of 2024. This means it's available for testing but may not be fully production-ready and may require feature registration.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#6-vector-search-preview"
+  },
+  {
+    "id": "cosmos-db-nosql-029",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the valid range for vector dimensions in Cosmos DB?",
+    "choices": [
+      "1 to 100",
+      "2 to 2048",
+      "1 to 4096",
+      "2 to 4096"
+    ],
+    "answer": [1],
+    "explanation": "Vector dimensions in Cosmos DB must be between 2 and 2048. This accommodates common embedding models like text-embedding-ada-002 (1536 dimensions).",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#6-vector-search-preview"
+  },
+  {
+    "id": "cosmos-db-nosql-030",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which distance metric is typically used for SEMANTIC similarity search with embeddings?",
+    "choices": [
+      "EUCLIDEAN",
+      "COSINE",
+      "DOT_PRODUCT",
+      "MANHATTAN"
+    ],
+    "answer": [1],
+    "explanation": "COSINE distance is typically used for semantic similarity search with embeddings. It measures the cosine of the angle between vectors, which works well for semantic similarity. EUCLIDEAN is better for geometric/spatial similarity.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#6-vector-search-preview"
+  },
+  {
+    "id": "cosmos-db-nosql-031",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which vector index type provides EXACT search results?",
+    "choices": [
+      "Flat",
+      "IVF (Inverted File)",
+      "HNSW (Hierarchical Navigable Small World)",
+      "All of the above"
+    ],
+    "answer": [0],
+    "explanation": "Flat vector index provides exact search results. IVF and HNSW are approximate search algorithms that trade accuracy for speed and lower storage requirements.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#6-vector-search-preview"
+  },
+  {
+    "id": "cosmos-db-nosql-032",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which system-generated field is used as a timestamp in Cosmos DB items?",
+    "choices": [
+      "_rid",
+      "_self",
+      "_ts",
+      "_etag"
+    ],
+    "answer": [2],
+    "explanation": "The _ts field is the system-generated timestamp in Cosmos DB items. It represents the last modified timestamp as a Unix epoch value.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#8-data-model"
+  },
+  {
+    "id": "cosmos-db-nosql-033",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the purpose of the _etag field in Cosmos DB items?",
+    "choices": [
+      "To store the item's creation timestamp",
+      "To provide a version identifier for optimistic concurrency control",
+      "To encrypt the item",
+      "To store the partition key"
+    ],
+    "answer": [1],
+    "explanation": "The _etag field provides a version identifier for optimistic concurrency control. It changes with every update to the item and can be used to implement optimistic concurrency patterns.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#8-data-model"
+  },
+  {
+    "id": "cosmos-db-nosql-034",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the Azure CLI command to create a Cosmos DB account?",
+    "choices": [
+      "az cosmosdb create",
+      "az cosmos create",
+      "az database cosmosdb create",
+      "az cosmosdb account create"
+    ],
+    "answer": [0],
+    "explanation": "The Azure CLI command to create a Cosmos DB account is 'az cosmosdb create'. This creates the top-level Cosmos DB resource.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#cli-setup"
+  },
+  {
+    "id": "cosmos-db-nosql-035",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the Azure CLI command to create a SQL database in Cosmos DB?",
+    "choices": [
+      "az cosmosdb sql database create",
+      "az cosmosdb database create",
+      "az sql database create",
+      "az database create"
+    ],
+    "answer": [0],
+    "explanation": "The Azure CLI command to create a SQL database in Cosmos DB is 'az cosmosdb sql database create'.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#cli-setup"
+  },
+  {
+    "id": "cosmos-db-nosql-036",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the Azure CLI command to create a container in Cosmos DB?",
+    "choices": [
+      "az cosmosdb sql container create",
+      "az cosmosdb container create",
+      "az sql container create",
+      "az container create"
+    ],
+    "answer": [0],
+    "explanation": "The Azure CLI command to create a container in Cosmos DB is 'az cosmosdb sql container create'.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#cli-setup"
+  },
+  {
+    "id": "cosmos-db-nosql-037",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which Python SDK is used for Cosmos DB for NoSQL?",
+    "choices": [
+      "azure-cosmos",
+      "azure-documentdb",
+      "cosmos-db",
+      "pymongo"
+    ],
+    "answer": [0],
+    "explanation": "The azure-cosmos Python SDK is used for Cosmos DB for NoSQL. It provides the CosmosClient class and related functionality for interacting with Cosmos DB.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#hands-on-python"
+  },
+  {
+    "id": "cosmos-db-nosql-038",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What method is used for point reads in Cosmos DB (reading by ID and partition key)?",
+    "choices": [
+      "query_items()",
+      "read_item()",
+      "get_item()",
+      "upsert_item()"
+    ],
+    "answer": [1],
+    "explanation": "The read_item() method is used for point reads in Cosmos DB, which reads a single item by its ID and partition key. This is the most efficient read operation with the lowest RU cost.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#hands-on-python"
+  },
+  {
+    "id": "cosmos-db-nosql-039",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What method is used to create or replace an item in Cosmos DB?",
+    "choices": [
+      "insert_item()",
+      "create_item()",
+      "upsert_item()",
+      "replace_item()"
+    ],
+    "answer": [2],
+    "explanation": "The upsert_item() method is used to create or replace an item in Cosmos DB. If the item doesn't exist, it's created; if it exists, it's replaced.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#hands-on-python"
+  },
+  {
+    "id": "cosmos-db-nosql-040",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What method is used for partial updates (PATCH) in Cosmos DB?",
+    "choices": [
+      "update_item()",
+      "patch_item()",
+      "modify_item()",
+      "upsert_item()"
+    ],
+    "answer": [1],
+    "explanation": "The patch_item() method is used for partial updates in Cosmos DB. It accepts patch operations (like JSON Patch) to modify specific fields of an item without replacing the entire document.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#hands-on-python"
+  },
+  {
+    "id": "cosmos-db-nosql-041",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What method is used to execute SQL queries in Cosmos DB?",
+    "choices": [
+      "query()",
+      "execute_query()",
+      "query_items()",
+      "sql_query()"
+    ],
+    "answer": [2],
+    "explanation": "The query_items() method is used to execute SQL queries in Cosmos DB. It returns an iterable of query results and supports parameterized queries.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#hands-on-python"
+  },
+  {
+    "id": "cosmos-db-nosql-042",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What method is used to read from the change feed in Cosmos DB?",
+    "choices": [
+      "read_change_feed()",
+      "get_change_feed()",
+      "query_change_feed()",
+      "stream_changes()"
+    ],
+    "answer": [2],
+    "explanation": "The query_change_feed() method is used to read from the change feed in Cosmos DB. It returns a query iterable of change feed documents.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#hands-on-python"
+  },
+  {
+    "id": "cosmos-db-nosql-043",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the HTTP status code returned when exceeding provisioned RU/s?",
+    "choices": [
+      "400 Bad Request",
+      "403 Forbidden",
+      "429 Too Many Requests",
+      "500 Internal Server Error"
+    ],
+    "answer": [2],
+    "explanation": "HTTP 429 (Too Many Requests) is returned when exceeding provisioned RU/s. This is rate limiting, and clients should implement retry logic with backoff.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#exam-gotchas"
+  },
+  {
+    "id": "cosmos-db-nosql-044",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "Which property must ALL Cosmos DB items have?",
+    "choices": [
+      "name",
+      "id",
+      "partitionKey",
+      "timestamp"
+    ],
+    "answer": [1],
+    "explanation": "All Cosmos DB items must have an 'id' property. This is the unique identifier for the item within the container.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#8-data-model"
+  },
+  {
+    "id": "cosmos-db-nosql-045",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the purpose of the enable_cross_partition_query parameter in query_items()?",
+    "choices": [
+      "To allow queries that don't filter on the partition key",
+      "To enable parallel query execution",
+      "To encrypt query results",
+      "To cache query results"
+    ],
+    "answer": [0],
+    "explanation": "The enable_cross_partition_query parameter must be set to True for queries that don't filter on the partition key. This allows the query to scan all partitions but at a higher RU cost.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#hands-on-python"
+  },
+  {
+    "id": "cosmos-db-nosql-046",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "multi",
+    "question": "Which of the following are valid Cosmos DB consistency levels? (Select all that apply)",
+    "choices": [
+      "Strong",
+      "Bounded Staleness",
+      "Session",
+      "Immediate"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "The five valid Cosmos DB consistency levels are: Strong, Bounded Staleness, Session, Consistent Prefix, and Eventual. Immediate is not a valid consistency level.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#4-consistency-levels"
+  },
+  {
+    "id": "cosmos-db-nosql-047",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "multi",
+    "question": "Which of the following are characteristics of the change feed? (Select all that apply)",
+    "choices": [
+      "Automatically enabled for all containers",
+      "Persisted for the lifetime of the container",
+      "Can be processed incrementally",
+      "Includes only insert operations"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "The change feed is automatically enabled for all containers, persisted for the lifetime of the container, can be processed incrementally, and includes insert, update, AND delete operations (not just inserts).",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#7-change-feed"
+  },
+  {
+    "id": "cosmos-db-nosql-048",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "A scenario describes: 'A team needs to store user profiles and query them by user ID. They want the most efficient read performance.' Which should they use?",
+    "choices": [
+      "Point read by ID and partition key",
+      "SQL query with WHERE clause on ID",
+      "Cross-partition query",
+      "Stored procedure"
+    ],
+    "answer": [0],
+    "explanation": "Point read by ID and partition key is the most efficient read operation in Cosmos DB, costing only 1 RU for a 1KB item. This should be used when you know both the item ID and partition key.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#exam-gotchas"
+  },
+  {
+    "id": "cosmos-db-nosql-049",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "A scenario describes: 'A team has a container with a hot partition causing performance issues.' What is the BEST solution?",
+    "choices": [
+      "Increase provisioned RU/s",
+      "Create a new container with a different partition key that distributes data more evenly",
+      "Switch to Serverless mode",
+      "Enable change feed"
+    ],
+    "answer": [1],
+    "explanation": "The best solution is to create a new container with a different partition key that distributes data more evenly. A hot partition occurs when one partition receives disproportionate traffic or storage, which can be resolved by choosing a better partition key.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#exam-gotchas"
+  },
+  {
+    "id": "cosmos-db-nosql-050",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "A scenario describes: 'A team needs to implement real-time analytics on data changes.' Which Cosmos DB feature should they use?",
+    "choices": [
+      "Vector search",
+      "Change feed",
+      "Indexing policies",
+      "Stored procedures"
+    ],
+    "answer": [1],
+    "explanation": "The change feed is the Cosmos DB feature for implementing real-time analytics on data changes. It provides a sorted, persisted log of all changes that can be processed incrementally.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#7-change-feed"
+  },
+  {
+    "id": "cosmos-db-nosql-051",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "A scenario describes: 'A team needs to store LLM embeddings (1536 dimensions) and perform similarity search.' Which Cosmos DB feature should they use?",
+    "choices": [
+      "Change feed",
+      "Vector search with vector indexing",
+      "Spatial indexing",
+      "Composite indexes"
+    ],
+    "answer": [1],
+    "explanation": "Vector search with vector indexing is the Cosmos DB feature for storing embeddings and performing similarity search. The vector index must be configured with dimensions matching the embeddings (1536 in this case).",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#6-vector-search-preview"
+  },
+  {
+    "id": "cosmos-db-nosql-052",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "build-list",
+    "question": "Put these steps in order to set up Cosmos DB and query data:",
+    "choices": [
+      {"id": "rg", "text": "Create a resource group"},
+      {"id": "account", "text": "Create a Cosmos DB account"},
+      {"id": "db", "text": "Create a database"},
+      {"id": "container", "text": "Create a container with partition key"},
+      {"id": "query", "text": "Execute SQL queries"}
+    ],
+    "answer": ["rg", "account", "db", "container", "query"],
+    "explanation": "Correct order: 1) Create resource group, 2) Create Cosmos DB account, 3) Create database, 4) Create container with partition key, 5) Execute SQL queries. Each step depends on the previous one.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#setup"
+  },
+  {
+    "id": "cosmos-db-nosql-053",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the purpose of the Free Tier in Cosmos DB?",
+    "choices": [
+      "Provides 25GB free storage and 1000 RU/s free for 1 year",
+      "Provides unlimited free storage",
+      "Provides free global distribution",
+      "Provides free backup services"
+    ],
+    "answer": [0],
+    "explanation": "The Free Tier in Cosmos DB provides 25GB free storage and 1000 RU/s free for the first 12 months. This is a great option for development, testing, and small production workloads.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#cli-setup"
+  },
+  {
+    "id": "cosmos-db-nosql-054",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What system-generated field is used as a unique resource identifier in Cosmos DB items?",
+    "choices": [
+      "_rid",
+      "_self",
+      "_ts",
+      "_etag"
+    ],
+    "answer": [0],
+    "explanation": "The _rid field is the system-generated unique resource identifier in Cosmos DB items. It is a short, unique string that identifies the resource.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#8-data-model"
+  },
+  {
+    "id": "cosmos-db-nosql-055",
+    "domain": "02-data-services",
+    "topic": "cosmos-db-nosql",
+    "type": "single",
+    "question": "What is the effect of setting defaultTtl on a container?",
+    "choices": [
+      "Items are automatically deleted after the TTL period",
+      "Queries timeout after the TTL period",
+      "Connections timeout after the TTL period",
+      "Items are archived after the TTL period"
+    ],
+    "answer": [0],
+    "explanation": "Setting defaultTtl on a container causes items to be automatically deleted after the TTL period (specified in seconds). A TTL of -1 means no expiration. This is useful for implementing automatic data retention policies.",
+    "reference": "../../02-data-services/cosmos-db-nosql/README.md#exam-gotchas"
+  }
+]
