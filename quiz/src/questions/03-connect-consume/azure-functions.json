@@ -1,0 +1,586 @@
+[
+  {
+    "id": "azure-functions-001",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "Which Azure service allows you to run code in response to events without managing servers?",
+    "choices": [
+      "Azure Virtual Machines",
+      "Azure Functions",
+      "Azure Container Instances",
+      "Azure Kubernetes Service"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "Azure Functions is Azure's serverless compute service that runs code in response to events without requiring you to manage servers. It automatically scales based on demand and you pay only for execution time.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#what-it-is"
+  },
+  {
+    "id": "azure-functions-002",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "What is the name of the file that defines trigger and binding configuration for a single function?",
+    "choices": [
+      "host.json",
+      "function.json",
+      "app.json",
+      "trigger.json"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "function.json configures a single function's trigger and input/output bindings; host.json holds global settings for every function in the app. Note: function.json only exists in the v1 programming model. In the Python v2 model you declare triggers and bindings with decorators in function_app.py, and function.json is generated for you at build time.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#core-concepts"
+  },
+  {
+    "id": "azure-functions-003",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "Which hosting plan scales to zero instances when idle and has no cost when not running?",
+    "choices": [
+      "Premium",
+      "Dedicated (App Service Plan)",
+      "Consumption",
+      "Basic"
+    ],
+    "answer": [
+      2
+    ],
+    "explanation": "The Consumption plan is serverless and scales to zero when idle, meaning you pay only while your functions are executing. Premium plan has pre-warmed instances that incur cost even when idle. Dedicated plan runs on reserved VMs.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-004",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "What is the maximum execution timeout for a Consumption plan function by default?",
+    "choices": [
+      "1 minute",
+      "5 minutes",
+      "10 minutes",
+      "60 minutes"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "Consumption plan functions time out after 5 minutes by default, extendable to a maximum of 10 minutes via functionTimeout in host.json. That 10-minute ceiling is unique to Consumption - Flex Consumption, Premium and Dedicated default to 30 minutes and can be set to unlimited.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-005",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "Which trigger should you use to process files automatically when they are uploaded to Azure Blob Storage?",
+    "choices": [
+      "HTTP trigger",
+      "Queue trigger",
+      "Blob trigger",
+      "Timer trigger"
+    ],
+    "answer": [
+      2
+    ],
+    "explanation": "The Blob Storage trigger automatically invokes your function when a new blob is created or updated in a specified container.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#core-concepts"
+  },
+  {
+    "id": "azure-functions-006",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "What must every Azure Function App have, regardless of which triggers it uses?",
+    "choices": [
+      "A Cosmos DB account",
+      "A Storage account",
+      "An Application Insights resource",
+      "A Key Vault"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "Every Azure Function App requires a Storage account. It's used for internal metadata, trigger state, and Durable Functions storage. Even if you don't use Storage triggers, the account is mandatory.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-007",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "multi",
+    "question": "Which of these are valid triggers for Azure Functions? (Select all that apply)",
+    "choices": [
+      "HTTP",
+      "Queue Storage",
+      "Service Bus",
+      "SignalR",
+      "Virtual Machine start"
+    ],
+    "answer": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "explanation": "Azure Functions supports many triggers including HTTP, Queue Storage, Service Bus, and SignalR. Virtual Machine start is an Event Grid event, which can trigger an Event Grid-triggered function, but not directly.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#core-concepts"
+  },
+  {
+    "id": "azure-functions-008",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "Which hosting plan does NOT support VNet integration?",
+    "choices": [
+      "Flex Consumption",
+      "Premium",
+      "Dedicated (App Service Plan)",
+      "Consumption"
+    ],
+    "answer": [
+      3
+    ],
+    "explanation": "The classic Consumption plan is the only plan without VNet integration - functions on it cannot reach resources inside a virtual network. Flex Consumption, Premium and Dedicated all support it. (Flex Consumption is the newer serverless plan: it still scales to zero, but adds VNet support and always-ready instances.)",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-009",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "How do you access application settings (configuration) in a Python Azure Function?",
+    "choices": [
+      "settings.get('name')",
+      "os.environ.get('name')",
+      "config['name']",
+      "app.settings.name"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "Application settings are injected as environment variables. In Python, use os.environ.get('SettingName') to access them.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-010",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "Which file contains global configuration for all functions in a Function App?",
+    "choices": [
+      "function.json",
+      "app.json",
+      "host.json",
+      "settings.json"
+    ],
+    "answer": [
+      2
+    ],
+    "explanation": "host.json contains global settings that apply to all functions in the app, such as version, timeout, retry policies, and logging configuration. function.json configures individual functions.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#core-concepts"
+  },
+  {
+    "id": "azure-functions-011",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "What is a 'binding' in Azure Functions?",
+    "choices": [
+      "A connection between a function and another Azure service for input or output",
+      "A way to tie multiple functions together in sequence",
+      "A type of trigger that can be used multiple times",
+      "A deployment slot for staging functions"
+    ],
+    "answer": [
+      0
+    ],
+    "explanation": "A binding is a declarative connection to another service. Input bindings read data into your function, output bindings write data from your function. Bindings eliminate boilerplate connection code.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#core-concepts"
+  },
+  {
+    "id": "azure-functions-012",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "How many triggers can a single Azure Function have?",
+    "choices": [
+      "One",
+      "Up to three",
+      "Unlimited",
+      "Depends on the hosting plan"
+    ],
+    "answer": [
+      0
+    ],
+    "explanation": "A function can have exactly one trigger. However, it can have multiple input and output bindings in addition to its single trigger.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-013",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "Which trigger should you use to run a function on a schedule (e.g., every hour)?",
+    "choices": [
+      "HTTP trigger",
+      "Queue trigger",
+      "Timer trigger",
+      "Blob trigger"
+    ],
+    "answer": [
+      2
+    ],
+    "explanation": "The Timer trigger uses a CRON expression to run a function on a schedule. It's perfect for periodic tasks like cleanup, reports, or data synchronization.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#core-concepts"
+  },
+  {
+    "id": "azure-functions-014",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "What is a 'cold start' in Azure Functions?",
+    "choices": [
+      "When a function fails to execute",
+      "The delay when a function is invoked after being idle (scaled to zero)",
+      "When a function times out",
+      "When a function is deployed for the first time"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "A cold start is the latency experienced when a function is invoked after being idle. In the Consumption plan, functions scale to zero when idle, so the first request after a period of inactivity may experience a delay while Azure provisions a new instance. Premium plan has pre-warmed instances to minimize this.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-015",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "Which hosting plan has no cold starts?",
+    "choices": [
+      "Consumption",
+      "Premium",
+      "Dedicated (App Service Plan)",
+      "Basic"
+    ],
+    "answer": [
+      2
+    ],
+    "explanation": "The Dedicated (App Service Plan) hosting plan runs on reserved VMs that are always warm, so there are no cold starts. Premium plan has minimal cold starts due to pre-warmed instances. Consumption plan has cold starts.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-016",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "What CLI command creates a new Function App in Azure?",
+    "choices": [
+      "az functionapp create",
+      "az functions create",
+      "az webapp create --functions",
+      "az serverless create"
+    ],
+    "answer": [
+      0
+    ],
+    "explanation": "The Azure CLI command to create a Function App is 'az functionapp create' with parameters for name, resource group, runtime, etc.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#cli-setup"
+  },
+  {
+    "id": "azure-functions-017",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "Which Python decorator defines an HTTP-triggered function?",
+    "choices": [
+      "@app.http_trigger",
+      "@app.route",
+      "@app.function",
+      "@app.endpoint"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "In Azure Functions Python, the @app.route decorator defines the HTTP route for a function. The @app.function_name decorator specifies the function name, and the trigger type is defined by additional decorators or in function.json.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#hands-on-python"
+  },
+  {
+    "id": "azure-functions-018",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "multi",
+    "question": "Which of these are valid authorization levels for HTTP-triggered functions? (Select all that apply)",
+    "choices": [
+      "anonymous",
+      "function",
+      "admin",
+      "user",
+      "api-key"
+    ],
+    "answer": [
+      0,
+      1,
+      2
+    ],
+    "explanation": "Azure Functions HTTP triggers support three authorization levels: anonymous (no key required), function (function-specific key required), and admin (master key required).",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-019",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "What is the correct CRON expression for a timer trigger that runs every 5 minutes?",
+    "choices": [
+      "0 */5 * * * *",
+      "*/5 * * * *",
+      "0 5 * * * *",
+      "5 * * * * *"
+    ],
+    "answer": [
+      0
+    ],
+    "explanation": "The CRON expression format for Azure Functions is '{second} {minute} {hour} {day} {month} {day-of-week}'. For every 5 minutes: '0 */5 * * * *' means at second 0, every 5 minutes, every hour, every day.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#hands-on-python"
+  },
+  {
+    "id": "azure-functions-020",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "Which Azure service should you use for orchestrating multi-step workflows in a serverless application?",
+    "choices": [
+      "Azure Logic Apps",
+      "Azure Functions with Durable Functions",
+      "Azure Service Bus",
+      "Azure Event Grid"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "Durable Functions is an extension of Azure Functions that enables stateful workflows in a serverless environment. It supports orchestration, fan-out/fan-in, and entity patterns for complex, long-running workflows.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-021",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "What happens to a queue message after a Queue-triggered function processes it successfully?",
+    "choices": [
+      "It remains in the queue for manual deletion",
+      "It is automatically deleted from the queue",
+      "It is moved to a dead-letter queue",
+      "It becomes invisible for 7 days"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "By default, when a Queue-triggered function completes successfully, the message is automatically deleted from the queue. If the function fails, the message becomes visible again and will be retried.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-022",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "Which file is NOT deployed to Azure with your Function App?",
+    "choices": [
+      "host.json",
+      "function.json",
+      "local.settings.json",
+      "requirements.txt"
+    ],
+    "answer": [
+      2
+    ],
+    "explanation": "local.settings.json is for local development only and contains secrets that should not be deployed. It is NOT included when deploying to Azure. Use Application Settings in the Azure Portal for deployed configuration.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-023",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "What command deploys a Function App to Azure from the local filesystem?",
+    "choices": [
+      "az functionapp deploy",
+      "func azure functionapp publish",
+      "az webapp publish",
+      "func deploy"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "The Azure Functions Core Tools command 'func azure functionapp publish <app-name>' deploys the local function app to Azure.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#hands-on-python"
+  },
+  {
+    "id": "azure-functions-024",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "Which of these is a valid way to pass data to an HTTP-triggered function?",
+    "choices": [
+      "Query string parameters",
+      "Request body",
+      "HTTP headers",
+      "All of the above"
+    ],
+    "answer": [
+      3
+    ],
+    "explanation": "An HTTP-triggered function can receive data via query string parameters (req.params), request body (req.get_body() or req.get_json()), and HTTP headers (req.headers).",
+    "reference": "../../03-connect-consume/azure-functions/README.md#hands-on-python"
+  },
+  {
+    "id": "azure-functions-025",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "What property of a QueueMessage indicates how many times a message has been dequeued?",
+    "choices": [
+      "retry_count",
+      "attempts",
+      "dequeue_count",
+      "visibility_count"
+    ],
+    "answer": [
+      2
+    ],
+    "explanation": "The dequeue_count property of a QueueMessage tells you how many times the message has been retrieved from the queue. If this is greater than 1, it means the function failed previously and Azure is retrying.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#hands-on-python"
+  },
+  {
+    "id": "azure-functions-026",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "In the Python v2 programming model, which file contains your functions?",
+    "choices": [
+      "__init__.py in a folder per function",
+      "function_app.py at the project root",
+      "main.py at the project root",
+      "host.json"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "The v2 model puts every function in a single function_app.py at the project root, registered with decorators on one FunctionApp object. The folder-per-function layout with __init__.py and function.json is the older v1 model - the two cannot be mixed in one project.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#5-project-structure--the-v2-programming-model"
+  },
+  {
+    "id": "azure-functions-027",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "A queue binding is declared with connection=\"StorageConnection\". What does that value refer to?",
+    "choices": [
+      "The literal storage connection string",
+      "The name of an application setting that holds the connection string",
+      "The name of the Storage account",
+      "The name of the queue"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "A binding's connection property is always the NAME of an application setting, never the connection string itself. Locally that setting lives in local.settings.json; in Azure it lives in the Function App's environment variables. This keeps secrets out of your source code.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#3-bindings--declarative-connections"
+  },
+  {
+    "id": "azure-functions-028",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "A queue-triggered function keeps throwing an exception on the same message. What happens to that message?",
+    "choices": [
+      "It is deleted immediately after the first failure",
+      "It is retried forever until the function succeeds",
+      "It is retried up to maxDequeueCount times (5 by default), then moved to a poison queue",
+      "It is returned to the caller as an HTTP 500"
+    ],
+    "answer": [
+      2
+    ],
+    "explanation": "When a queue-triggered function throws, the message becomes visible again and is retried. After maxDequeueCount attempts (default 5, configurable in host.json) the host moves it to <queue-name>-poison so it stops blocking the queue. On success the host deletes the message automatically - you never write delete code.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-029",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "Your function is defined as @app.route(route=\"hello\") inside a function named greet_user, registered as \"HttpHello\". What URL invokes it locally?",
+    "choices": [
+      "http://localhost:7071/api/HttpHello",
+      "http://localhost:7071/api/hello",
+      "http://localhost:7071/api/greet_user",
+      "http://localhost:7071/api/HttpHello/hello"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "The route is the entire path after the /api prefix - the function name never appears in the URL. So route=\"hello\" is reachable at /api/hello. The /api prefix itself can be changed with extensions.http.routePrefix in host.json.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#6-key-python-decorators-v2"
+  },
+  {
+    "id": "azure-functions-030",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "You deploy a Python function app to a Dedicated (App Service) plan. Its timer trigger stops firing after a period of inactivity. What should you enable?",
+    "choices": [
+      "Always On",
+      "Pre-warmed instances",
+      "Application Insights",
+      "Managed identity"
+    ],
+    "answer": [
+      0
+    ],
+    "explanation": "On a Dedicated (App Service) plan an idle app is unloaded, which stops non-HTTP triggers such as timer and queue triggers. Always On keeps the app loaded. It is a Dedicated-plan setting only - Consumption and Premium neither need nor offer it.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-031",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "How many fields does an Azure Functions timer trigger NCRONTAB expression have?",
+    "choices": [
+      "Five - the same as Linux cron",
+      "Six - Linux cron plus a leading seconds field",
+      "Six - Linux cron plus a trailing year field",
+      "Seven"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "Azure uses six fields: {second} {minute} {hour} {day} {month} {day-of-week}. The extra leading seconds field is the usual trap - \"*/5 * * * *\" means every 5 seconds in Azure, not every 5 minutes. Every 5 minutes is \"0 */5 * * * *\". Schedules run in UTC unless WEBSITE_TIME_ZONE is set.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-032",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "multi",
+    "question": "Your HTTP-triggered function must also write a message to a Storage queue. Which statements are true? (Select all that apply)",
+    "choices": [
+      "You can add a queue output binding alongside the HTTP trigger",
+      "You must add a second trigger to the function",
+      "The function can have only one trigger but multiple bindings",
+      "You must construct a QueueClient yourself; output bindings only work with HTTP"
+    ],
+    "answer": [
+      0,
+      2
+    ],
+    "explanation": "A function has exactly one trigger but any number of input and output bindings. Adding @app.queue_output on top of the HTTP trigger lets the host deliver the message for you - no QueueClient and no connection code. Adding a second trigger is not possible.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#2-triggers--what-starts-your-function"
+  }
+]

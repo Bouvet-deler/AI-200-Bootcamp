@@ -1,0 +1,19 @@
+# Azure Functions Python dependencies
+# The host installs everything listed here when you deploy — anything missing from this
+# file will NOT be available to your code in Azure.
+# Install locally with: pip install -r requirements.txt
+
+# Required for every Python function app. Version 1.11.0+ is what enables the v2
+# programming model (the decorators used in function_app.py).
+azure-functions
+
+# --- Optional, uncomment as needed ---------------------------------------------
+# Only add SDKs you actually use. Triggers and bindings do NOT need these — the host
+# handles those connections for you. You need an SDK only when you call a service
+# directly from your own code.
+
+# azure-storage-queue        # working with queues beyond the trigger/output binding
+# azure-storage-blob         # reading or writing blobs directly
+# azure-cosmos               # Cosmos DB for NoSQL
+# azure-identity             # managed identity / DefaultAzureCredential
+# azure-monitor-opentelemetry  # richer Application Insights telemetry
