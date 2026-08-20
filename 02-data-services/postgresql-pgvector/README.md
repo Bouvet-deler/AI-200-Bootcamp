@@ -21,27 +21,27 @@ The same PostgreSQL database that stores your **relational data** (users, produc
 > Mental model:
 >
 > ```
->   User Query
->        │
->        ▼
->   ┌─────────────────┐
->   │   Application    │
->   │   (LLM + RAG)   │
->   └────────┬────────┘
->             │
->             ▼
->   ┌─────────────────────────────────┐
->   │  Azure Database for PostgreSQL     │
->   │  + pgvector extension            │
->   │                                 │
->   │  ┌─────────────┐  ┌─────────────┐ │
->   │  │  Relational  │  │   Vector     │ │
->   │  │   Tables     │  │   Indexes    │ │
->   │  │ (users, etc) │  │ (embeddings) │ │
->   │  └─────────────┘  └─────────────┘ │
->   └─────────────────────────────────┘
->             │
->             ▼
+>                   User Query
+>                       │
+>                       ▼
+>              ┌─────────────────┐
+>              │   Application   │
+>              │   (LLM + RAG)   │
+>              └────────┬────────┘
+>                       │
+>                       ▼
+>      ┌────────────────────────────────────┐
+>      │  Azure Database for PostgreSQL     │
+>      │  + pgvector extension              │
+>      │                                    │
+>      │  ┌─────────────┐  ┌──────────────┐ │
+>      │  │  Relational │  │   Vector     │ │
+>      │  │   Tables    │  │   Indexes    │ │
+>      │  │ (users, etc)│  │ (embeddings) │ │
+>      │  └─────────────┘  └──────────────┘ │
+>      └────────────────────────────────────┘
+>                         │
+>                         ▼
 >   Similarity search results (top-k nearest neighbors)
 > ```
 
