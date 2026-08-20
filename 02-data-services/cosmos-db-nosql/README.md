@@ -22,23 +22,23 @@ items grouped by a **partition key** that determines how data is distributed acr
 > Mental model:
 >
 > ```
->   Application
->        │
->        ▼
->   ┌─────────────────────────────────────────────────────────┐
->   │  Azure Cosmos DB for NoSQL Account                      │
->   │                                                           │
+>                          Application
+>                               │
+>                               ▼
+>   ┌──────────────────────────────────────────────────────┐
+>   │          Azure Cosmos DB for NoSQL Account           │
+>   │                                                      │
 >   │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │
->   │  │  Database A  │  │  Database B  │  │  Database C  │   │
->   │  │              │  │              │  │              │   │
->   │  │  ┌─────────┐│  │  ┌─────────┐│  │  ┌─────────┐│   │
->   │  │  │Container││  │  │Container││  │  │Container││   │
->   │  │  │  (items) ││  │  │  (items) ││  │  │  (items) ││   │
->   │  │  └─────────┘│  │  └─────────┘│  │  └─────────┘│   │
+>   │  │  Database A │  │  Database B │  │  Database C │   │
+>   │  │             │  │             │  │             │   │
+>   │  │ ┌─────────┐ │  │ ┌─────────┐ │  │ ┌─────────┐ │   │
+>   │  │ │Container│ │  │ │Container│ │  │ │Container│ │   │
+>   │  │ │ (items) │ │  │ │ (items) │ │  │ │ (items) │ │   │
+>   │  │ └─────────┘ │  │ └─────────┘ │  │ └─────────┘ │   │
 >   │  └─────────────┘  └─────────────┘  └─────────────┘   │
->   └─────────────────────────────────────────────────────────┘
->        │
->        ▼
+>   └──────────────────────────────────────────────────────┘
+>                              │
+>                              ▼
 >   Partitioned by partition key → distributed across regions
 > ```
 
