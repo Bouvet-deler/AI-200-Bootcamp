@@ -3,6 +3,21 @@ import { allQuestions, questionsByDomain, questionsByTopic } from './questions';
 import { EXAM_WEIGHTS } from './lib/examWeights';
 import type { Question } from './types';
 
+// Topic-guide references in question banks are repository-relative paths. Convert those paths
+// into links that work from the separately hosted Vite app, while leaving full web URLs alone.
+const REPOSITORY_GUIDE_ROOT = 'https://github.com/Bouvet-deler/AI-200-Bootcamp/blob/master/';
+
+function getReferenceUrl(reference: string): string {
+  if (/^https?:\/\//.test(reference)) {
+    return reference;
+  }
+
+  // The JSON files live under quiz/src/questions/, so their existing guide links begin with
+  // one or more "../" segments. Strip those segments to get the path from the repository root.
+  const repositoryPath = reference.replace(/^(?:\.\.\/)+/, '');
+  return `${REPOSITORY_GUIDE_ROOT}${repositoryPath}`;
+}
+
 // Helper to shuffle an array (Fisher-Yates)
 function shuffleArray<T>(array: T[]): T[] {
   const result = [...array];
@@ -553,6 +568,16 @@ function App() {
             ) : (
               <div className="answer-feedback">
                 <div className="explanation">{currentQuestion.explanation}</div>
+                {currentQuestion.reference && (
+                  <a
+                    className="reference-link"
+                    href={getReferenceUrl(currentQuestion.reference)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Read the topic guide
+                  </a>
+                )}
                 <div className="navigation">
                   <button className="nav-btn" onClick={handlePrev} disabled={currentQuestionIndex === 0}>
                     Previous

@@ -899,6 +899,20 @@ body::before {
   font-weight: 500;
 }
 
+.reference-link {
+  display: inline-flex;
+  align-items: center;
+  margin: -0.75rem 0 1.5rem;
+  color: var(--accent-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.reference-link:hover {
+  color: var(--accent-secondary);
+  text-decoration: underline;
+}
+
 /* ===== Responsive Design ===== */
 @media (max-width: 768px) {
   .container {
