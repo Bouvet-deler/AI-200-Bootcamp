@@ -1,0 +1,400 @@
+[
+  {
+    "id": "service-bus-001",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "What problem does Azure Service Bus primarily solve?",
+    "choices": [
+      "It stores relational data for a web application",
+      "It durably brokers messages between applications that can run at different times and speeds",
+      "It renders server-side web pages",
+      "It performs distributed cache invalidation only"
+    ],
+    "answer": [1],
+    "explanation": "Service Bus is a durable message broker. A producer can send work now, while a consumer retrieves and processes it later, which decouples their availability and throughput.",
+    "reference": "../../03-connect-consume/service-bus/README.md#what-it-is"
+  },
+  {
+    "id": "service-bus-002",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "Several workers compete to process each invoice exactly once. Which Service Bus entity should receive the invoice command?",
+    "choices": [
+      "A queue",
+      "A topic with one subscription per worker",
+      "A dead-letter queue",
+      "A Service Bus namespace"
+    ],
+    "answer": [0],
+    "explanation": "A queue uses competing consumers: one queue message is delivered to one receiver. A topic would create independent subscription copies, which is the wrong shape when only one worker should process the command.",
+    "reference": "../../03-connect-consume/service-bus/README.md#2-queue-vs-topic-and-subscription"
+  },
+  {
+    "id": "service-bus-003",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "A publisher sends one message to a topic and it matches three subscriptions. What happens?",
+    "choices": [
+      "Only the first subscription created receives it",
+      "The topic chooses one subscription at random",
+      "Each matching subscription gets its own durable copy",
+      "The message is moved immediately to the topic's dead-letter queue"
+    ],
+    "answer": [2],
+    "explanation": "Topics implement publish/subscribe. Each matching subscription is a separate durable message store, so it gets its own copy and settles that copy independently.",
+    "reference": "../../03-connect-consume/service-bus/README.md#2-queue-vs-topic-and-subscription"
+  },
+  {
+    "id": "service-bus-004",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "After a producer sends to a Service Bus topic, where does a consumer receive the message?",
+    "choices": [
+      "Directly from the topic",
+      "From a subscription under that topic",
+      "From the namespace root",
+      "From the producer's outbox"
+    ],
+    "answer": [1],
+    "explanation": "Senders target a topic, but consumers create receivers for named subscriptions. A subscription behaves like the durable virtual queue that holds the topic's copy for that consumer.",
+    "reference": "../../03-connect-consume/service-bus/README.md#2-queue-vs-topic-and-subscription"
+  },
+  {
+    "id": "service-bus-005",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "What is the effect of the $Default rule on a newly created topic subscription?",
+    "choices": [
+      "It rejects all messages until a custom SQL rule is added",
+      "It accepts every topic message through a TrueFilter",
+      "It dead-letters messages that do not have a MessageId",
+      "It forwards all messages to the namespace's first queue"
+    ],
+    "answer": [1],
+    "explanation": "New subscriptions begin with $Default, a TrueFilter that accepts all topic messages. Delete it before adding a selective rule, otherwise the default rule still allows every message into the subscription.",
+    "reference": "../../03-connect-consume/service-bus/README.md#2-queue-vs-topic-and-subscription"
+  },
+  {
+    "id": "service-bus-006",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "A subscription rule must route only messages marked priority = high without parsing their JSON bodies. Where should that value be placed?",
+    "choices": [
+      "In an application property",
+      "Only in the message body",
+      "In the queue name",
+      "In the namespace's resource group tag"
+    ],
+    "answer": [0],
+    "explanation": "Subscription rules inspect system and application properties. Put routing metadata such as priority in application_properties so the broker can filter before a subscription receives the message.",
+    "reference": "../../03-connect-consume/service-bus/README.md#3-message-body-and-properties"
+  },
+  {
+    "id": "service-bus-007",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "Which receive mode is the Service Bus default and is normally used for important business work?",
+    "choices": [
+      "Receive-and-Delete",
+      "Peek-Lock",
+      "Fire-and-Forget",
+      "Read-Only"
+    ],
+    "answer": [1],
+    "explanation": "Peek-Lock is the default. It locks a message while the receiver works and removes it only after an explicit completion, avoiding silent loss if the receiver fails.",
+    "reference": "../../03-connect-consume/service-bus/README.md#4-receiving-locks-and-settlement"
+  },
+  {
+    "id": "service-bus-008",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "A worker uses Receive-and-Delete, receives a payment message, and crashes before processing it. What is the result?",
+    "choices": [
+      "The message returns to the queue after its lock expires",
+      "The message is automatically copied to the DLQ",
+      "The message is lost because Service Bus removed it when it was delivered",
+      "Another worker receives an identical copy immediately"
+    ],
+    "answer": [2],
+    "explanation": "Receive-and-Delete settles the message as soon as Service Bus sends it to the receiver. It provides at-most-once delivery, so a crash after receipt can lose the work.",
+    "reference": "../../03-connect-consume/service-bus/README.md#4-receiving-locks-and-settlement"
+  },
+  {
+    "id": "service-bus-009",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "build-list",
+    "question": "Put the normal Peek-Lock success path in order.",
+    "choices": [
+      {
+        "id": "receive",
+        "text": "Receive and lock the message"
+      },
+      {
+        "id": "process",
+        "text": "Perform the business work successfully"
+      },
+      {
+        "id": "complete",
+        "text": "Complete the message to remove it"
+      },
+      {
+        "id": "dead-letter",
+        "text": "Dead-letter the successful message"
+      }
+    ],
+    "answer": ["receive", "process", "complete"],
+    "explanation": "With Peek-Lock, receive first creates a temporary lock. Perform the work while holding the lock, then complete only after it succeeds. Dead-lettering is for known-bad work, not the normal success path.",
+    "reference": "../../03-connect-consume/service-bus/README.md#4-receiving-locks-and-settlement"
+  },
+  {
+    "id": "service-bus-010",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "A Peek-Lock receiver crashes before it calls complete_message. What does Service Bus do after the lock expires?",
+    "choices": [
+      "It removes the message permanently",
+      "It makes the message available for redelivery",
+      "It immediately deletes the whole queue",
+      "It sends the message to every topic subscription"
+    ],
+    "answer": [1],
+    "explanation": "When a Peek-Lock message is not settled and its lock expires, Service Bus unlocks it for redelivery. This protects against loss but means the consumer must tolerate duplicate processing.",
+    "reference": "../../03-connect-consume/service-bus/README.md#4-receiving-locks-and-settlement"
+  },
+  {
+    "id": "service-bus-011",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "What normally happens when a message repeatedly exceeds a queue's MaxDeliveryCount?",
+    "choices": [
+      "It is moved to that queue's built-in dead-letter queue",
+      "It becomes a topic message",
+      "It is automatically completed as successful",
+      "It stays locked forever"
+    ],
+    "answer": [0],
+    "explanation": "Repeated abandonment or lock expiry increments delivery count. Once it exceeds MaxDeliveryCount, Service Bus moves the message to the associated built-in DLQ for investigation.",
+    "reference": "../../03-connect-consume/service-bus/README.md#5-dead-letter-queues-dlqs"
+  },
+  {
+    "id": "service-bus-012",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "multi",
+    "question": "Which can place a Service Bus message in a dead-letter queue? (Select all that apply)",
+    "choices": [
+      "It exceeds MaxDeliveryCount after repeated failed deliveries",
+      "A receiver explicitly dead-letters it with a reason",
+      "It expires when dead-lettering on expiration is enabled",
+      "It does not match a topic subscription rule",
+      "A receiver completes it successfully"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "Max delivery exhaustion, explicit application dead-lettering, and configured dead-letter-on-expiration can all move a message to a DLQ. A nonmatching rule simply does not copy the message into that subscription, and completion removes a successful message.",
+    "reference": "../../03-connect-consume/service-bus/README.md#5-dead-letter-queues-dlqs"
+  },
+  {
+    "id": "service-bus-013",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "After inspecting and correcting a dead-lettered message, what does completing the original DLQ copy do?",
+    "choices": [
+      "It automatically resubmits the message to the original queue",
+      "It deletes that DLQ copy permanently",
+      "It resets the message delivery count to zero in the main queue",
+      "It copies the message to every topic subscription"
+    ],
+    "answer": [1],
+    "explanation": "A DLQ has no automatic replay. Send a corrected new message to the original entity first, then complete the old DLQ copy only when it is safe to remove it.",
+    "reference": "../../03-connect-consume/service-bus/README.md#5-dead-letter-queues-dlqs"
+  },
+  {
+    "id": "service-bus-014",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "A normal-priority topic message does not match the high-priority subscription rule. Where does that message go for that subscription?",
+    "choices": [
+      "Into the subscription's DLQ",
+      "Back to the topic for retry",
+      "Nowhere; it is not copied into that subscription",
+      "Into the namespace's RootManageSharedAccessKey policy"
+    ],
+    "answer": [2],
+    "explanation": "A filter miss is normal routing, not an error. The subscription receives no copy, while other subscriptions whose rules match can still receive their own copies.",
+    "reference": "../../03-connect-consume/service-bus/README.md#5-dead-letter-queues-dlqs"
+  },
+  {
+    "id": "service-bus-015",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "What Service Bus feature provides FIFO processing for messages related to the same order?",
+    "choices": [
+      "Message sessions",
+      "Receive-and-Delete",
+      "A dead-letter queue",
+      "A shared access policy"
+    ],
+    "answer": [0],
+    "explanation": "Enable sessions on the queue or subscription, assign the same SessionId to all messages for one order, and use a session-aware receiver. Sessions preserve order within that group while unrelated sessions can still run in parallel.",
+    "reference": "../../03-connect-consume/service-bus/README.md#6-sessions-duplicate-detection-and-transactions"
+  },
+  {
+    "id": "service-bus-016",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "Which property groups related messages into the same Service Bus session?",
+    "choices": [
+      "MessageId",
+      "CorrelationId",
+      "SessionId",
+      "TimeToLive"
+    ],
+    "answer": [2],
+    "explanation": "SessionId identifies the related sequence that a session-aware receiver locks and processes in order. MessageId identifies one message, while CorrelationId connects related requests and replies.",
+    "reference": "../../03-connect-consume/service-bus/README.md#6-sessions-duplicate-detection-and-transactions"
+  },
+  {
+    "id": "service-bus-017",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "What does Service Bus duplicate detection protect against?",
+    "choices": [
+      "A repeated send using the same MessageId within its configured history window",
+      "A worker receiving a Peek-Lock message twice after a failed completion",
+      "A subscription rule matching the same application property twice",
+      "A message body containing the same JSON twice"
+    ],
+    "answer": [0],
+    "explanation": "Duplicate detection is sender-side protection: it discards a second submission with a repeated MessageId during the configured window. It does not remove the need for idempotent consumer processing.",
+    "reference": "../../03-connect-consume/service-bus/README.md#6-sessions-duplicate-detection-and-transactions"
+  },
+  {
+    "id": "service-bus-018",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "Which statement best describes a Service Bus transaction?",
+    "choices": [
+      "It makes a database write and any Service Bus operation one global database transaction",
+      "It groups supported Service Bus operations so they commit together or roll back together",
+      "It is another name for Receive-and-Delete",
+      "It can only be used to create a namespace"
+    ],
+    "answer": [1],
+    "explanation": "Service Bus transactions provide all-or-nothing behavior for supported broker operations, such as completing an input and sending a next-step message. They are not an end-to-end transaction with an external database.",
+    "reference": "../../03-connect-consume/service-bus/README.md#6-sessions-duplicate-detection-and-transactions"
+  },
+  {
+    "id": "service-bus-019",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "Which Service Bus tier is the minimum choice when a solution needs topics and subscriptions?",
+    "choices": [
+      "Basic",
+      "Standard",
+      "Free",
+      "Developer"
+    ],
+    "answer": [1],
+    "explanation": "Basic is queues-only. Standard supports topics and subscriptions, as well as the other brokered messaging features used in this guide.",
+    "reference": "../../03-connect-consume/service-bus/README.md#1-namespace-and-messaging-entities"
+  },
+  {
+    "id": "service-bus-020",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "Which Azure CLI command creates the Standard Service Bus namespace in this guide?",
+    "choices": [
+      "az servicebus namespace create --sku Standard",
+      "az servicebus queue create --sku Standard",
+      "az eventgrid topic create --sku Standard",
+      "az messaging namespace add --type servicebus"
+    ],
+    "answer": [0],
+    "explanation": "az servicebus namespace create provisions the namespace, and --sku Standard selects the tier that supports the topic and subscription entities created in the later setup steps.",
+    "reference": "../../03-connect-consume/service-bus/README.md#cli-setup"
+  },
+  {
+    "id": "service-bus-021",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "In the Python walkthrough, which SDK type builds a client from the SAS connection string?",
+    "choices": [
+      "ServiceBusClient.from_connection_string",
+      "ServiceBusMessage.from_connection_string",
+      "ServiceBusSubQueue.from_connection_string",
+      "ServiceBusReceiveMode.from_connection_string"
+    ],
+    "answer": [0],
+    "explanation": "ServiceBusClient.from_connection_string opens the namespace client using the SAS connection string. The client then creates queue senders, topic senders, and queue or subscription receivers.",
+    "reference": "../../03-connect-consume/service-bus/send_receive_deadletter.py"
+  },
+  {
+    "id": "service-bus-022",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "Which Python SDK value opens the receiver for a queue's built-in dead-letter subqueue?",
+    "choices": [
+      "sub_queue=ServiceBusSubQueue.DEAD_LETTER",
+      "receive_mode=ServiceBusReceiveMode.RECEIVE_AND_DELETE",
+      "queue_name='$Default'",
+      "dead_letter=True on ServiceBusClient"
+    ],
+    "answer": [0],
+    "explanation": "Pass ServiceBusSubQueue.DEAD_LETTER as the receiver's sub_queue parameter. The returned receiver works like a normal receiver and needs an explicit completion to remove a DLQ copy.",
+    "reference": "../../03-connect-consume/service-bus/send_receive_deadletter.py"
+  },
+  {
+    "id": "service-bus-023",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "A business-critical payment command needs durable storage, explicit completion after processing, retries, and a built-in DLQ. Which Azure service best fits?",
+    "choices": [
+      "Azure Event Grid",
+      "Azure Service Bus",
+      "Azure Event Hubs",
+      "Azure Cache for Redis"
+    ],
+    "answer": [1],
+    "explanation": "Service Bus is the reliable brokered-messaging choice for commands that need locks, explicit settlement, retries, DLQs, sessions, or transactions. Event Grid is for pushed notifications, and Event Hubs is for stream ingestion.",
+    "reference": "../../03-connect-consume/service-bus/README.md#7-choosing-the-messaging-service"
+  },
+  {
+    "id": "service-bus-024",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "multi",
+    "question": "Which statements correctly distinguish Service Bus from related Azure messaging services? (Select all that apply)",
+    "choices": [
+      "Service Bus consumers normally pull durable messages from queues or subscriptions",
+      "Event Grid normally pushes a notification to a handler",
+      "Service Bus supports explicit Peek-Lock settlement for business messages",
+      "Event Hubs removes each event as soon as one consumer reads it",
+      "Azure Storage Queues provide Service Bus topics and subscriptions"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "Service Bus is pull-based brokered messaging with settlement. Event Grid pushes event notifications. Event Hubs is a replayable stream rather than per-message work completion, and Storage Queues do not provide Service Bus topics/subscriptions.",
+    "reference": "../../03-connect-consume/service-bus/README.md#7-choosing-the-messaging-service"
+  }
+]
