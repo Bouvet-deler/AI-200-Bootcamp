@@ -1,0 +1,2 @@
+# Azure Service Bus data-plane client used by send_receive_deadletter.py
+azure-servicebus>=7.14.3
