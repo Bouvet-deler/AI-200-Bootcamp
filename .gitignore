@@ -22,7 +22,9 @@ __pycache__/
 # Azure / secrets — never commit credentials
 *.pem
 *.key
-local.settings.json
+# NOTE: local.settings.json is deliberately tracked in this study repo — the checked-in copies
+# hold placeholders only (e.g. "UseDevelopmentStorage=true"). Never paste a real connection
+# string or key into one; use `func settings add` with the local emulator, or Key Vault.
 
 # Clause local settings
 .claude/

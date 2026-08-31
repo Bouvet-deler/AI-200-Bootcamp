@@ -1,0 +1,387 @@
+[
+  {
+    "id": "event-grid-001",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "What is the core delivery model of Azure Event Grid Basic?",
+    "choices": [
+      "Subscribers poll a queue for new events",
+      "Event Grid pushes matching events to each subscriber's registered handler",
+      "Subscribers open a persistent TCP stream to read events in order",
+      "Events are written to a shared database table that subscribers query"
+    ],
+    "answer": [1],
+    "explanation": "Event Grid Basic is a push-based pub/sub service - it calls each subscriber's handler when a matching event occurs. This is the key contrast with Service Bus and Event Hubs, which subscribers pull from.",
+    "reference": "../../03-connect-consume/event-grid/README.md#what-it-is"
+  },
+  {
+    "id": "event-grid-002",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "Which statement about system topics is correct?",
+    "choices": [
+      "You must create a system topic resource before subscribing to a Storage account's events",
+      "System topics are only available for custom application events",
+      "A system topic represents built-in events from an Azure resource, and you subscribe directly against that resource's ID",
+      "System topics require the CloudEvents schema"
+    ],
+    "answer": [2],
+    "explanation": "A system topic is an Event Grid resource associated with an Azure event source. Creating an event subscription with --source-resource-id pointing at a Storage account can create that system topic automatically.",
+    "reference": "../../03-connect-consume/event-grid/README.md#1-topics--system-vs-custom"
+  },
+  {
+    "id": "event-grid-003",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "You need many custom topics (one per tenant) managed and secured as a unit. Which Event Grid concept fits?",
+    "choices": [
+      "Event domain",
+      "Event Hub",
+      "System topic",
+      "Dead-letter container"
+    ],
+    "answer": [0],
+    "explanation": "An event domain is a management tool for large numbers of custom topics - for example, one topic per tenant - letting you manage and secure them together under one endpoint.",
+    "reference": "../../03-connect-consume/event-grid/README.md#1-topics--system-vs-custom"
+  },
+  {
+    "id": "event-grid-004",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "Which event schema does Microsoft recommend for new Event Grid topics?",
+    "choices": [
+      "Event Grid schema",
+      "CloudEvents v1.0 schema",
+      "Avro schema",
+      "Protobuf schema"
+    ],
+    "answer": [1],
+    "explanation": "CloudEvents v1.0 is an open, cross-cloud standard and is Microsoft's recommended schema for new topics. The original Event Grid schema is Azure-only and still appears on older or system topics.",
+    "reference": "../../03-connect-consume/event-grid/README.md#2-event-schema--cloudevents-vs-event-grid-schema"
+  },
+  {
+    "id": "event-grid-005",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "In the CloudEvents schema, which field would a subject filter (subjectBeginsWith/EndsWith) match against?",
+    "choices": [
+      "type",
+      "source",
+      "subject",
+      "data"
+    ],
+    "answer": [2],
+    "explanation": "subject identifies the specific resource the event is about (e.g. 'orders/12345') and is what subjectBeginsWith/subjectEndsWith filters match. type identifies the kind of event and is matched by includedEventTypes instead.",
+    "reference": "../../03-connect-consume/event-grid/README.md#2-event-schema--cloudevents-vs-event-grid-schema"
+  },
+  {
+    "id": "event-grid-006",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "An event subscription has both a subject filter and an advanced filter configured. How are they evaluated?",
+    "choices": [
+      "Either filter matching is enough for delivery (OR logic)",
+      "Both filters must match for the event to be delivered (AND logic)",
+      "Only the advanced filter is evaluated; the subject filter is ignored",
+      "The filters are evaluated in the order they were created, and the first match wins"
+    ],
+    "answer": [1],
+    "explanation": "Filters on an Event Grid subscription are combined with AND logic - an event must satisfy every configured filter to be delivered, not just one of them.",
+    "reference": "../../03-connect-consume/event-grid/README.md#3-filters--who-gets-which-event"
+  },
+  {
+    "id": "event-grid-007",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "You need a subscription to only receive events whose data field 'quantityRemaining' is less than 5. Which filter type do you need?",
+    "choices": [
+      "Subject filter",
+      "Event type filter",
+      "Advanced filter",
+      "This is not possible - only subject and type can be filtered on"
+    ],
+    "answer": [2],
+    "explanation": "Advanced filters can match supported envelope fields and nested data fields, using an operator (for example, NumberLessThan) and a value. Subject and event-type filters target the subject and type fields instead.",
+    "reference": "../../03-connect-consume/event-grid/README.md#3-filters--who-gets-which-event"
+  },
+  {
+    "id": "event-grid-008",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "What is the default maximum number of delivery attempts Event Grid makes for an event?",
+    "choices": [
+      "3",
+      "10",
+      "30",
+      "Unlimited"
+    ],
+    "answer": [2],
+    "explanation": "Event Grid retries a failed delivery up to 30 times by default, with exponential backoff, configurable from 1-30 via --max-delivery-attempts.",
+    "reference": "../../03-connect-consume/event-grid/README.md#4-delivery-retries-and-dead-lettering"
+  },
+  {
+    "id": "event-grid-009",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "An event's TTL is set to 60 minutes and max delivery attempts is set to 30. The retry-attempt cap has not been reached when the TTL expires. What stops further retries?",
+    "choices": [
+      "After 30 attempts, regardless of the 60-minute TTL",
+      "The first scheduled delivery attempt after the 60-minute TTL detects expiry",
+      "Only after both the attempt count AND the TTL have been exceeded",
+      "Event Grid retries forever once a subscription exists"
+    ],
+    "answer": [1],
+    "explanation": "Event Grid stops retrying at the retry-attempt cap OR the event TTL, whichever happens first. Retry timing is nondeterministic, and Event Grid checks expiration at the next scheduled delivery attempt.",
+    "reference": "../../03-connect-consume/event-grid/README.md#4-delivery-retries-and-dead-lettering"
+  },
+  {
+    "id": "event-grid-010",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "An event exhausts its retry attempts and no dead-letter destination is configured on the subscription. What happens to it?",
+    "choices": [
+      "It is moved to a default Event Grid dead-letter queue",
+      "It is redelivered to Service Bus automatically",
+      "It is dropped - Event Grid has no built-in dead-letter destination unless you configure one",
+      "The topic is automatically paused until the event is manually acknowledged"
+    ],
+    "answer": [2],
+    "explanation": "Dead-lettering in Event Grid is opt-in and always a Storage Blob container you configure via --deadletter-endpoint. Without it, an event that exhausts retries or TTL is simply dropped.",
+    "reference": "../../03-connect-consume/event-grid/README.md#4-delivery-retries-and-dead-lettering"
+  },
+  {
+    "id": "event-grid-011",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "Where can Event Grid dead-letter undeliverable events?",
+    "choices": [
+      "A Service Bus dead-letter queue",
+      "A Storage Blob container",
+      "A Cosmos DB container",
+      "An Event Hub"
+    ],
+    "answer": [1],
+    "explanation": "Event Grid's dead-letter destination is always a Storage Blob container, configured with --deadletter-endpoint on the event subscription. This is unlike Service Bus, which has a built-in dead-letter sub-queue.",
+    "reference": "../../03-connect-consume/event-grid/README.md#4-delivery-retries-and-dead-lettering"
+  },
+  {
+    "id": "event-grid-012",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "Which HTTP response status range does Event Grid treat as a successful delivery?",
+    "choices": [
+      "200 only",
+      "200-204",
+      "200-299",
+      "Any status that isn't a 5xx"
+    ],
+    "answer": [1],
+    "explanation": "Event Grid treats HTTP 200, 201, 202, 203, and 204 as successful delivery. Other status codes, a timeout, or an unreachable endpoint are failed deliveries.",
+    "reference": "../../03-connect-consume/event-grid/README.md#exam-gotchas"
+  },
+  {
+    "id": "event-grid-013",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "You configure CloudEvents v1.0 delivery to a plain HTTPS webhook (not an Azure Function). What must the endpoint do before it starts receiving real events?",
+    "choices": [
+      "Nothing - delivery starts immediately after the subscription is created",
+      "Respond to a SubscriptionValidationEvent by echoing back its validationCode",
+      "Grant permission for Event Grid's HTTP OPTIONS request with the headers or its WebHook-Request-Callback",
+      "Register an SSL certificate with Event Grid's certificate authority"
+    ],
+    "answer": [2],
+    "explanation": "For CloudEvents delivery, Event Grid validates a raw webhook by sending HTTP OPTIONS. A production endpoint grants permission with the CloudEvents WebHook-Allowed-Origin and WebHook-Allowed-Rate headers. For Event Grid Basic, a request-capture endpoint such as webhook.site can instead use the WebHook-Request-Callback header for manual approval. SubscriptionValidationEvent applies to Event Grid-schema delivery instead.",
+    "reference": "../../03-connect-consume/event-grid/README.md#5-handlers--where-events-land"
+  },
+  {
+    "id": "event-grid-014",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "Which handler type does NOT require you to manually implement the Event Grid webhook validation handshake?",
+    "choices": [
+      "A plain HTTPS webhook you write yourself",
+      "An Azure Function with an Event Grid trigger",
+      "A raw Express.js endpoint",
+      "A Flask endpoint with no special handling"
+    ],
+    "answer": [1],
+    "explanation": "The Azure Functions Event Grid trigger auto-handles platform validation. A plain webhook implementation - Flask, Express, or otherwise - must handle the validation required by its delivery schema: validationCode for Event Grid schema, or HTTP OPTIONS with CloudEvents permission headers (or its callback alternative) for CloudEvents.",
+    "reference": "../../03-connect-consume/event-grid/README.md#5-handlers--where-events-land"
+  },
+  {
+    "id": "event-grid-015",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "multi",
+    "question": "Which of these are valid Event Grid event handlers? (Select all that apply)",
+    "choices": [
+      "Azure Function (Event Grid trigger)",
+      "Storage Queue",
+      "Service Bus queue/topic",
+      "A direct SQL Server connection",
+      "Event Hubs"
+    ],
+    "answer": [0, 1, 2, 4],
+    "explanation": "Event Grid can deliver to Azure Functions, Storage Queues, Service Bus queues/topics, Event Hubs, Logic Apps, webhooks, and Relay hybrid connections. It has no built-in handler that connects directly to a SQL Server database.",
+    "reference": "../../03-connect-consume/event-grid/README.md#5-handlers--where-events-land"
+  },
+  {
+    "id": "event-grid-016",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "A scenario requires reliably processing business-critical order transactions, with ordering guarantees and possible transactional locks. Which service best fits?",
+    "choices": [
+      "Event Grid",
+      "Service Bus",
+      "Event Hubs",
+      "Azure Cache for Redis"
+    ],
+    "answer": [1],
+    "explanation": "Service Bus is designed for reliable business-message processing with FIFO ordering (via sessions) and transactional semantics. Event Grid is for lightweight notifications; Event Hubs is for high-volume streaming telemetry.",
+    "reference": "../../03-connect-consume/event-grid/README.md#6-event-grid-vs-service-bus-vs-event-hubs"
+  },
+  {
+    "id": "event-grid-017",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "A scenario requires ingesting 100,000 telemetry events per second from IoT devices for stream analytics. Which service best fits?",
+    "choices": [
+      "Event Grid",
+      "Service Bus",
+      "Event Hubs",
+      "Azure Functions Queue trigger"
+    ],
+    "answer": [2],
+    "explanation": "Event Hubs is built for high-throughput, partitioned event streaming with replay support - the right fit for ingesting a high-volume telemetry firehose. Event Grid is for lower-volume notifications; Service Bus is for business messages.",
+    "reference": "../../03-connect-consume/event-grid/README.md#6-event-grid-vs-service-bus-vs-event-hubs"
+  },
+  {
+    "id": "event-grid-018",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "A scenario says a Storage account should notify multiple independent systems whenever a blob is created, with each system reacting differently, and no polling loop should be written. Which service best fits?",
+    "choices": [
+      "Event Grid",
+      "Service Bus",
+      "Event Hubs",
+      "Azure SQL Database change tracking"
+    ],
+    "answer": [0],
+    "explanation": "Event Grid's push-based pub/sub model fans a single event out to many independent subscribers, each with its own handler - exactly the 'react to something that happened, no polling' scenario.",
+    "reference": "../../03-connect-consume/event-grid/README.md#6-event-grid-vs-service-bus-vs-event-hubs"
+  },
+  {
+    "id": "event-grid-019",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "Which Azure CLI command creates a custom Event Grid topic?",
+    "choices": [
+      "az eventgrid topic create",
+      "az eventgrid custom-topic create",
+      "az messaging topic create --type eventgrid",
+      "az eventgrid create --kind topic"
+    ],
+    "answer": [0],
+    "explanation": "az eventgrid topic create creates a custom Event Grid topic, with --input-schema selecting cloudeventschemav1_0 or the default Event Grid schema.",
+    "reference": "../../03-connect-consume/event-grid/README.md#cli-setup"
+  },
+  {
+    "id": "event-grid-020",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "Which CLI flag configures the subject-prefix filter when creating an event subscription?",
+    "choices": [
+      "--filter-subject",
+      "--subject-begins-with",
+      "--prefix-filter",
+      "--includedEventTypes"
+    ],
+    "answer": [1],
+    "explanation": "--subject-begins-with (paired with --subject-ends-with for suffix matching) sets the subject filter on `az eventgrid event-subscription create`.",
+    "reference": "../../03-connect-consume/event-grid/README.md#cli-setup"
+  },
+  {
+    "id": "event-grid-021",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "In the Python SDK, which class represents an event in the CloudEvents v1.0 schema when publishing?",
+    "choices": [
+      "EventGridEvent",
+      "CloudEvent",
+      "EventGridPublisherClient",
+      "AzureKeyCredential"
+    ],
+    "answer": [1],
+    "explanation": "azure.core.messaging.CloudEvent is the SDK type for CloudEvents-schema events. EventGridEvent is the older, Event-Grid-schema equivalent. EventGridPublisherClient is the client used to send either type; AzureKeyCredential just wraps the access key.",
+    "reference": "../../03-connect-consume/event-grid/publish_events.py"
+  },
+  {
+    "id": "event-grid-022",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "In a CloudEvent, if you omit the `id` and `time` fields when constructing it in Python, what happens?",
+    "choices": [
+      "The SDK raises a validation error - both are required arguments",
+      "The SDK automatically generates a unique id and sets time to the current UTC timestamp",
+      "Event Grid rejects the publish request at the service level",
+      "The event is published with id and time set to null"
+    ],
+    "answer": [1],
+    "explanation": "The Python SDK's CloudEvent fills in a unique id and the current UTC time automatically when they aren't supplied, so callers only need to set source, type, subject, and data for a typical publish.",
+    "reference": "../../03-connect-consume/event-grid/publish_events.py"
+  },
+  {
+    "id": "event-grid-023",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "What does the `source` field on a CloudEvent represent?",
+    "choices": [
+      "The specific resource instance the event is about, e.g. 'orders/12345'",
+      "Where the event came from - conventionally a URI-like path identifying the publisher",
+      "The Azure region the topic was created in",
+      "The name of the event subscription that will receive it"
+    ],
+    "answer": [1],
+    "explanation": "source identifies WHERE an event came from (the publisher), typically reused across many events from the same app - distinct from subject, which identifies WHICH specific resource the event is about.",
+    "reference": "../../03-connect-consume/event-grid/README.md#2-event-schema--cloudevents-vs-event-grid-schema"
+  },
+  {
+    "id": "event-grid-024",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "An advanced filter is limited to how many per event subscription by default?",
+    "choices": [
+      "5",
+      "10",
+      "25",
+      "Unlimited"
+    ],
+    "answer": [2],
+    "explanation": "An event subscription supports up to 25 advanced filters and 25 filter values in total across those filters, letting you build granular routing logic without a custom relay function.",
+    "reference": "../../03-connect-consume/event-grid/README.md#3-filters--who-gets-which-event"
+  }
+]

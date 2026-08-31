@@ -12,7 +12,7 @@ export interface QuestionBase {
   domain: string; // e.g., "04-secure-monitor"
   topic: string; // e.g., "kql"
   question: string;
-  choices: string[];
+  choices: string[] | BuildListChoice[];
   answer: number[] | string[]; // array of choice indices (0-based) or choice IDs for build-list
   explanation: string;
   reference?: string; // link to topic guide
@@ -23,10 +23,14 @@ export type QuestionType = 'single' | 'multi' | 'build-list';
 
 export interface SingleAnswerQuestion extends QuestionBase {
   type: 'single';
+  choices: string[];
+  answer: number[];
 }
 
 export interface MultiAnswerQuestion extends QuestionBase {
   type: 'multi';
+  choices: string[];
+  answer: number[];
 }
 
 export interface BuildListQuestion extends QuestionBase {
