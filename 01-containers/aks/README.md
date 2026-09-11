@@ -18,8 +18,10 @@ machine runs each container, restarts containers that crash, and scales them up 
 
 Running Kubernetes yourself means operating the **control plane** (the brain: the API server,
 scheduler, etc.) — patching it, making it highly available, securing it. AKS takes that off your
-plate: **Azure runs the control plane for you (for free), and you only pay for the worker VMs**
-that run your containers.
+plate: **Azure operates the control plane**. You pay for node compute and related Azure resources.
+The AKS **Free** management tier has no cluster-management fee and no uptime SLA; **Standard** and
+**Premium** add a management charge and a financially backed uptime SLA, and Premium adds
+long-term Kubernetes support.
 
 Two names you'll see together, and how they differ:
 
@@ -48,8 +50,9 @@ architecture trivia. Expect the exam to:
   (`az aks get-credentials`).
 - Show a broken pod (**ImagePullBackOff**, **CrashLoopBackOff**, **Pending**) and ask **what it
   means** or **which command diagnoses it** (`kubectl describe` / `logs` / `get events`).
-- Test **how AKS pulls images from ACR** (`az aks update --attach-acr` → `AcrPull`) and the
-  symptom when it's missing.
+- Test **how AKS pulls images from ACR**: `--attach-acr` grants `AcrPull` for an RBAC-only
+  registry; an ABAC-enabled registry instead requires a manual **Container Registry Repository
+  Reader** assignment. Missing access commonly appears as `ImagePullBackOff`.
 - Connect to monitoring: **Container Insights** + **Log Analytics/KQL** for cluster logs (see
   [`../../04-secure-monitor/kql/`](../../04-secure-monitor/kql/)).
 
@@ -87,10 +90,10 @@ Cluster                      # the whole AKS resource; Azure runs its control pl
 | **Service** | A **stable** network endpoint (name + virtual IP) in front of a changing set of pods. Pods come and go; the Service name stays. Load-balances across the pods it selects. |
 | **Ingress** | HTTP(S) routing (host/path → Service) with one entry point + TLS. Needs an ingress controller. Think "layer-7 reverse proxy" in front of Services. |
 | **ConfigMap** | **Non-secret** configuration as key-values, injected into pods as env vars or files. |
-| **Secret** | Config for **sensitive** values; stored **base64-encoded** (encoding, *not* strong encryption by default). Injected like a ConfigMap. |
+| **Secret** | Kubernetes object for sensitive values. Manifest/API values are base64-encoded, which is not confidentiality. AKS storage is platform-encrypted at rest; optional Key Vault KMS adds Kubernetes-layer encryption with customer-controlled keys. Restrict Secret access with RBAC and avoid committing Secret manifests. |
 | **Namespace** | A logical partition of the cluster (e.g. `dev`, `prod`) for scoping names and access. |
 | **Probes** | Health checks Kubernetes runs on a container: **liveness** (restart it if this fails) and **readiness** (only send traffic when this passes). |
-| **Requests / limits** | Per-container resource **request** (guaranteed, used for scheduling) and **limit** (hard cap; exceeding memory → **OOMKilled**). |
+| **Requests / limits** | Per-container resource **request** (used by the scheduler and for resource reservation) and **limit** (CPU is throttled; exceeding the memory limit can cause **OOMKilled**). |
 
 **Service types** — this is a classic exam distinction:
 
@@ -111,19 +114,22 @@ Cluster                      # the whole AKS resource; Azure runs its control pl
 kubeconfig**, after which plain `kubectl` commands hit that cluster.
 
 **Pulling images from ACR.** Your container images live in **Azure Container Registry (ACR)**.
-For the cluster to pull them, its **managed identity** needs the **`AcrPull`** role.
-`az aks update --attach-acr <acr>` grants exactly that — **no `imagePullSecrets` needed** in your
-manifests. If ACR isn't attached, pods fail with **ImagePullBackOff / ErrImagePull**.
+For an ACR in **RBAC Registry Permissions** mode, the AKS kubelet managed identity needs
+**`AcrPull`**. `az aks update --attach-acr <acr>` grants it — no `imagePullSecrets` needed in
+manifests. The shortcut is unsupported for an ACR in **RBAC Registry + ABAC Repository
+Permissions** mode; manually grant **Container Registry Repository Reader** instead. Missing
+access can produce **ImagePullBackOff / ErrImagePull**.
 
 **Identity & security (brief).** AKS integrates with **Microsoft Entra ID** for cluster
-authentication, uses a **managed identity** for the cluster's own Azure calls (like the ACR
-pull above), and supports **workload identity** so a *pod* can get an Entra token to call Azure
-services (Key Vault, Storage) without stored secrets.
+authentication. The control plane and kubelet use distinct managed identities; the **kubelet
+identity** pulls images from ACR. **Workload identity** lets a *pod* get an Entra token to call
+Azure services such as Key Vault or Storage without storing credentials.
 
-**Monitoring.** **Container Insights** (Azure Monitor for containers) collects node/pod metrics
-and **stdout/stderr logs** into a **Log Analytics workspace**, which you then query with **KQL**
-(see [`../../04-secure-monitor/kql/`](../../04-secure-monitor/kql/)). `kubectl logs` shows *live*
-logs from a running pod; Container Insights **retains** them (and survives pod restarts).
+**Monitoring.** **Container Insights** collects node/pod telemetry and can collect container
+**stdout/stderr logs** into a **Log Analytics workspace**, which you query with **KQL** (see
+[`../../04-secure-monitor/kql/`](../../04-secure-monitor/kql/)). `kubectl logs` reads the current
+container log (or one previous instance with `--previous`); collected `ContainerLogV2` records
+remain queryable according to the workspace's retention settings.
 
 ---
 
@@ -138,7 +144,7 @@ so you have somewhere to `kubectl apply` a workload.
 
 > **Two methods available:**
 > - **[CLI](#cli-setup)** — Copy-paste commands below (requires [Azure CLI](https://learn.microsoft.com/cli/azure/))
-> - **[Azure Portal (Web UI)](#portal-setup)** — Point-and-click in your browser
+> - **[Azure Portal (Web UI)](#portal-setup-web-ui)** — Point-and-click in your browser
 
 ### Set your variables
 
@@ -226,12 +232,18 @@ Replace the `<placeholders>`.
 az group create --name "$RG" --location "$LOCATION"
 
 # 2. Create an Azure Container Registry to hold your images (Basic tier is fine for study).
-az acr create --resource-group "$RG" --name "$ACR" --sku Basic
+#    Explicit RBAC-only permission mode makes --attach-acr/AcrPull valid; ABAC-enabled
+#    registries require a manual Container Registry Repository Reader assignment instead.
+az acr create \
+  --resource-group "$RG" \
+  --name "$ACR" \
+  --sku Basic \
+  --role-assignment-mode rbac
 
 # 3. Create the AKS cluster.
 #    --node-count 2         -> two worker VMs in the default node pool
 #    --generate-ssh-keys    -> make SSH keys for the nodes if you don't have them
-#    --attach-acr "$ACR"    -> grant the cluster's managed identity AcrPull on that registry NOW
+#    --attach-acr "$ACR"    -> grant the kubelet managed identity AcrPull on that registry NOW
 #                              (so image pulls work without imagePullSecrets)
 #    --enable-addons monitoring -> turn on Container Insights (logs/metrics to Log Analytics)
 #    This takes a few minutes — Azure is provisioning VMs + wiring the control plane.
@@ -264,9 +276,9 @@ az aks update --resource-group "$RG" --name "$CLUSTER" --attach-acr "$ACR"
 > | Resource group | Created by | Holds |
 > | --- | --- | --- |
 > | **your RG** (e.g. `ai200-rg`) | **you** (`az group create`) | The **managed cluster** resource — the handle `kubectl` and `az aks` talk to. Put *your own* resources (ACR, Key Vault) here too. |
-> | **`MC_<rg>_<cluster>_<region>`** | AKS, automatically | The cluster's **infrastructure**: node VMs (a VM Scale Set), disks, load balancer, public IP, node managed identity. Azure owns this — **don't hand-edit or add to it**. |
-> | **`DefaultResourceGroup-<region>`** | the `--enable-addons monitoring` flag | A default **Log Analytics workspace** that Container Insights ships logs/metrics to. |
-> | **`NetworkWatcherRG`** | Azure, automatically | One `NetworkWatcher`, created **once per region per subscription** the first time any networking resource appears. Not AKS-specific. |
+> | **`MC_<rg>_<cluster>_<region>`** | AKS, automatically | The cluster's **infrastructure**: node VMs (a VM Scale Set), disks, load balancer, public IP, and supporting identities. Azure owns this — **don't hand-edit or add to it**. |
+> | **Log Analytics workspace RG** | the `--enable-addons monitoring` flag, when you don't supply a workspace | A default **Log Analytics workspace** that Container Insights ships logs/metrics to. Generated resource-group and workspace names can vary; query the cluster instead of hard-coding them. |
+> | **Network Watcher resource group** | Azure, automatically when Network Watcher is enabled | Regional `NetworkWatcher` resources used by Azure networking. This group is shared and not AKS-specific. |
 >
 > The key split to understand (and a common exam-adjacent fact): your cluster's *object* lives in
 > **your** RG, but the *machines that run your pods* live in the separate **`MC_…` node resource
@@ -303,8 +315,8 @@ Prefer the browser? Create the same cluster in the [Azure Portal](https://portal
 
 A **Deployment** manages your app's pods; a **Service** of type **LoadBalancer** gives it a
 public IP. The complete manifest for a tiny web app lives next to this guide in
-[`webapp.yaml`](./webapp.yaml). It bundles five objects (Namespace, ConfigMap, Secret,
-Deployment, Service) separated by `---`, and matches the workload `app.py` later inspects
+[`webapp.yaml`](./webapp.yaml). It bundles four objects (Namespace, ConfigMap, Deployment,
+Service) separated by `---`, and matches the workload `app.py` later inspects
 (namespace `demo`, deployment `webapp`, container port `8080`).
 
 The manifest's `image:` line is a placeholder (`<acr-login-server>/webapp:v1`) — Kubernetes can't
@@ -359,12 +371,13 @@ kubectl rollout undo deployment/webapp -n demo
 
 ## Cleanup
 
-Goal: delete the resources created above to stop paying for the node VMs (the control plane is
-free, but the worker VMs and the public LoadBalancer IP are not).
+Goal: delete the resources created above to stop paying for node VMs and networking. The
+**Free management tier** has no cluster-management charge; Standard and Premium do. Worker VMs
+and other Azure resources are billed on every tier.
 
 > **Two methods available:**
 > - **[CLI](#cli-cleanup)** — Copy-paste commands below
-> - **[Azure Portal (Web UI)](#portal-cleanup)** — Point-and-click
+> - **[Azure Portal (Web UI)](#portal-cleanup-web-ui)** — Point-and-click
 
 ### CLI Cleanup
 
@@ -379,10 +392,15 @@ kubectl delete namespace demo
 # Delete just the AKS cluster (leaves the resource group + ACR)...
 az aks delete --resource-group "$RG" --name "$CLUSTER" --yes --no-wait
 
-# ...or delete the whole resource group and everything in it (cluster, ACR, Log Analytics).
+# ...or delete the whole resource group and everything in it (cluster and ACR).
 # '--yes' skips confirmation; '--no-wait' returns without waiting for completion.
 az group delete --name "$RG" --yes --no-wait
 ```
+
+> If AKS created a default Log Analytics workspace in a separate resource group, deleting
+> `"$RG"` does **not** delete that workspace. In the portal, open the cluster's **Insights**
+> settings first (or query its monitoring add-on profile) to identify and remove a study-only
+> workspace separately. Do not blindly delete shared monitoring or Network Watcher resources.
 
 > **Note:** A `LoadBalancer` Service creates an **Azure Load Balancer + public IP** that bill
 > separately. Deleting the Service (or the namespace/cluster) releases them — don't leave an
@@ -406,7 +424,7 @@ az group delete --name "$RG" --yes --no-wait
 `app.py` is a **programmatic troubleshooting tool** built on the official **`kubernetes`** Python
 client. It's the SDK mirror of the `kubectl get pods` → `describe` → `logs` loop you'd run by
 hand: it lists pods in a namespace, flags the unhealthy ones, and for each prints its **recent
-events** and **last log lines** — then lists **Services and their endpoints** to sanity-check
+events** and **last log lines** — then lists **Services and their EndpointSlices** to sanity-check
 connectivity. In other words, it automates "why is this pod broken?"
 
 > New to Python? [`app.py`](app.py) is **heavily commented** — every non-trivial line explains
@@ -500,20 +518,21 @@ kubectl logs <pod-name> -n demo -p              # -p = PREVIOUS container (vital
 kubectl logs <pod-name> -n demo -c <container>  # -c = pick a container in a multi-container pod
 ```
 
-**5. Check connectivity — Service, its endpoints, and a live curl from inside a pod:**
+**5. Check connectivity — Service, its EndpointSlices, and a request from inside a pod:**
 
 ```bash
 # Does the Service exist and have an external IP (LoadBalancer)?
 kubectl get service webapp -n demo
 
-# ENDPOINTS is the list of healthy pod IPs behind the Service.
+# EndpointSlices contain the healthy pod IPs behind the Service.
 # EMPTY endpoints = the selector matches no READY pods (bad label or failing readiness probe)
 # -> this is the classic "Service returns nothing" cause.
-kubectl get endpoints webapp -n demo
+kubectl get endpointslices -n demo -l kubernetes.io/service-name=webapp
 
-# Exec INTO a running pod and curl the Service by NAME (tests in-cluster DNS + routing).
+# Exec INTO a demo pod and use BusyBox wget to call the Service by NAME.
+# This tests in-cluster DNS + routing; the nginx:alpine image doesn't include curl.
 # 'webapp.demo.svc.cluster.local' is the Service's DNS name; 'webapp' works within the namespace.
-kubectl exec -it <pod-name> -n demo -- curl -s http://webapp.demo:80/
+kubectl exec <pod-name> -n demo -- wget -qO- http://webapp.demo:80/
 ```
 
 **6. Common pod states and what they mean** (know these cold — the exam asks by symptom):
@@ -521,7 +540,7 @@ kubectl exec -it <pod-name> -n demo -- curl -s http://webapp.demo:80/
 | STATUS | Meaning | First thing to check |
 | --- | --- | --- |
 | **Pending** | Can't be **scheduled** — no node has enough CPU/memory, or a constraint can't be met | `kubectl describe pod` → Events (FailedScheduling); node capacity / requests |
-| **ImagePullBackOff** / **ErrImagePull** | Can't **pull the image** — wrong name/tag, or registry auth missing | Image name/tag; **is ACR attached?** (`az aks update --attach-acr`) |
+| **ImagePullBackOff** / **ErrImagePull** | Can't **pull the image** — wrong name/tag, network failure, or registry authorization missing | Check image/tag and network; for RBAC-only ACR, verify kubelet `AcrPull`; for ABAC ACR, verify Repository Reader. |
 | **CrashLoopBackOff** | Container **starts then exits repeatedly** — app crashes on boot, bad config, failing liveness probe | `kubectl logs <pod> -p` (previous run); env/ConfigMap/Secret |
 | **OOMKilled** | Container exceeded its **memory `limit`** and was killed | Raise the memory limit or fix the leak; `describe` → Last State |
 | **Running** but not **Ready** | Container is up but its **readiness probe** fails → excluded from the Service | Probe path/port; the app's health endpoint |
@@ -532,7 +551,7 @@ kubectl exec -it <pod-name> -n demo -- curl -s http://webapp.demo:80/
 # Confirm nodes are healthy (a NotReady node can strand pods in Pending).
 kubectl get nodes
 
-# The classic fix when pods are ImagePullBackOff because ACR wasn't attached:
+# For an RBAC-only ACR, grant the kubelet identity AcrPull if it wasn't attached:
 az aks update --resource-group ai200-rg --name ai200-aks --attach-acr ai200acr123
 
 # Re-pull cluster credentials if kubectl auth is stale/expired.
@@ -542,8 +561,9 @@ az aks get-credentials --resource-group ai200-rg --name ai200-aks --overwrite-ex
 az aks show --resource-group ai200-rg --name ai200-aks --query "{state:provisioningState,version:kubernetesVersion}" -o table
 ```
 
-**8. Query retained logs with KQL (Container Insights).** `kubectl logs` only shows *live* pod
-output; **Container Insights** ships stdout/stderr to Log Analytics where it survives restarts.
+**8. Query retained logs with KQL (Container Insights).** `kubectl logs` reads a current
+container, or one terminated instance with `--previous`; **Container Insights** ships
+stdout/stderr to Log Analytics where records can remain searchable across restarts.
 In **Log Analytics → Logs**, run KQL (see [`../../04-secure-monitor/kql/`](../../04-secure-monitor/kql/)):
 
 ```kusto
@@ -567,9 +587,11 @@ ContainerLogV2
 - **LoadBalancer = external IP.** Only a **`LoadBalancer`** (or an Ingress) exposes an app to the
   internet with a public IP. **ClusterIP** (the default) is *internal-only*; **NodePort** is
   rarely the intended answer.
-- **ImagePullBackOff → attach ACR.** The cluster's managed identity needs **`AcrPull`**. Fix with
-  `az aks update --attach-acr <acr>` — **no `imagePullSecrets`** required. Also check the image
-  name/tag.
+- **ImagePullBackOff → grant registry read access.** For an RBAC-only ACR, the kubelet managed
+  identity needs **`AcrPull`** and `az aks update --attach-acr <acr>` assigns it. For an
+  ABAC-enabled ACR, manually grant **Container Registry Repository Reader** because
+  `--attach-acr` is unsupported. No `imagePullSecrets` are needed in either managed-identity
+  path. Also check the image name/tag.
 - **CrashLoopBackOff ≠ ImagePullBackOff.** CrashLoop = the image pulled fine but the **container
   keeps exiting** (app error / bad config / failing liveness probe) → read logs with **`-p`**.
   ImagePull = it never started because the **image couldn't be fetched**.
@@ -578,15 +600,18 @@ ContainerLogV2
 - **Readiness vs liveness probe.** **Readiness** gates *traffic* (fail → removed from the
   Service's endpoints, pod keeps running). **Liveness** gates *life* (fail → container
   **restarted**). Empty Service endpoints often mean readiness is failing.
-- **ConfigMap vs Secret.** Non-secret config → **ConfigMap**. Sensitive values → **Secret**
-  (base64-encoded, *not* encrypted by default). Don't put passwords in a ConfigMap.
+- **ConfigMap vs Secret.** Non-secret config → **ConfigMap**. Sensitive values → **Secret**.
+  Base64 in the Kubernetes API is only an encoding, while AKS also applies Azure platform
+  encryption at rest. Restrict Secret access with Kubernetes RBAC; use Key Vault and workload
+  identity when the design calls for centrally managed secrets.
 - **`get-credentials` is what makes `kubectl` work.** Without `az aks get-credentials`, your
   kubeconfig doesn't know the cluster. It *merges* creds — it doesn't create the cluster.
-- **`kubectl logs` is live-only.** For retained/searchable logs use **Container Insights + KQL**
-  in Log Analytics. A restarted pod's old logs are gone from `kubectl logs` (except `-p`, one
-  restart back).
-- **AKS control plane is free; nodes are not.** You pay for the node-pool VMs (and any
-  LoadBalancer IP), not the managed control plane.
+- **`kubectl logs` is short-lived.** It reads the current container, and `-p` can read one
+  previous terminated instance. For retained/searchable logs use **Container Insights + KQL**
+  in Log Analytics.
+- **Only the Free management tier has no management fee.** Standard and Premium add a
+  cluster-management charge and uptime SLA. Node-pool VMs and related Azure resources are billed
+  on every tier.
 
 ---
 

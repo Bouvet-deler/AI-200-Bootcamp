@@ -20,15 +20,15 @@
     "domain": "01-containers",
     "topic": "app-service-containers",
     "type": "single",
-    "question": "How many containers can a single Azure App Service web app run?",
+    "question": "Which statement accurately describes containers in a modern Linux Azure App Service app?",
     "choices": [
-      "One container per app",
-      "Multiple containers in a pod",
-      "Unlimited containers per app",
-      "Up to 5 containers per app"
+      "It can run one classic custom container, or one main container with optional sidecars when sidecar support is enabled",
+      "It always runs an arbitrary Kubernetes Pod manifest",
+      "It can run unlimited main containers that each receive public HTTP traffic",
+      "It can only run Windows containers"
     ],
     "answer": [0],
-    "explanation": "App Service runs exactly one container per web app. For multi-container workloads, you need Azure Container Apps or AKS. App Service is designed for single-container web apps and APIs.",
+    "explanation": "A classic custom-container app has one container. A Linux app configured for App Service sidecars has one main container and optional sidecars that share the app lifecycle and scale together. This is App Service configuration, not a Kubernetes Pod API.",
     "reference": "../../01-containers/app-service-containers/README.md#core-concepts"
   },
   {
@@ -44,15 +44,15 @@
       "Premium (P1)"
     ],
     "answer": [2],
-    "explanation": "Linux containers are NOT supported on Free or Basic tiers. Standard (S1) is the minimum tier that supports Linux containers AND deployment slots. Basic tiers lack both Linux container support and deployment slots.",
-    "reference": "../../01-containers/app-service-containers/README.md#app-service-plans-the-compute-behind-your-container"
+    "explanation": "Standard (S1) is the minimum tier that supports both a Linux custom container and deployment slots. Basic can host a Linux custom container, but it does not include deployment slots.",
+    "reference": "../../01-containers/app-service-containers/README.md#app-service-plans--the-compute-behind-your-container"
   },
   {
     "id": "app-service-containers-004",
     "domain": "01-containers",
     "topic": "app-service-containers",
     "type": "single",
-    "question": "Which setting MUST match between your container and the App Service configuration?",
+    "question": "For a classic App Service custom container, which setting must match the port on which the process actually listens?",
     "choices": [
       "The container name",
       "The startup command",
@@ -60,7 +60,7 @@
       "The Dockerfile location"
     ],
     "answer": [2],
-    "explanation": "The Port setting in App Service MUST match the port your container actually listens on. App Service does NOT auto-detect the port from the image. Mismatched ports result in 502 Bad Gateway errors.",
+    "explanation": "For a classic custom container, App Service assumes port 80 unless the WEBSITES_PORT app setting specifies another listening port. App Service does not infer this from Dockerfile EXPOSE; a mismatch commonly results in a 502/startup failure.",
     "reference": "../../01-containers/app-service-containers/README.md#container-specific-settings"
   },
   {
@@ -68,7 +68,7 @@
     "domain": "01-containers",
     "topic": "app-service-containers",
     "type": "single",
-    "question": "What role does an App Service app's managed identity need on Azure Container Registry to pull images?",
+    "question": "For an Azure Container Registry using RBAC Registry Permissions, what role does an App Service app's managed identity need to pull images?",
     "choices": [
       "AcrPush",
       "AcrPull",
@@ -76,7 +76,7 @@
       "Reader"
     ],
     "answer": [1],
-    "explanation": "The app's system-assigned managed identity needs the AcrPull role on the ACR to pull images. AcrPush is for pushing images (CI/CD pipelines); AcrDelete is for deleting images; Reader is for viewing registry metadata but not pulling images.",
+    "explanation": "On an ACR using RBAC Registry Permissions, the app's managed identity needs AcrPull. AcrPush is for pushing images (CI/CD pipelines); AcrDelete is for deleting images; Reader is for viewing registry metadata but not pulling images. An ABAC-enabled registry uses Container Registry Repository Reader instead.",
     "reference": "../../01-containers/app-service-containers/README.md#managed-identity-and-acr-pull-permissions"
   },
   {
@@ -139,8 +139,8 @@
       "It is stopped and replaced by a new container from the new image",
       "It is moved to the staging slot"
     ],
-    "answer": [2],
-    "explanation": "When you swap slots, App Service moves the entire configuration (container image reference + all settings) from the source slot to production. The old production container is NOT restarted — a new container is started from the new image. This ensures zero downtime for the swap, but the app's startup time still applies.",
+    "answer": [3],
+    "explanation": "A swap exchanges the slots' non-sticky app content and settings. The previous production version therefore becomes the staging version, which gives you a convenient rollback path. Settings marked as deployment-slot settings stay with their slot.",
     "reference": "../../01-containers/app-service-containers/README.md#deployment-slots-for-containers"
   },
   {
@@ -150,13 +150,13 @@
     "type": "single",
     "question": "What is the CLI command to create an App Service web app from a container image?",
     "choices": [
-      "az webapp create --name <app> --deploy-container-image-name <image>",
-      "az webapp deploy --image <image> --name <app>",
+      "az webapp create --resource-group <rg> --plan <plan> --name <app> --container-image-name <image>",
+      "az webapp create --resource-group <rg> --plan <plan> --name <app> --deploy-container-image-name <image>",
       "az container create --app-name <app> --image <image>",
       "az appservice webapp new --container-image <image>"
     ],
     "answer": [0],
-    "explanation": "The correct command is `az webapp create` with the `--deploy-container-image-name` parameter (or `--runtime CONTAINER|<image>`). The other options are not valid Azure CLI commands for this purpose.",
+    "explanation": "Use `az webapp create` with the resource group, App Service plan, app name, and current `--container-image-name` option. `--deployment-container-image-name` is a deprecated option with a different spelling; `--deploy-container-image-name` is not valid.",
     "reference": "../../01-containers/app-service-containers/README.md#cli-setup"
   },
   {
@@ -172,7 +172,7 @@
       "Container exits with code 137"
     ],
     "answer": [2],
-    "explanation": "When the App Service app's managed identity lacks the AcrPull role on ACR, the container cannot pull the image, resulting in an 'Image pull failed' or 'Unauthorized' error in the logs. 502 errors are typically due to port mismatches; 404 is not applicable; exit code 137 is an OOM kill.",
+    "explanation": "On an ACR using RBAC Registry Permissions, a managed identity without AcrPull cannot pull the image, resulting in an 'Image pull failed' or 'Unauthorized' error in the logs. An ABAC-enabled registry instead needs Container Registry Repository Reader. 502 errors are typically due to port mismatches; 404 is not applicable; exit code 137 is an OOM kill.",
     "reference": "../../01-containers/app-service-containers/README.md#managed-identity-and-acr-pull-permissions"
   },
   {
@@ -214,13 +214,13 @@
     "type": "single",
     "question": "How do you enable automatic updates when the container image tag changes in ACR?",
     "choices": [
-      "Set the container tag to 'latest' and enable Continuous Deployment",
-      "Configure a webhook in ACR to trigger App Service",
+      "Use only the 'latest' tag; tags update themselves",
+      "Enable Continuous Deployment, which configures registry notification for the configured image tag",
       "Use az acr task create with an App Service trigger",
       "Set auto-update=true in the container configuration"
     ],
-    "answer": [0],
-    "explanation": "Enable Continuous Deployment (CI/CD) on the App Service app and ensure the container image uses a tag like 'latest'. This tells App Service to watch the registry and auto-pull when the tag is updated. The CLI command is `az webapp deployment container config --enable-ci true`.",
+    "answer": [1],
+    "explanation": "Enable Continuous Deployment for the container image; App Service uses registry notification to restart/pull when the configured tag is updated. The tag can be a deliberate version tag as well as `latest`; using `latest` alone does not create updates.",
     "reference": "../../01-containers/app-service-containers/README.md#container-specific-settings"
   },
   {
@@ -265,10 +265,10 @@
       "Requires Kubernetes knowledge",
       "Supports custom domains and TLS",
       "Has ephemeral filesystem by default",
-      "Supports multi-container pods"
+      "Can run sidecars with explicit sidecar support on Linux"
     ],
-    "answer": [1, 2],
-    "explanation": "App Service containers support custom domains and TLS (with appropriate certificates). The filesystem is ephemeral by default — use Azure Files for persistence. However, App Service does NOT require Kubernetes knowledge (that's AKS) and does NOT support multi-container pods (that's Container Apps or AKS).",
+    "answer": [1, 2, 3],
+    "explanation": "App Service does not require Kubernetes knowledge, supports custom domains/TLS, and has an ephemeral container filesystem outside its persistent storage path. A sidecar-enabled Linux app can also run a main container plus sidecars, but that is not a Kubernetes Pod model.",
     "reference": "../../01-containers/app-service-containers/README.md#what-changes-with-containers"
   },
   {
@@ -276,7 +276,7 @@
     "domain": "01-containers",
     "topic": "app-service-containers",
     "type": "single",
-    "question": "Which command grants an App Service app permission to pull from ACR?",
+    "question": "For an ACR using RBAC Registry Permissions, which command grants an App Service app permission to pull images?",
     "choices": [
       "az webapp update --attach-acr <acr>",
       "az role assignment create --assignee <principal> --role AcrPull --scope <acr-id>",
@@ -284,7 +284,55 @@
       "az appservice identity assign --name <app> --role AcrPull"
     ],
     "answer": [1],
-    "explanation": "The correct command is `az role assignment create` to assign the AcrPull role to the app's managed identity. Note that `az webapp create` with a container image often auto-grants AcrPull, but the manual method uses role assignment.",
+    "explanation": "For an RBAC-only registry, assign AcrPull to the identity selected for registry authentication, scoped to the registry. Creating a web app and enabling its identity does not by itself grant that registry data-plane permission. An ABAC-enabled registry uses Container Registry Repository Reader instead.",
+    "reference": "../../01-containers/app-service-containers/README.md#managed-identity-and-acr-pull-permissions"
+  },
+  {
+    "id": "app-service-containers-019",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "A container listens on port 8080 in a classic Linux App Service app and returns 502 errors after deployment. What is the most direct configuration fix?",
+    "choices": [
+      "Set the WEBSITES_PORT app setting to 8080",
+      "Add EXPOSE 8080 to the Dockerfile only",
+      "Create a Kubernetes Service of type LoadBalancer",
+      "Assign Contributor on the App Service plan"
+    ],
+    "answer": [0],
+    "explanation": "Classic App Service custom containers default to port 80. Set WEBSITES_PORT to the actual listening port; Dockerfile EXPOSE is not enough for App Service routing.",
+    "reference": "../../01-containers/app-service-containers/README.md#container-specific-settings"
+  },
+  {
+    "id": "app-service-containers-020",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "single",
+    "question": "Which setting continues to belong to its deployment slot rather than swapping to production?",
+    "choices": [
+      "A setting marked as a deployment slot setting",
+      "Every container image tag",
+      "Every non-sticky app setting",
+      "All application code"
+    ],
+    "answer": [0],
+    "explanation": "Settings marked as deployment slot settings are sticky: they remain with their slot during a swap. This lets staging keep its own endpoint, secret, or configuration value while app content is promoted.",
+    "reference": "../../01-containers/app-service-containers/README.md#deployment-slots-for-containers"
+  },
+  {
+    "id": "app-service-containers-021",
+    "domain": "01-containers",
+    "topic": "app-service-containers",
+    "type": "multi",
+    "question": "An App Service app pulls a private image from an ACR using RBAC Registry Permissions with a system-assigned managed identity. Which actions are required? (Select all that apply)",
+    "choices": [
+      "Enable the system-assigned identity on the web app",
+      "Grant that identity AcrPull on the registry",
+      "Configure the app to use the selected managed identity for registry authentication",
+      "Put an ACR admin password in the image Dockerfile"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "For an RBAC-only registry, the identity must exist, have AcrPull at the registry scope, and be selected for registry authentication. Keeping a registry password out of the image avoids both a secret leak and an unnecessary credential. An ABAC-enabled registry needs Container Registry Repository Reader instead of AcrPull.",
     "reference": "../../01-containers/app-service-containers/README.md#managed-identity-and-acr-pull-permissions"
   }
 ]

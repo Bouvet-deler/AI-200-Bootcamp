@@ -19,6 +19,7 @@
 # ---------------------------------------------------------------------------
 
 import os  # 'import' loads a module (a library). 'os' lets us read environment variables.
+from datetime import datetime, timezone  # Used to sort Kubernetes events by their real timestamps.
 
 # `from X import y, z` pulls just the named things into scope.
 #   - client : the classes/enums that build requests and hold responses.
@@ -42,8 +43,12 @@ NAMESPACE = os.environ.get("K8S_NAMESPACE", "default")
 # (Inside a pod you'd instead call config.load_incluster_config().)
 config.load_kube_config()
 
-# CoreV1Api is the client for "core" objects: Pods, Services, Endpoints, Events, Namespaces.
+# CoreV1Api is the client for "core" objects: Pods, Services, Events, and Namespaces.
 core = client.CoreV1Api()
+
+# DiscoveryV1Api reads EndpointSlice objects. EndpointSlice is the current scalable replacement
+# for the legacy Endpoints API, and shows which ready pod addresses back each Service.
+discovery = client.DiscoveryV1Api()
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +81,11 @@ def is_pod_healthy(pod) -> bool:
     """
     # pod.status.phase is a high-level state string: Pending / Running / Succeeded / Failed.
     phase = pod.status.phase
-    if phase in ("Pending", "Failed", "Unknown"):
+    # A pod belonging to a completed Job is healthy even though its terminated containers are no
+    # longer "ready". For a long-running workload, only Running is a healthy phase.
+    if phase == "Succeeded":
+        return True
+    if phase != "Running":
         return False
 
     # Even a "Running" pod can hide a broken container (e.g. CrashLoopBackOff), so inspect
@@ -120,10 +129,8 @@ def total_restarts(pod) -> int:
 def print_recent_events_for_pod(pod_name: str) -> None:
     """Print the cluster events tied to one pod — the 'why did it fail' info from `describe`."""
     try:
-        # list_namespaced_event returns ALL events in the namespace; there's no server-side
-        # filter by pod name in this call, so we filter client-side with a field_selector.
         # A field_selector limits results server-side by object fields — here, events whose
-        # involvedObject.name is our pod.
+        # involvedObject.name is our pod, rather than transferring every namespace event.
         events = core.list_namespaced_event(
             namespace=NAMESPACE,
             field_selector=f"involvedObject.name={pod_name}",
@@ -134,8 +141,20 @@ def print_recent_events_for_pod(pod_name: str) -> None:
         print(f"          (could not read events: {exc.status} {exc.reason})")
         return
 
-    # events.items is the list of Event objects. Show the last few (most recent are at the end).
-    recent = events.items[-5:]  # [-5:] is "the last 5 items" (a list slice).
+    # The API does not promise chronological order. Pick each event's newest available timestamp,
+    # sort descending, then slice the first five. A timezone-aware minimum keeps missing timestamps
+    # comparable with the timezone-aware values returned by the client.
+    minimum_time = datetime.min.replace(tzinfo=timezone.utc)
+    recent = sorted(
+        events.items,
+        key=lambda event: (
+            event.event_time
+            or event.last_timestamp
+            or event.metadata.creation_timestamp
+            or minimum_time
+        ),
+        reverse=True,
+    )[:5]
     if not recent:
         print("          (no events)")
         return
@@ -145,17 +164,24 @@ def print_recent_events_for_pod(pod_name: str) -> None:
         print(f"          • {ev.reason} — {ev.message}")
 
 
-def print_last_logs_for_pod(pod_name: str) -> None:
-    """Print the last log lines from a pod (like `kubectl logs <pod> --tail=10`)."""
+def print_container_logs(
+    pod_name: str,
+    container_name: str,
+    *,
+    previous: bool,
+) -> None:
+    """Print one container's current or previous logs without aborting the inspection."""
     try:
         # read_namespaced_pod_log fetches the container's stdout/stderr.
         #   tail_lines=10  -> only the last 10 lines (keeps output short).
-        #   previous=False -> the CURRENT container. For CrashLoopBackOff, set previous=True
-        #                     to read the crashed run's logs (the SDK equivalent of `logs -p`).
+        #   container      -> required when a pod has more than one container.
+        #   previous       -> True reads the last terminated instance (`kubectl logs -p`).
         logs = core.read_namespaced_pod_log(
             name=pod_name,
             namespace=NAMESPACE,
             tail_lines=10,
+            container=container_name,
+            previous=previous,
         )
     except ApiException as exc:
         # A common case: 400 "container ... is waiting to start" — the container never ran,
@@ -171,6 +197,28 @@ def print_last_logs_for_pod(pod_name: str) -> None:
     for line in lines:
         # 10-space indent so the raw log lines sit neatly under the divider above.
         print(f"          {line}")
+
+
+def print_last_logs_for_pod(pod) -> None:
+    """Print useful logs for every container, including a crashed previous instance."""
+    # Build a dictionary so a container name quickly maps to its restart count. A dictionary
+    # comprehension is Python's compact "one key/value entry for each item" syntax.
+    restart_counts = {
+        status.name: status.restart_count
+        for status in (pod.status.container_statuses or [])
+    }
+
+    # `pod.spec.containers` contains every regular application container in the pod.
+    for container_spec in pod.spec.containers:
+        container_name = container_spec.name
+        print(f"          [{container_name}: current]")
+        print_container_logs(pod.metadata.name, container_name, previous=False)
+
+        # If Kubernetes restarted this container, the previous log is often the only record of
+        # the crash that caused CrashLoopBackOff. The API retains at most one previous instance.
+        if restart_counts.get(container_name, 0) > 0:
+            print(f"          [{container_name}: previous]")
+            print_container_logs(pod.metadata.name, container_name, previous=True)
 
 
 def inspect_pods() -> int:
@@ -213,7 +261,7 @@ def inspect_pods() -> int:
             print_divider("recent events")
             print_recent_events_for_pod(name)
             print_divider("last log lines")
-            print_last_logs_for_pod(name)
+            print_last_logs_for_pod(pod)
 
     # A one-line tally so you immediately know how bad things are, without re-scanning.
     total = len(pods.items)
@@ -224,7 +272,7 @@ def inspect_pods() -> int:
 
 
 def inspect_services() -> None:
-    """List Services and their endpoints — sanity-checks end-to-end connectivity."""
+    """List Services and their ready EndpointSlice addresses for connectivity checks."""
     print_header(f"Services in namespace '{NAMESPACE}'")
     try:
         services = core.list_namespaced_service(namespace=NAMESPACE)
@@ -250,20 +298,28 @@ def inspect_services() -> None:
         print()  # blank line before each service => its own visual block
         print(f"  {svc_name}   type={svc_type}   external-ip={external_ip}")
 
-        # ENDPOINTS = the healthy pod IPs behind the Service. EMPTY endpoints is the classic
-        # "Service returns nothing" cause: the selector matches no READY pods (bad label or
-        # a failing readiness probe). read_namespaced_endpoints is the SDK's `kubectl get endpoints`.
+        # EndpointSlices contain the pod addresses behind a Service. An empty result is the
+        # classic "Service returns nothing" symptom: no ready pod matches the Service selector.
+        # The standard label below links each EndpointSlice to its owning Service.
         try:
-            endpoints = core.read_namespaced_endpoints(name=svc_name, namespace=NAMESPACE)
+            endpoint_slices = discovery.list_namespaced_endpoint_slice(
+                namespace=NAMESPACE,
+                label_selector=f"kubernetes.io/service-name={svc_name}",
+            )
         except ApiException as exc:
-            print(f"      (could not read endpoints: {exc.status} {exc.reason})")
+            print(f"      (could not read EndpointSlices: {exc.status} {exc.reason})")
             continue  # skip to the next service
 
-        # Collect every ready address across all endpoint subsets into a flat list.
+        # Collect every ready address across all slices into one flat list. `ready=None` means
+        # "unknown" and, by Kubernetes convention, is treated as ready for Service routing.
         addresses = []
-        for subset in endpoints.subsets or []:
-            for addr in subset.addresses or []:
-                addresses.append(addr.ip)
+        for endpoint_slice in endpoint_slices.items:
+            for endpoint in endpoint_slice.endpoints:
+                if endpoint.conditions.ready is not False:
+                    addresses.extend(endpoint.addresses)
+
+        # A set removes duplicates, and sorted() makes repeated runs deterministic to compare.
+        addresses = sorted(set(addresses))
 
         if addresses:
             print(f"      endpoints ({len(addresses)}): {', '.join(addresses)}")

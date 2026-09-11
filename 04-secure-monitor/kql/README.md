@@ -58,26 +58,34 @@ operators cold.
 
 ## Core concepts
 
-KQL data is organized into **tables** (rows and columns, like SQL). Common Application
-Insights tables:
+KQL data is organized into **tables** (rows and columns, like SQL). Application Insights exposes
+two naming schemas depending on query scope. This guide opens **Application Insights → Logs**, so
+its worked queries use the application-scoped names on the left:
 
-| Table | Holds |
-| --- | --- |
-| `requests` | Incoming HTTP requests to your app (name, duration, result code, success). |
-| `dependencies` | Outbound calls your app made (to a DB, another API…). |
-| `exceptions` | Unhandled/handled exceptions with type + stack. |
-| `traces` | Your own log lines (`logging.info(...)` etc.), each with a `severityLevel`. |
-| `customEvents` | Custom named events you track. |
+| Telemetry | Application Insights scope | Log Analytics workspace scope |
+| --- | --- | --- |
+| Incoming requests | `requests` | `AppRequests` |
+| Outbound calls | `dependencies` | `AppDependencies` |
+| Exceptions | `exceptions` | `AppExceptions` |
+| Application logs | `traces` | `AppTraces` |
+| Custom events | `customEvents` | `AppEvents` |
+| Custom metrics | `customMetrics` | `AppMetrics` |
+
+Column names and types change too: application scope uses `timestamp`, `operation_Id`, and a
+timespan-valued `duration`, while workspace scope uses `TimeGenerated`, `OperationId`, and the
+numeric millisecond value `DurationMs`. For example, compare `duration > 1s` in application
+scope but `DurationMs > 1000` in workspace scope. Use the schema shown by the portal's current
+query scope rather than mixing the two forms.
 
 **The pipeline model.** A query is a table name followed by `|`-separated operators. Each
 operator takes the table on its left and produces a new table on its right. **Order matters** —
 `where` then `summarize` is not the same as `summarize` then `where`.
 
 **Case sensitivity (a classic gotcha):**
-- Operators and column names: effectively case-*insensitive* for column refs, but stick to the
-  real casing.
-- **String comparisons ARE case-sensitive** by default: `==` is exact/case-sensitive; use
-  `=~` for case-*insensitive* equality, and `has` (case-insensitive whole-word) vs `contains`
+- KQL is case-sensitive for table names, column names, operators, and functions. `Requests`,
+  `Timestamp`, or `WHERE` are not substitutes for `requests`, `timestamp`, or `where`.
+- **String equality is also case-sensitive** by default: `==` is exact/case-sensitive; use
+  `=~` for case-*insensitive* equality, and `has` (case-insensitive term) vs `contains`
   (case-insensitive substring, slower).
 
 The operators you must know:
@@ -87,6 +95,7 @@ The operators you must know:
 | `where` | Keep rows matching a condition (**filter**) | `WHERE` |
 | `project` | Choose/rename/compute **columns** | `SELECT` |
 | `project-away` | Drop specific columns | — |
+| `project-rename` | Rename columns while retaining the others | — |
 | `extend` | Add a computed column (keep the rest) | `SELECT *, expr AS x` |
 | `summarize` | **Aggregate** (count, avg…) grouped `by` columns | `GROUP BY` |
 | `count` | Count all rows (shortcut) | `COUNT(*)` |
@@ -103,7 +112,8 @@ The operators you must know:
 - `ago(1h)` = "one hour ago" (also `5m`, `7d`, `30d`).
 - `where timestamp > ago(1h)` = last hour.
 - `where timestamp between (ago(1d) .. ago(1h))` = a window.
-- `bin(timestamp, 5m)` buckets rows into 5-minute intervals (for charts/trends).
+- `bin(timestamp, 5m)` rounds each timestamp down to a 5-minute boundary. It groups rows only
+  when used as a `summarize ... by` expression.
 
 ---
 
@@ -114,7 +124,7 @@ telemetry and something to query.
 
 > **Two methods available:**
 > - **[CLI](#cli-setup)** — Copy-paste commands below (requires [Azure CLI](https://learn.microsoft.com/cli/azure/))
-> - **[Azure Portal (Web UI)](#portal-setup)** — Point-and-click in your browser
+> - **[Azure Portal (Web UI)](#portal-setup-web-ui)** — Point-and-click in your browser
 
 ### Set your variables
 
@@ -252,7 +262,7 @@ Run this when you're done experimenting, or whenever you want to start fresh.
 
 > **Two methods available:**
 > - **[CLI](#cli-cleanup)** — Copy-paste commands below (requires [Azure CLI](https://learn.microsoft.com/cli/azure/))
-> - **[Azure Portal (Web UI)](#portal-cleanup)** — Point-and-click in your browser
+> - **[Azure Portal (Web UI)](#portal-cleanup-web-ui)** — Point-and-click in your browser
 
 ### CLI Cleanup
 
@@ -269,7 +279,9 @@ az group delete --name "$RG" --yes --no-wait
 az group list --output table
 ```
 
-> **Important:** Deleting a resource group is **permanent and immediate**. All resources in that group (Log Analytics workspace, Application Insights, etc.) will be deleted and cannot be recovered.
+> **Important:** Resource-group deletion is destructive and can continue asynchronously. Azure
+> recovery behavior varies by resource type, so do not treat it as an application backup or rely
+> on recovery. Verify the group name and contents before running the command.
 
 ### Portal Cleanup (Web UI)
 
@@ -368,6 +380,10 @@ in two places:
 3. In the left menu, select **Logs** (under "Monitoring" section)
 4. Paste any query below into the editor and click **Run**
 
+These queries use the application-scoped schema (`requests`, `timestamp`, and so on). If you open
+the associated **Log Analytics workspace → Logs** instead, translate them to the workspace schema,
+such as `AppRequests` and `TimeGenerated`.
+
 **Azure CLI (for automation):**
 ```bash
 # Query via CLI using az monitor app-insights query
@@ -436,17 +452,31 @@ traces
 | project timestamp, orderId
 ```
 
+**7. Find the named custom event emitted by the sample:**
+
+```kusto
+customEvents
+| where timestamp > ago(30m)
+| where name == "InventoryValidationFailed"
+| project timestamp, name, customDimensions
+| order by timestamp desc
+```
+
 ---
 
 ## Exam gotchas
 
 - **`where` vs `project` vs `summarize`.** `where` filters *rows*; `project` chooses *columns*;
   `summarize` *aggregates*. Exam questions hinge on picking the right one.
+- **KQL names are case-sensitive.** Use the table, column, operator, and function casing shown in
+  the schema. Case-insensitive string operators do not make identifiers case-insensitive.
+- **Query scope changes the schema.** Application Insights scope uses names such as `requests`
+  and `timestamp`; Log Analytics workspace scope uses `AppRequests` and `TimeGenerated`.
 - **Pipe order matters.** `summarize` collapses rows into aggregates — any column you didn't
   aggregate or group `by` is *gone* afterward, so `project`/`where` on those must come *before*
   the `summarize`.
 - **String comparison is case-sensitive.** `Name == "get"` won't match `"GET"`. Use `=~` for
-  case-insensitive equality, `has` for whole-word (case-insensitive), `contains` for substring.
+  case-insensitive equality, `has` for a case-insensitive term, and `contains` for a substring.
 - **`take`/`limit` are not sorted.** They return *arbitrary* rows for a quick peek. Use
   `top N by col` (or `order by … | take N`) when you need the *biggest/newest*.
 - **`ago()` uses UTC**, and telemetry timestamps are UTC — don't get caught by local time.
@@ -510,7 +540,7 @@ traces
 exceptions
 | where timestamp > ago(10m)
 | top 1 by timestamp desc
-| project timestamp, type, message, operation_Id
+| project timestamp, type, outerMessage, operation_Id
 ```
 
 **Note:** Your `app.py` throws a `ValueError` for negative order IDs — this appears in the `exceptions` table.
@@ -593,3 +623,4 @@ Take the **KQL** quiz in the [quiz app](../../quiz/)
 - KQL quick reference: <https://learn.microsoft.com/azure/data-explorer/kql-quick-reference>
 - Log queries in Azure Monitor: <https://learn.microsoft.com/azure/azure-monitor/logs/log-query-overview>
 - Azure Monitor OpenTelemetry for Python: <https://learn.microsoft.com/azure/azure-monitor/app/opentelemetry-enable?tabs=python>
+- Application Insights telemetry data model: <https://learn.microsoft.com/azure/azure-monitor/app/data-model-complete>

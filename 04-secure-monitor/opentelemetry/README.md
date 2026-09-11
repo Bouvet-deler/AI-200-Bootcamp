@@ -1,7 +1,7 @@
 # OpenTelemetry (distributed tracing)
 
 **Domain:** 04 — Secure, monitor, troubleshoot Azure solutions (20–25%)
-**Maps to skill:** *Instrument an application for monitoring by using OpenTelemetry / Application Insights (traces, metrics, logs)*
+**Maps to skill:** *Trace distributed systems by using OpenTelemetry SDKs*
 
 ---
 
@@ -118,16 +118,22 @@ and why a short script must pause before exiting so the buffer flushes).
   Azure distro turns much of this on automatically.
 - **Manual instrumentation** — you create your *own* spans for business logic OTel can't see
   (`with tracer.start_as_current_span("reprice basket"):`), add attributes, and record
-  exceptions.
+  exceptions. If you catch an exception, `record_exception(...)` preserves its details while
+  `set_status(StatusCode.ERROR)` separately marks the span outcome as failed.
 
 Real apps use both: auto for the plumbing, manual for the domain-specific work you care about.
 
 ### Sampling
 
-**Sampling** keeps a representative *fraction* of traces to control cost and volume. The Azure
-distro supports **fixed-rate sampling** (e.g. keep 5%). The important property is that sampling
-is **trace-consistent**: the decision is made once at the root and propagated, so you never keep
-a child span whose parent was dropped — a trace is kept or dropped *whole*.
+**Sampling** reduces the number of traces exported, which controls ingestion volume and cost.
+Current versions of the Azure Monitor Python distro use a **rate-limited sampler** by default
+(five traces per second when you do not configure sampling). You can instead provide a
+`sampling_ratio` for fixed-percentage sampling, such as `0.05` for roughly 5%.
+
+The sampling decision is carried in the W3C trace context. With the normal parent-aware setup,
+child spans honour their parent's decision, which keeps a distributed trace coherent. Do not
+interpret that as an unconditional guarantee: missing propagation, independently configured
+services, or a custom sampler can still produce incomplete traces.
 
 ---
 
@@ -139,7 +145,7 @@ created them there, reuse them and skip to [Hands-on](#hands-on-python).
 
 > **Two methods available:**
 > - **[CLI](#cli-setup)** — Copy-paste commands below (requires [Azure CLI](https://learn.microsoft.com/cli/azure/))
-> - **[Azure Portal (Web UI)](#portal-setup)** — Point-and-click in your browser
+> - **[Azure Portal (Web UI)](#portal-setup-web-ui)** — Point-and-click in your browser
 
 ### Set your variables
 
@@ -314,7 +320,7 @@ Logs** in the portal and query it.
 After a couple of minutes, run these in **Application Insights → Logs**:
 
 ```kusto
-// 1. Your manual span shows up as a request (the root operation).
+// 1. The SERVER-kind manual span shows up as a request (the root operation).
 requests
 | where timestamp > ago(15m)
 | project timestamp, name, duration, operation_Id
@@ -350,6 +356,9 @@ union requests, dependencies, traces, exceptions
 Once the concepts click, [`interactive.py`](interactive.py) lets you **experiment**: a menu-driven
 CLI where you pick a telemetry type, type your own message, and send it — then read the last 5
 minutes of any table back out, so you can watch a signal you just emitted land in its table.
+The query SDK uses the Log Analytics schema (`AppRequests`, `TimeGenerated`, and so on), even
+when its `query_resource(...)` call is scoped to the Application Insights resource; the menu
+keeps the familiar application-scope labels alongside those queries.
 
 ```
 ================= OpenTelemetry Playground =================
@@ -410,8 +419,14 @@ python interactive.py
 - **Context propagation via the `traceparent` (W3C) header** is what makes tracing
   *distributed*. If a downstream service starts a *new* trace, propagation is broken (wrong
   header, or an uninstrumented hop).
-- **Sampling is trace-consistent.** It keeps or drops a *whole* trace, so you never see an
-  orphan child span whose parent was sampled out. It reduces cost/volume, not per-span noise.
+- **Know both sampling modes.** Current Azure Monitor Python distro versions default to
+  rate-limited sampling (five traces per second); `sampling_ratio` selects fixed-percentage
+  sampling. Parent-aware sampling normally preserves one decision across a propagated trace,
+  but broken context propagation or different service configurations can still create gaps.
+- **Span kind controls the Application Insights table.** An explicitly created span defaults to
+  `INTERNAL`, which maps to `dependencies` (`InProc`). Use `SpanKind.SERVER` for incoming request
+  handling—or for a top-level background operation that you deliberately model as a request—not
+  for every internal method merely to change its table.
 - **Auto-instrumentation covers frameworks/libraries; manual spans cover your business logic.**
   You won't get a span for a pure in-process calculation unless you create it yourself.
 - **Buffered export.** Telemetry flushes in the background (BatchSpanProcessor), so a

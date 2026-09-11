@@ -28,7 +28,7 @@
       "azurecr.io/ai200acr/web-api:v1.0"
     ],
     "answer": [1],
-    "explanation": "A registry's login server is always `<name>.azurecr.io`, and a full image reference is `<registry>.azurecr.io/<repository>:<tag>` — here `ai200acr.azurecr.io/web-api:v1.0`.",
+    "explanation": "With the default DNS-name-label configuration, the login server is `<name>.azurecr.io`, and a tagged image is `<login-server>/<repository>:<tag>` — here `ai200acr.azurecr.io/web-api:v1.0`. In automation, query the registry's `loginServer` because an optional DNS name label scope adds a hash.",
     "reference": "../../01-containers/acr/README.md#what-it-is"
   },
   {
@@ -100,7 +100,7 @@
     "domain": "01-containers",
     "topic": "acr",
     "type": "single",
-    "question": "A running App Service needs to PULL images from ACR but never push. Which data-plane role should its managed identity have?",
+    "question": "A running App Service needs to pull images from an ACR configured for RBAC Registry Permissions (not ABAC repository permissions). Which least-privilege data-plane role should its managed identity have?",
     "choices": [
       "AcrPush",
       "AcrPull",
@@ -108,7 +108,7 @@
       "AcrDelete"
     ],
     "answer": [1],
-    "explanation": "AcrPull grants read/pull access — exactly what a running service needs. AcrPush adds write/push (for build pipelines), and you should not over-grant a runtime service.",
+    "explanation": "For an RBAC-only registry, AcrPull grants registry-wide read/pull access. An ABAC-enabled registry instead uses Container Registry Repository Reader, which can be scoped to repositories.",
     "reference": "../../01-containers/acr/README.md#core-concepts"
   },
   {
@@ -116,7 +116,7 @@
     "domain": "01-containers",
     "topic": "acr",
     "type": "single",
-    "question": "A CI/CD pipeline needs to push newly built images into ACR. Which role does it require?",
+    "question": "A CI/CD pipeline needs to push images into an ACR configured for RBAC Registry Permissions. Which data-plane role does it require?",
     "choices": [
       "AcrPull",
       "AcrPush",
@@ -124,7 +124,7 @@
       "AcrDelete"
     ],
     "answer": [1],
-    "explanation": "AcrPush grants pull AND push (read/write). AcrPull is read-only, so a pipeline that pushes images needs AcrPush.",
+    "explanation": "For an RBAC-only registry, AcrPush grants pull and push (read/write). An ABAC-enabled registry uses Container Registry Repository Writer instead.",
     "reference": "../../01-containers/acr/README.md#core-concepts"
   },
   {
@@ -148,7 +148,7 @@
     "domain": "01-containers",
     "topic": "acr",
     "type": "single",
-    "question": "What does `az aks update --name <cluster> --resource-group <rg> --attach-acr <registry>` do?",
+    "question": "For an ACR configured for RBAC Registry Permissions, what does `az aks update --name <cluster> --resource-group <rg> --attach-acr <registry>` do?",
     "choices": [
       "Copies all images from the registry into the AKS nodes",
       "Grants the AKS cluster's managed identity the AcrPull role on the registry",
@@ -156,7 +156,7 @@
       "Creates image pull secrets in every namespace"
     ],
     "answer": [1],
-    "explanation": "`--attach-acr` assigns the cluster's managed identity the AcrPull role on the registry, so AKS can pull images with no image pull secrets stored in YAML.",
+    "explanation": "For an RBAC-only registry, `--attach-acr` assigns AcrPull to the AKS kubelet managed identity, so nodes can pull without imagePullSecrets. The shortcut is unsupported for ABAC-enabled registries; assign Container Registry Repository Reader manually there.",
     "reference": "../../01-containers/acr/README.md#core-concepts"
   },
   {
@@ -219,8 +219,8 @@
       "Repository-scoped tokens and scope maps",
       "Pushing and pulling images with Entra ID RBAC"
     ],
-    "answer": [0, 1, 2],
-    "explanation": "Geo-replication, Private Link, content trust, customer-managed keys, availability zones, and repository-scoped tokens/scope maps are all Premium-only. Entra ID RBAC (AcrPull/AcrPush) works on every tier.",
+    "answer": [0, 1],
+    "explanation": "Geo-replication and Private Link/private endpoints require Premium. Repository-scoped permissions, including non-Entra tokens and scope maps, are available in all tiers (with different limits), and Entra data-plane roles are available in all tiers.",
     "reference": "../../01-containers/acr/README.md#exam-gotchas"
   },
   {
@@ -247,12 +247,12 @@
     "question": "You need to grant a partner access to pull from ONE repository only, without creating an Entra ID identity for them. Which ACR feature fits?",
     "choices": [
       "The admin account",
-      "Repository-scoped tokens with scope maps (Premium)",
+      "Repository-scoped tokens with scope maps",
       "AcrPull assigned at the subscription scope",
       "Anonymous pull"
     ],
     "answer": [1],
-    "explanation": "Repository-scoped tokens tied to a scope map grant granular per-repository permissions with a standalone credential — no Entra identity required. This is a Premium feature.",
+    "explanation": "Repository-scoped tokens tied to a scope map grant granular per-repository permissions with a standalone credential and no Entra identity. They are available in all ACR tiers; tier limits differ.",
     "reference": "../../01-containers/acr/README.md#core-concepts"
   },
   {
@@ -276,15 +276,15 @@
     "domain": "01-containers",
     "topic": "acr",
     "type": "single",
-    "question": "Which ACR capability lets you cryptographically sign images so consumers can verify their integrity — and on which SKU?",
+    "question": "You are designing a new ACR image-signing workflow in 2026. Which approach should you choose?",
     "choices": [
-      "Content trust / image signing, on Premium",
-      "Anonymous pull, on Standard",
-      "Webhooks, on Basic",
-      "Admin account, on any SKU"
+      "Use Notary Project with the Notation CLI and store signatures as OCI artifacts",
+      "Enable Docker Content Trust because it has no retirement date",
+      "Enable anonymous pull so clients can infer image integrity",
+      "Use the ACR admin account to sign each image"
     ],
     "answer": [0],
-    "explanation": "Content trust (image signing) is a Premium-only feature that lets publishers sign images and consumers verify them. Image quarantine is also Premium.",
+    "explanation": "Microsoft recommends Notary Project/Notation for new signing and verification workflows. ACR's Docker Content Trust feature has been deprecated since March 2025 and retires on 31 March 2028.",
     "reference": "../../01-containers/acr/README.md#core-concepts"
   },
   {
@@ -308,7 +308,7 @@
     "domain": "01-containers",
     "topic": "acr",
     "type": "single",
-    "question": "Which data-plane role is required to delete images/manifests from a registry?",
+    "question": "Which data-plane role grants registry-wide artifact deletion in an ACR configured for RBAC Registry Permissions?",
     "choices": [
       "AcrPull",
       "AcrPush",
@@ -316,7 +316,7 @@
       "Reader"
     ],
     "answer": [2],
-    "explanation": "AcrDelete grants permission to delete images and manifests. AcrPull is read-only and AcrPush is read/write (pull + push) but does not by itself grant delete.",
+    "explanation": "For an RBAC-only registry, AcrDelete grants artifact/tag deletion without granting deletion of the registry resource. An ABAC-enabled registry uses Container Registry Repository Contributor for repository content deletion.",
     "reference": "../../01-containers/acr/README.md#core-concepts"
   },
   {
@@ -382,5 +382,101 @@
     "answer": ["cred", "client", "repos", "tags"],
     "explanation": "Correct order: 1) build the credential (passwordless Entra ID), 2) create the ContainerRegistryClient with the endpoint + credential, 3) loop over repository names, 4) for each repository loop over its tag properties.",
     "reference": "../../01-containers/acr/README.md#hands-on-python"
+  },
+  {
+    "id": "acr-025",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "An ABAC-enabled registry must let a workload pull images only from repositories whose names start with `production/`. Which role should you assign with an ABAC repository-name condition?",
+    "choices": [
+      "AcrPull",
+      "Container Registry Repository Reader",
+      "Container Registry Repository Writer",
+      "Container Registry Contributor and Data Access Configuration Administrator"
+    ],
+    "answer": [1],
+    "explanation": "Container Registry Repository Reader is the pull/read role for an ABAC-enabled registry and supports repository-name conditions. AcrPull is a legacy RBAC-only role; Writer over-grants push access; the configuration administrator role is control-plane access.",
+    "reference": "../../01-containers/acr/README.md#authentication-the-most-tested-part"
+  },
+  {
+    "id": "acr-026",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "multi",
+    "question": "A script must both list the repository catalog and pull images from every repository in an ABAC-enabled ACR. Which roles are required? (Select all that apply)",
+    "choices": [
+      "Container Registry Repository Reader",
+      "Container Registry Repository Catalog Lister",
+      "AcrDelete",
+      "Owner"
+    ],
+    "answer": [0, 1],
+    "explanation": "Repository Reader grants read/pull access but deliberately omits catalog enumeration. Catalog Lister adds the ability to list repository names. Neither delete nor Azure resource ownership is needed.",
+    "reference": "../../01-containers/acr/README.md#authentication-the-most-tested-part"
+  },
+  {
+    "id": "acr-027",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "Which statement about ACR availability-zone support is current?",
+    "choices": [
+      "It is Premium-only",
+      "It is supported by Basic, Standard, and Premium in supported regions",
+      "It requires geo-replication",
+      "It is available only for anonymous registries"
+    ],
+    "answer": [1],
+    "explanation": "All three ACR tiers support availability zones in supported regions. Geo-replication and private endpoints remain Premium-only, which is why older SKU summaries can be misleading.",
+    "reference": "../../01-containers/acr/README.md#skus-tiers--basic--standard--premium"
+  },
+  {
+    "id": "acr-028",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "A Standard registry contains one public repository and one confidential repository. Can you safely enable anonymous pull for only the public repository?",
+    "choices": [
+      "Yes, by adding an anonymous scope map to that repository",
+      "Yes, by assigning AcrPull to the anonymous identity",
+      "No; enabling anonymous pull makes all repositories in that registry publicly pullable",
+      "No; anonymous pull is available only on Premium"
+    ],
+    "answer": [2],
+    "explanation": "Anonymous pull is a registry-wide switch, not a per-repository permission. Put confidential and public content in separate registries if the public one must allow unauthenticated pulls.",
+    "reference": "../../01-containers/acr/README.md#authentication-the-most-tested-part"
+  },
+  {
+    "id": "acr-029",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "Why should deployment automation query `az acr show --query loginServer` instead of always constructing `<registry-name>.azurecr.io`?",
+    "choices": [
+      "The login server changes after every image push",
+      "A DNS name label scope can add a stable hash to the login server",
+      "Premium registries use the `.azure.com` suffix",
+      "Repository names replace the registry name in the hostname"
+    ],
+    "answer": [1],
+    "explanation": "A registry configured with a DNS name label scope can have a login server such as `<name>-<hash>.azurecr.io`. Querying `loginServer` gives the authoritative hostname in both scoped and default configurations.",
+    "reference": "../../01-containers/acr/README.md#what-it-is"
+  },
+  {
+    "id": "acr-030",
+    "domain": "01-containers",
+    "topic": "acr",
+    "type": "single",
+    "question": "Which ACR policy lets you restore an accidentally deleted image artifact during a configured recovery window?",
+    "choices": [
+      "The untagged-manifest retention policy",
+      "Artifact soft delete (preview)",
+      "Repository locking",
+      "Geo-replication"
+    ],
+    "answer": [1],
+    "explanation": "Artifact soft delete (preview) retains deleted artifacts for recovery. The untagged-manifest retention policy does the opposite: it schedules untagged Docker manifests for deletion and is not a recovery feature.",
+    "reference": "../../01-containers/acr/README.md#tagging--versioning"
   }
 ]

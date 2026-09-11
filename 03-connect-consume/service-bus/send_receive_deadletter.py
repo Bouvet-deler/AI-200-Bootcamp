@@ -9,13 +9,17 @@
 # Use a dedicated lab namespace. This sample intentionally completes every message it receives
 # so that repeated runs begin cleanly; it is not a production queue processor.
 
-# `os` lets Python read environment variables. The connection string stays outside source code
-# instead of being copied into this file.
+# `os` lets Python read environment variables. The namespace and entity names stay configurable
+# without placing an authentication secret in source code.
 import os
 
 # `uuid4` creates a random identifier. Adding one to each MessageId makes every run distinct,
 # which is useful even if you later enable Service Bus duplicate detection.
 from uuid import uuid4
+
+# DefaultAzureCredential obtains a short-lived Microsoft Entra token. Locally it can use the
+# developer identity from `az login`; in Azure it can use the host resource's managed identity.
+from azure.identity import DefaultAzureCredential
 
 # These are the synchronous Azure Service Bus SDK types used by the sample:
 # - ServiceBusClient opens a connection to a namespace.
@@ -188,38 +192,27 @@ def receive_subscription_messages(client, topic_name, subscription_name):
             receiver.complete_message(message)
 
 
-def get_connection_string():
+def get_fully_qualified_namespace():
     # `os.environ.get(..., "")` returns an empty string instead of raising KeyError when the
-    # variable is missing. `.strip()` removes accidental whitespace from a pasted value.
-    connection_string = os.environ.get("SERVICEBUS_CONNECTION_STRING", "").strip()
+    # variable is missing. `.strip()` removes accidental whitespace from a copied hostname.
+    namespace = os.environ.get("SERVICEBUS_FULLY_QUALIFIED_NAMESPACE", "").strip()
 
-    # A shared-access Service Bus connection string has these three identifying sections.
-    # Checking their names is safe: the code never prints the actual secret key.
-    expected_parts = (
-        "Endpoint=sb://",
-        "SharedAccessKeyName=",
-        "SharedAccessKey=",
-    )
-
-    # `all(...)` returns True only when every required section occurs in the value. Fail here
-    # with an actionable message rather than letting the SDK report a generic malformed value.
-    if not all(part in connection_string for part in expected_parts):
+    # This walkthrough targets public Azure, whose fully qualified Service Bus namespace ends in
+    # this DNS suffix. The SDK expects only the hostname, not `sb://` or a connection string.
+    if not namespace.endswith(".servicebus.windows.net") or "://" in namespace:
         raise RuntimeError(
-            "SERVICEBUS_CONNECTION_STRING is empty or malformed. Set it to the complete "
-            "Primary Connection String for the demo-send-listen policy. It starts with "
-            "'Endpoint=sb://' and includes both 'SharedAccessKeyName=' and "
-            "'SharedAccessKey='; do not use the namespace hostname, primary key alone, "
-            "or the placeholder from the README."
+            "SERVICEBUS_FULLY_QUALIFIED_NAMESPACE is empty or malformed. Set it to the public "
+            "Azure namespace hostname, for example 'my-namespace.servicebus.windows.net', "
+            "without 'sb://' or a path."
         )
 
-    # Return the validated connection string to main without ever displaying its secret key.
-    return connection_string
+    return namespace
 
 
 def main():
-    # This helper validates the secret's shape without exposing it. The remaining entity-name
-    # lookups use square brackets so Python raises a clear KeyError if one was not configured.
-    connection_string = get_connection_string()
+    # This helper validates the namespace hostname. The remaining entity-name lookups use square
+    # brackets so Python raises a clear KeyError if one was not configured.
+    fully_qualified_namespace = get_fully_qualified_namespace()
     queue_name = os.environ["SERVICEBUS_QUEUE_NAME"]
     topic_name = os.environ["SERVICEBUS_TOPIC_NAME"]
     all_subscription_name = os.environ["SERVICEBUS_ALL_SUBSCRIPTION_NAME"]
@@ -229,17 +222,17 @@ def main():
     # MessageIds readable while still making a second run distinct.
     run_id = uuid4().hex[:8]
 
-    # `from_connection_string` builds a client from the learning-only SAS credential exported in
-    # the README. Production applications should generally use DefaultAzureCredential with a
-    # managed identity instead, so no connection-string secret needs to be stored.
-    with ServiceBusClient.from_connection_string(connection_string) as client:
+    # The outer `with` closes the credential after use. No long-lived Shared Access Signature key
+    # is stored; the identity needs the sender and receiver data roles described in the README.
+    with DefaultAzureCredential() as credential:
         # One open client can create several short-lived senders and receivers for the same
-        # namespace, avoiding repeated connection setup.
-        send_demo_messages(client, queue_name, topic_name, run_id)
-        process_queue_messages(client, queue_name)
-        inspect_and_clear_dead_letters(client, queue_name)
-        receive_subscription_messages(client, topic_name, all_subscription_name)
-        receive_subscription_messages(client, topic_name, priority_subscription_name)
+        # namespace. The client obtains Microsoft Entra access tokens through the credential.
+        with ServiceBusClient(fully_qualified_namespace, credential) as client:
+            send_demo_messages(client, queue_name, topic_name, run_id)
+            process_queue_messages(client, queue_name)
+            inspect_and_clear_dead_letters(client, queue_name)
+            receive_subscription_messages(client, topic_name, all_subscription_name)
+            receive_subscription_messages(client, topic_name, priority_subscription_name)
 
 
 # This guard runs main only when this file is executed with

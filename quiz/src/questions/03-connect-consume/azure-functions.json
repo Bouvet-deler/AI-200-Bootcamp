@@ -14,7 +14,7 @@
     "answer": [
       1
     ],
-    "explanation": "Azure Functions is Azure's serverless compute service that runs code in response to events without requiring you to manage servers. It automatically scales based on demand and you pay only for execution time.",
+    "explanation": "Azure Functions is Azure's serverless compute service: the platform runs event-driven code and manages the infrastructure. Consumption options meter on-demand executions; Premium, Dedicated, and configured always-ready capacity also charge for allocated capacity.",
     "reference": "../../03-connect-consume/azure-functions/README.md#what-it-is"
   },
   {
@@ -22,7 +22,7 @@
     "domain": "03-connect-consume",
     "topic": "azure-functions",
     "type": "single",
-    "question": "What is the name of the file that defines trigger and binding configuration for a single function?",
+    "question": "In the Python v1 programming model, which file defines the trigger and bindings for one function?",
     "choices": [
       "host.json",
       "function.json",
@@ -32,7 +32,7 @@
     "answer": [
       1
     ],
-    "explanation": "function.json configures a single function's trigger and input/output bindings; host.json holds global settings for every function in the app. Note: function.json only exists in the v1 programming model. In the Python v2 model you declare triggers and bindings with decorators in function_app.py, and function.json is generated for you at build time.",
+    "explanation": "In Python v1, function.json configures one function's trigger and input/output bindings, while host.json applies globally. In Python v2, you author decorators in function_app.py or a registered blueprint instead of authoring function.json.",
     "reference": "../../03-connect-consume/azure-functions/README.md#core-concepts"
   },
   {
@@ -40,7 +40,7 @@
     "domain": "03-connect-consume",
     "topic": "azure-functions",
     "type": "single",
-    "question": "Which hosting plan scales to zero instances when idle and has no cost when not running?",
+    "question": "Which legacy hosting plan scales to zero, meters executions on demand, and has a hard 10-minute function timeout?",
     "choices": [
       "Premium",
       "Dedicated (App Service Plan)",
@@ -50,7 +50,7 @@
     "answer": [
       2
     ],
-    "explanation": "The Consumption plan is serverless and scales to zero when idle, meaning you pay only while your functions are executing. Premium plan has pre-warmed instances that incur cost even when idle. Dedicated plan runs on reserved VMs.",
+    "explanation": "The classic Consumption plan scales to zero and doesn't charge for function execution while idle, although its required Storage account and other connected resources can still cost money. Its function timeout defaults to five minutes and has a hard ten-minute maximum. Flex Consumption also scales to zero, but it is a different plan with optional always-ready capacity and an unbounded configured function timeout.",
     "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
   },
   {
@@ -58,7 +58,7 @@
     "domain": "03-connect-consume",
     "topic": "azure-functions",
     "type": "single",
-    "question": "What is the maximum execution timeout for a Consumption plan function by default?",
+    "question": "What is the default execution timeout for a classic Consumption-plan function?",
     "choices": [
       "1 minute",
       "5 minutes",
@@ -68,7 +68,7 @@
     "answer": [
       1
     ],
-    "explanation": "Consumption plan functions time out after 5 minutes by default, extendable to a maximum of 10 minutes via functionTimeout in host.json. That 10-minute ceiling is unique to Consumption - Flex Consumption, Premium and Dedicated default to 30 minutes and can be set to unlimited.",
+    "explanation": "Consumption-plan functions time out after five minutes by default, extendable to a maximum of ten minutes through functionTimeout in host.json. Flex Consumption and Premium default to 30 minutes and can be configured with no enforced function-timeout maximum; Dedicated can do so with Always On. Platform lifecycle events can still end an execution.",
     "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
   },
   {
@@ -104,7 +104,7 @@
     "answer": [
       1
     ],
-    "explanation": "Every Azure Function App requires a Storage account. It's used for internal metadata, trigger state, and Durable Functions storage. Even if you don't use Storage triggers, the account is mandatory.",
+    "explanation": "Every Azure Function App requires a Storage account for host state and keys. Selected plans, deployment methods, and extensions can also use it for deployment artifacts, diagnostic data, trigger state, or Durable Functions state. It is required even for an app that has only HTTP triggers.",
     "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
   },
   {
@@ -126,7 +126,7 @@
       2,
       3
     ],
-    "explanation": "Azure Functions supports many triggers including HTTP, Queue Storage, Service Bus, and SignalR. Virtual Machine start is an Event Grid event, which can trigger an Event Grid-triggered function, but not directly.",
+    "explanation": "Azure Functions has trigger bindings for HTTP, Queue Storage, Service Bus, and SignalR Service. A virtual-machine lifecycle action is not itself a Functions trigger binding; when an Azure resource emits a matching Event Grid resource event, you can route that event through an Event Grid trigger instead.",
     "reference": "../../03-connect-consume/azure-functions/README.md#core-concepts"
   },
   {
@@ -260,17 +260,17 @@
     "domain": "03-connect-consume",
     "topic": "azure-functions",
     "type": "single",
-    "question": "Which hosting plan has no cold starts?",
+    "question": "Which configuration keeps a Dedicated-plan function host loaded so cold start is not normally an issue?",
     "choices": [
-      "Consumption",
-      "Premium",
-      "Dedicated (App Service Plan)",
+      "Consumption with no always-ready instances",
+      "Premium with its minimum instance count set to zero",
+      "Dedicated (App Service Plan) with Always On enabled",
       "Basic"
     ],
     "answer": [
       2
     ],
-    "explanation": "The Dedicated (App Service Plan) hosting plan runs on reserved VMs that are always warm, so there are no cold starts. Premium plan has minimal cold starts due to pre-warmed instances. Consumption plan has cold starts.",
+    "explanation": "On a Dedicated App Service plan, enabling Always On keeps the Functions host loaded, so cold start is not normally an issue and non-HTTP triggers continue running. Premium uses prewarmed workers to avoid idle-start delay, while Consumption can scale to zero.",
     "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
   },
   {
@@ -335,17 +335,17 @@
     "domain": "03-connect-consume",
     "topic": "azure-functions",
     "type": "single",
-    "question": "What is the correct CRON expression for a timer trigger that runs every 5 minutes?",
+    "question": "Which six-field NCRONTAB expression runs a timer trigger every 5 minutes?",
     "choices": [
       "0 */5 * * * *",
-      "*/5 * * * *",
+      "*/5 * * * * *",
       "0 5 * * * *",
       "5 * * * * *"
     ],
     "answer": [
       0
     ],
-    "explanation": "The CRON expression format for Azure Functions is '{second} {minute} {hour} {day} {month} {day-of-week}'. For every 5 minutes: '0 */5 * * * *' means at second 0, every 5 minutes, every hour, every day.",
+    "explanation": "In the six-field form, the first field is seconds. '0 */5 * * * *' means second 0 of every fifth minute. Azure Functions also accepts a five-field form, where '*/5 * * * *' means every five minutes.",
     "reference": "../../03-connect-consume/azure-functions/README.md#hands-on-python"
   },
   {
@@ -353,7 +353,7 @@
     "domain": "03-connect-consume",
     "topic": "azure-functions",
     "type": "single",
-    "question": "Which Azure service should you use for orchestrating multi-step workflows in a serverless application?",
+    "question": "Which Azure Functions extension adds code-based, stateful orchestration patterns such as fan-out/fan-in and long-running workflows?",
     "choices": [
       "Azure Logic Apps",
       "Azure Functions with Durable Functions",
@@ -389,7 +389,7 @@
     "domain": "03-connect-consume",
     "topic": "azure-functions",
     "type": "single",
-    "question": "Which file is NOT deployed to Azure with your Function App?",
+    "question": "Which file is excluded from a normal Azure Functions deployment by default?",
     "choices": [
       "host.json",
       "function.json",
@@ -399,7 +399,7 @@
     "answer": [
       2
     ],
-    "explanation": "local.settings.json is for local development only and contains secrets that should not be deployed. It is NOT included when deploying to Azure. Use Application Settings in the Azure Portal for deployed configuration.",
+    "explanation": "local.settings.json is for local development and is excluded from normal deployment. Core Tools can publish its values only when explicitly requested, so inspect it for secrets first. Configure deployed values as Function App application settings instead.",
     "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
   },
   {
@@ -453,7 +453,7 @@
     "answer": [
       2
     ],
-    "explanation": "The dequeue_count property of a QueueMessage tells you how many times the message has been retrieved from the queue. If this is greater than 1, it means the function failed previously and Azure is retrying.",
+    "explanation": "The dequeue_count property records how many times the Storage Queue message has been retrieved. A value greater than one means a prior delivery was not completed successfully; that can follow a function exception, a visibility-timeout expiry, or a host interruption.",
     "reference": "../../03-connect-consume/azure-functions/README.md#hands-on-python"
   },
   {
@@ -461,17 +461,17 @@
     "domain": "03-connect-consume",
     "topic": "azure-functions",
     "type": "single",
-    "question": "In the Python v2 programming model, which file contains your functions?",
+    "question": "In the Python v2 programming model, what role does function_app.py have?",
     "choices": [
-      "__init__.py in a folder per function",
-      "function_app.py at the project root",
-      "main.py at the project root",
-      "host.json"
+      "It is the v1 folder file that stores one function's binding JSON",
+      "It is the main app entry point; it can define functions and register blueprints from other modules",
+      "It is optional whenever functions are split into blueprint files",
+      "It contains only global retry and logging configuration"
     ],
     "answer": [
       1
     ],
-    "explanation": "The v2 model puts every function in a single function_app.py at the project root, registered with decorators on one FunctionApp object. The folder-per-function layout with __init__.py and function.json is the older v1 model - the two cannot be mixed in one project.",
+    "explanation": "Python v2 requires function_app.py as the main app entry point. A small project can define decorated functions there; a larger project can define them on Blueprint objects in other modules and register those blueprints with the FunctionApp.",
     "reference": "../../03-connect-consume/azure-functions/README.md#5-project-structure--the-v2-programming-model"
   },
   {
@@ -482,14 +482,14 @@
     "question": "A queue binding is declared with connection=\"StorageConnection\". What does that value refer to?",
     "choices": [
       "The literal storage connection string",
-      "The name of an application setting that holds the connection string",
+      "The name of an application setting or the prefix of an identity-based setting collection",
       "The name of the Storage account",
       "The name of the queue"
     ],
     "answer": [
       1
     ],
-    "explanation": "A binding's connection property is always the NAME of an application setting, never the connection string itself. Locally that setting lives in local.settings.json; in Azure it lives in the Function App's environment variables. This keeps secrets out of your source code.",
+    "explanation": "A binding connection value names either one application setting containing a connection string or a prefix shared by a collection of identity-based settings. It is never the literal connection string in the decorator. In this guide, StorageConnection prefixes StorageConnection__queueServiceUri and StorageConnection__credential in Azure.",
     "reference": "../../03-connect-consume/azure-functions/README.md#3-bindings--declarative-connections"
   },
   {
@@ -551,17 +551,17 @@
     "domain": "03-connect-consume",
     "topic": "azure-functions",
     "type": "single",
-    "question": "How many fields does an Azure Functions timer trigger NCRONTAB expression have?",
+    "question": "Which statement about Azure Functions timer-trigger NCRONTAB expressions is correct?",
     "choices": [
-      "Five - the same as Linux cron",
-      "Six - Linux cron plus a leading seconds field",
-      "Six - Linux cron plus a trailing year field",
-      "Seven"
+      "They accept only five fields, exactly like Linux cron.",
+      "They accept only six fields, with a leading seconds field.",
+      "They accept five or six fields; the six-field form has a leading seconds field.",
+      "They must have seven fields, including a year."
     ],
     "answer": [
-      1
+      2
     ],
-    "explanation": "Azure uses six fields: {second} {minute} {hour} {day} {month} {day-of-week}. The extra leading seconds field is the usual trap - \"*/5 * * * *\" means every 5 seconds in Azure, not every 5 minutes. Every 5 minutes is \"0 */5 * * * *\". Schedules run in UTC unless WEBSITE_TIME_ZONE is set.",
+    "explanation": "Azure Functions NCRONTAB accepts either the five-field form (without seconds) or the six-field form (with leading seconds). Therefore '*/5 * * * *' and '0 */5 * * * *' both express every five minutes. Schedules use UTC by default; WEBSITE_TIME_ZONE support depends on the OS and plan and is not available on Linux Flex Consumption.",
     "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
   },
   {
@@ -580,7 +580,88 @@
       0,
       2
     ],
-    "explanation": "A function has exactly one trigger but any number of input and output bindings. Adding @app.queue_output on top of the HTTP trigger lets the host deliver the message for you - no QueueClient and no connection code. Adding a second trigger is not possible.",
+    "explanation": "A function has exactly one trigger but can have multiple input and output bindings. Adding @app.queue_output alongside the HTTP trigger lets the host deliver the message for you - no QueueClient and no connection code. Adding a second trigger is not possible.",
     "reference": "../../03-connect-consume/azure-functions/README.md#2-triggers--what-starts-your-function"
+  },
+  {
+    "id": "azure-functions-033",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "An HTTP-triggered function can need 20 minutes to process a request. Clients must not hold an HTTP connection open and the work must survive restarts. What should you do?",
+    "choices": [
+      "Increase functionTimeout and keep the same synchronous HTTP response open",
+      "Return promptly, place the work on a queue, and process it with a queue trigger",
+      "Switch the route authorization level to admin",
+      "Run the HTTP request twice so one copy succeeds"
+    ],
+    "answer": [1],
+    "explanation": "Even plans with an unbounded configured function timeout still face the platform's roughly 230-second HTTP response limit. Return an acceptance response quickly and defer the durable work to a queue-triggered function, or use the Durable Functions asynchronous pattern.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-034",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "multi",
+    "question": "A deployed queue binding uses connection=\"StorageConnection\" with a system-assigned managed identity. Which app settings belong to that named identity-based connection? (Select all that apply)",
+    "choices": [
+      "StorageConnection__queueServiceUri=https://<account>.queue.core.windows.net",
+      "StorageConnection__credential=managedidentity",
+      "StorageConnection=<raw-account-key>",
+      "StorageConnection__clientId=<client-id> is always required for a system-assigned identity"
+    ],
+    "answer": [0, 1],
+    "explanation": "The decorator value is a prefix. queueServiceUri identifies the Queue service and credential=managedidentity selects the app's managed identity. A system-assigned identity needs no clientId; that extra setting is for selecting a particular user-assigned identity.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
+  },
+  {
+    "id": "azure-functions-035",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "A large Python v2 function app is becoming difficult to maintain because every function is in function_app.py. Which supported organization should you use?",
+    "choices": [
+      "Create Blueprint objects in feature modules and register them with the FunctionApp",
+      "Give every function a second trigger so the host groups them",
+      "Move each decorator into host.json",
+      "Replace function_app.py with one function.json at the project root"
+    ],
+    "answer": [0],
+    "explanation": "Blueprints let a Python v2 app define related decorated functions in separate modules. function_app.py remains the main entry point and registers those blueprints with its FunctionApp object.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#5-project-structure--the-v2-programming-model"
+  },
+  {
+    "id": "azure-functions-036",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "single",
+    "question": "A Flex Consumption app contains HTTP, queue, timer, and Service Bus triggers. Which statement describes its scaling?",
+    "choices": [
+      "Every trigger always scales as one indivisible app-level unit",
+      "Most non-HTTP triggers can scale independently, while all HTTP triggers share a scale group",
+      "Only timer triggers can scale independently",
+      "Flex Consumption never scales to zero"
+    ],
+    "answer": [1],
+    "explanation": "Flex Consumption uses per-function scaling for most triggers. All HTTP triggers in the app share one scale group; Blob (Event Grid) triggers and Durable Functions triggers also use their respective groups.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#4-hosting-plans--how-your-functions-run"
+  },
+  {
+    "id": "azure-functions-037",
+    "domain": "03-connect-consume",
+    "topic": "azure-functions",
+    "type": "build-list",
+    "question": "Put the normal deployed queue-trigger processing path in order.",
+    "choices": [
+      { "id": "host-receives", "text": "The Functions host receives and hides a queue message" },
+      { "id": "invoke", "text": "The host invokes the function with the bound QueueMessage" },
+      { "id": "return", "text": "The function finishes successfully" },
+      { "id": "delete", "text": "The host deletes the queue message" },
+      { "id": "manual-delete", "text": "Your Python code constructs a QueueClient and deletes the message" }
+    ],
+    "answer": ["host-receives", "invoke", "return", "delete"],
+    "explanation": "The trigger host owns polling and message settlement. It receives the message, invokes your function with the binding value, and deletes the message after a successful return. An exception leaves it available for retry; your function does not manually delete it.",
+    "reference": "../../03-connect-consume/azure-functions/README.md#exam-gotchas"
   }
 ]

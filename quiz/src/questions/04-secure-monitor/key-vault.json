@@ -88,12 +88,12 @@
     "question": "What happens when you update a secret in Azure Key Vault?",
     "choices": [
       "The old secret is deleted permanently",
-      "A new version is created and the old version is kept for recovery",
+      "A new version is created and the old version remains independently addressable",
       "The secret name changes automatically",
       "The application using it must be redeployed immediately"
     ],
     "answer": [1],
-    "explanation": "When you update a secret, a new version is created and the old version is kept. This versioning enables safe rotation — applications can continue to use the old version if needed, while new requests get the latest version.",
+    "explanation": "When you update a secret, Key Vault creates a new version and retains the prior version as an independently addressable version. This versioning enables safe rotation: an application can pin a known version while versionless reads resolve to the latest. Soft-delete recovery is a separate feature for deleted objects.",
     "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
   },
   {
@@ -119,13 +119,13 @@
     "type": "single",
     "question": "What does purge protection do in Azure Key Vault?",
     "choices": [
-      "Prevents permanent deletion until it is disabled",
+      "Prevents permanent deletion until the retention period expires, and cannot be disabled once enabled",
       "Automatically purges old versions of secrets",
       "Encrypts all secrets with a master key",
       "Prevents creation of new secrets"
     ],
     "answer": [0],
-    "explanation": "Purge protection prevents permanent deletion of Key Vault items until it is explicitly disabled. Even with soft delete enabled, items can be purged (permanently deleted) unless purge protection is enabled.",
+    "explanation": "Purge protection prevents a soft-deleted vault or object from being purged until its retention period expires. Once purge protection is enabled, nobody — including Microsoft — can disable or bypass it.",
     "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
   },
   {
@@ -141,7 +141,7 @@
       "Free"
     ],
     "answer": [2],
-    "explanation": "The Premium tier of Azure Key Vault supports HSM-backed keys (Hardware Security Modules), which are required for certain compliance scenarios like FIPS 140-2 Level 2/3. Standard tier supports software-backed keys.",
+    "explanation": "The Premium tier supports HSM-backed keys; the Standard tier stores software-protected keys. Do not confuse a Premium Key Vault with Azure Managed HSM, which is a separate dedicated-HSM resource type.",
     "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
   },
   {
@@ -165,15 +165,15 @@
     "domain": "04-secure-monitor",
     "topic": "key-vault",
     "type": "single",
-    "question": "What is the default authentication order for DefaultAzureCredential?",
+    "question": "Why is `DefaultAzureCredential` useful when the same application runs locally and in Azure?",
     "choices": [
-      "Azure CLI → Managed Identity → Environment Variables → Visual Studio Code",
-      "Environment Variables → Managed Identity → Visual Studio Code → Azure CLI → Azure PowerShell",
-      "Managed Identity → Service Principal → Azure CLI",
-      "Azure PowerShell → Azure CLI → Managed Identity"
+      "It grants Key Vault permissions without an RBAC role",
+      "It can use a developer sign-in locally and a managed identity in Azure without environment-specific authentication code",
+      "It stores the Key Vault access key in the application binary",
+      "It disables all credential types except Azure CLI"
     ],
     "answer": [1],
-    "explanation": "DefaultAzureCredential tries authentication methods in this order: 1) Environment variables, 2) Managed Identity, 3) Visual Studio Code, 4) Azure CLI, 5) Azure PowerShell. This allows the same code to work locally and in production.",
+    "explanation": "`DefaultAzureCredential` is a credential chain. It can use a supported developer credential locally and a managed identity after deployment, so the application code stays the same. The chain has evolved over time, so a fixed memorized order is not a safe design assumption.",
     "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
   },
   {
@@ -190,7 +190,7 @@
       "Key Vault Administrator"
     ],
     "answer": [0, 1, 2, 4],
-    "explanation": "Valid Key Vault RBAC roles include: Key Vault Reader (read metadata), Key Vault Secrets User (read secret values), Key Vault Contributor (manage the vault), and Key Vault Administrator (full control). Key Vault Owner is not a standard role.",
+    "explanation": "Valid roles include Key Vault Reader (object metadata), Key Vault Secrets User (secret values), Key Vault Contributor (control-plane vault management), and Key Vault Administrator (all Key Vault data-plane operations). Administrator does not grant control-plane management or role-assignment permission, and 'Key Vault Owner' is not a built-in role name.",
     "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
   },
   {
@@ -206,7 +206,7 @@
       "64 characters"
     ],
     "answer": [1],
-    "explanation": "Key Vault names must be globally unique across all Azure subscriptions and are limited to 3-24 characters (alphanumeric only).",
+    "explanation": "Key Vault names are globally unique and 3-24 characters long. They can contain letters, digits, and hyphens, must start with a letter, must end with a letter or digit, and cannot contain consecutive hyphens.",
     "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
   },
   {
@@ -246,15 +246,15 @@
     "domain": "04-secure-monitor",
     "topic": "key-vault",
     "type": "single",
-    "question": "What happens to an application when a secret is rotated in Key Vault?",
+    "question": "An application calls `get_secret(name)` without a version after a new secret version is created. What does Key Vault return?",
     "choices": [
-      "The application automatically gets the new value on the next read",
+      "The latest version on that read",
       "The application must be restarted to pick up the new value",
       "The application must be redeployed with the new value",
       "The old value is no longer accessible"
     ],
     "answer": [0],
-    "explanation": "Applications get the latest version of a secret on the next read. However, if the application caches the secret value, it may continue using the old value until the cache is refreshed. Proper caching strategies should be implemented for seamless rotation.",
+    "explanation": "A versionless read targets the latest version. A consumer that pins a version or caches the old value does not automatically change; it must perform a versionless read again or refresh its cache.",
     "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
   },
   {
@@ -294,15 +294,15 @@
     "domain": "04-secure-monitor",
     "topic": "key-vault",
     "type": "single",
-    "question": "What is the SLA for Azure Key Vault Standard tier?",
+    "question": "Which statement correctly distinguishes Key Vault's control plane from its data plane?",
     "choices": [
-      "99.0%",
-      "99.5%",
-      "99.9%",
-      "99.99%"
+      "Both planes use the same role and endpoint for every operation",
+      "The control plane manages the vault resource; the data plane works with secrets, keys, and certificates",
+      "The control plane reads secret values; the data plane creates resource groups",
+      "Only the control plane uses Microsoft Entra ID"
     ],
-    "answer": [2],
-    "explanation": "Azure Key Vault Standard tier has a 99.9% Service Level Agreement (SLA) with automatic failover.",
+    "answer": [1],
+    "explanation": "Creating or configuring the vault is a control-plane operation. Getting a secret or using a cryptographic key is a data-plane operation. Permissions for the two planes are independent.",
     "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
   },
   {
@@ -310,7 +310,7 @@
     "domain": "04-secure-monitor",
     "topic": "key-vault",
     "type": "single",
-    "question": "Which of these is a valid key type for cryptographic operations in Key Vault?",
+    "question": "Which of these is a valid software-protected key type in a Standard Azure Key Vault?",
     "choices": [
       "AES",
       "RSA",
@@ -318,7 +318,7 @@
       "SHA"
     ],
     "answer": [1],
-    "explanation": "RSA is a valid key type for cryptographic operations in Azure Key Vault. EC (Elliptic Curve) is also supported. AES and DES are symmetric encryption algorithms, not key types stored in Key Vault. SHA is a hashing algorithm.",
+    "explanation": "Standard Key Vault supports software-protected RSA and EC keys, so RSA is correct. AES is available only as the preview `oct-HSM` symmetric key type in Premium Key Vault, not as a software-protected Standard-vault key. DES is not a supported Key Vault key type, and SHA is a hashing algorithm.",
     "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
   },
   {
@@ -378,13 +378,13 @@
     "question": "Which command enables Azure RBAC for a Key Vault?",
     "choices": [
       "az keyvault enable-rbac",
-      "az keyvault update --enabled-for-rbac-authorization true",
+      "az keyvault update --enable-rbac-authorization true",
       "az keyvault set-rbac true",
       "az keyvault convert-to-rbac"
     ],
     "answer": [1],
-    "explanation": "The az keyvault update --enabled-for-rbac-authorization true command enables Azure RBAC for a Key Vault.",
-    "reference": "../../04-secure-monitor/key-vault/README.md#worked-examples"
+    "explanation": "The `--enable-rbac-authorization true` option selects Azure RBAC for data actions. Prepare equivalent role assignments first: after the switch, legacy access policies are ignored.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#control-plane-and-data-plane"
   },
   {
     "id": "kv-025",
@@ -400,7 +400,7 @@
     ],
     "answer": [1],
     "explanation": "A disabled secret in Azure Key Vault cannot be retrieved but still exists. This is useful for temporarily disabling access without losing the secret value.",
-    "reference": "../../04-secure-monitor/key-vault/README.md#test-yourself"
+    "reference": "../../04-secure-monitor/key-vault/README.md#secret-identifiers-and-versions"
   },
   {
     "id": "kv-026",
@@ -504,15 +504,15 @@
     "domain": "04-secure-monitor",
     "topic": "key-vault",
     "type": "single",
-    "question": "Which Key Vault tier is required for HSM-backed keys?",
+    "question": "A database password is stored as a Key Vault secret. Which action is required for a complete rotation?",
     "choices": [
-      "Basic",
-      "Standard",
-      "Premium",
-      "Enterprise"
+      "Create a new Key Vault version only",
+      "Update the database credential and Key Vault value, then refresh consumers before retiring the old version",
+      "Rename the vault so consumers reconnect",
+      "Enable the Premium tier so Key Vault changes the database automatically"
     ],
-    "answer": [2],
-    "explanation": "The Premium tier is required for HSM-backed keys (Hardware Security Modules). Standard tier supports software-backed keys only.",
+    "answer": [1],
+    "explanation": "Key Vault does not know how to change an arbitrary credential in its source system. A rotation workflow must update the database or service, store the corresponding new secret version, refresh consumers, and retire the old version safely.",
     "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
   },
   {
@@ -528,7 +528,7 @@
       "Using a REST API call"
     ],
     "answer": [1],
-    "explanation": "App Configuration can reference Key Vault secrets using a Key Vault reference in the value, like @Microsoft.KeyVault(SecretUri=https://myvault.vault.azure.net/secrets/mysecret). When the application reads from App Configuration, it automatically retrieves the secret from Key Vault.",
+    "explanation": "An App Configuration Key Vault reference stores a secret URI plus a reserved content type; it does not copy the secret value. A provider can resolve the reference only when configured with a Key Vault credential, and the application identity still needs Key Vault data-plane permission.",
     "reference": "../../04-secure-monitor/key-vault/README.md#worked-examples"
   },
   {
@@ -538,13 +538,13 @@
     "type": "single",
     "question": "Which command creates an RSA key in Azure Key Vault?",
     "choices": [
-      "az keyvault key create --kty RSA --size 2048",
-      "az keyvault key create --type RSA --size 2048",
-      "az keyvault key new --kty RSA --size 2048",
-      "az keyvault key generate --algorithm RSA --size 2048"
+      "az keyvault key create --vault-name <vault> --name <key> --kty RSA --size 2048",
+      "az keyvault key create --vault-name <vault> --name <key> --type RSA --size 2048",
+      "az keyvault key new --vault-name <vault> --name <key> --kty RSA --size 2048",
+      "az keyvault key generate --vault-name <vault> --name <key> --algorithm RSA --size 2048"
     ],
     "answer": [0],
-    "explanation": "The az keyvault key create --kty RSA --size 2048 command creates an RSA key in Azure Key Vault. The --kty parameter specifies the key type (RSA or EC).",
+    "explanation": "`az keyvault key create` needs the vault, key name, and `--kty` key type. `--size 2048` selects a 2,048-bit RSA key; `--type` and `--algorithm` are not the CLI parameters for this operation.",
     "reference": "../../04-secure-monitor/key-vault/README.md#setup"
   },
   {
@@ -552,15 +552,15 @@
     "domain": "04-secure-monitor",
     "topic": "key-vault",
     "type": "single",
-    "question": "What is the default soft delete retention period for Azure Key Vault?",
+    "question": "What is the default soft-delete retention period for Azure Key Vault when no different value is configured?",
     "choices": [
       "7 days",
       "30 days",
       "90 days",
       "180 days"
     ],
-    "answer": [0],
-    "explanation": "The default soft delete retention period is 7 days, but it can be configured between 7 and 90 days. In our setup example, we explicitly set it to 7 days.",
+    "answer": [2],
+    "explanation": "The default is 90 days. At vault creation you can configure a retention period from 7 through 90 days; the study setup deliberately uses 7 days for a disposable resource.",
     "reference": "../../04-secure-monitor/key-vault/README.md#setup"
   },
   {
@@ -578,7 +578,7 @@
       "Purge"
     ],
     "answer": [0, 1, 2, 3, 4, 5],
-    "explanation": "All of these are valid operations on secrets in Azure Key Vault: Create/Set, Get/Retrieve, List, Delete (soft), Recover (from soft delete), and Purge (permanent deletion, if purge protection is disabled).",
+    "explanation": "All are valid secret operations: create/set, get, list, soft-delete, recover, and purge. Purge is permitted only when the item is soft-deleted, the caller is authorized, and purge protection was not enabled.",
     "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
   },
   {
@@ -595,23 +595,23 @@
     ],
     "answer": [0],
     "explanation": "The az keyvault secret recover command recovers a soft-deleted secret in Azure Key Vault, as long as it's within the soft delete retention period.",
-    "reference": "../../04-secure-monitor/key-vault/README.md#test-yourself"
+    "reference": "../../04-secure-monitor/key-vault/README.md#deletion-protection"
   },
   {
     "id": "kv-038",
     "domain": "04-secure-monitor",
     "topic": "key-vault",
     "type": "single",
-    "question": "What happens when purge protection is enabled on a Key Vault?",
+    "question": "A production vault currently uses legacy access policies. What should you do before switching its data plane to Azure RBAC?",
     "choices": [
-      "Secrets cannot be deleted",
-      "Deleted items cannot be purged until purge protection is disabled",
-      "All secrets are automatically encrypted",
-      "The vault cannot be accessed without additional authentication"
+      "Delete every access policy and wait for clients to fail",
+      "Create equivalent RBAC role assignments, then switch the authorization model",
+      "Assign Key Vault Contributor to every application",
+      "Enable public anonymous access during the migration"
     ],
     "answer": [1],
-    "explanation": "When purge protection is enabled, deleted items (vaults, secrets, keys, certificates) cannot be permanently purged until purge protection is explicitly disabled. This protects against accidental permanent deletion.",
-    "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
+    "explanation": "Switching to RBAC makes existing access policies ineffective. Create and verify equivalent data-plane role assignments first to avoid an outage, then change the vault authorization model.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#control-plane-and-data-plane"
   },
   {
     "id": "kv-039",
@@ -626,24 +626,24 @@
       "az keyvault secret hard-delete"
     ],
     "answer": [1],
-    "explanation": "The az keyvault secret purge command permanently deletes a soft-deleted secret from Azure Key Vault. This requires purge protection to be disabled first.",
-    "reference": "../../04-secure-monitor/key-vault/README.md#test-yourself"
+    "explanation": "The `az keyvault secret purge` command permanently removes a soft-deleted secret. It can run only when the caller has purge permission and purge protection was never enabled; enabled purge protection cannot be turned off.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#deletion-protection"
   },
   {
     "id": "kv-040",
     "domain": "04-secure-monitor",
     "topic": "key-vault",
     "type": "multi",
-    "question": "Which of the following are true about secret names in Azure Key Vault? (Select all that apply)",
+    "question": "Which statements about versioned and versionless secret identifiers are true? (Select all that apply)",
     "choices": [
-      "Secret names are case-insensitive",
-      "Secret names can contain hyphens",
-      "Secret names can start with a hyphen",
-      "Secret names have a maximum length of 127 characters",
-      "Secret names can contain spaces"
+      "A versionless read targets the latest version",
+      "A versioned identifier remains pinned to one immutable version",
+      "Creating a new version automatically changes a database password",
+      "Older secret versions can remain available for rollback",
+      "A versioned identifier always follows future rotations"
     ],
     "answer": [0, 1, 3],
-    "explanation": "Secret names in Azure Key Vault are: case-insensitive, can contain alphanumeric characters and hyphens, have a max length of 127 characters. They CANNOT start or end with a hyphen, and cannot contain spaces.",
+    "explanation": "Versionless reads target the latest version; versioned identifiers pin one immutable value version. Older versions remain stored under the secret until that secret is deleted. Key Vault versioning does not update the external system that issued a password.",
     "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
   },
   {
@@ -676,22 +676,22 @@
     ],
     "answer": [0],
     "explanation": "The az keyvault secret set-attributes command is used to set attributes on a secret, such as enabling/disabling it, setting expiration dates, or setting content types.",
-    "reference": "../../04-secure-monitor/key-vault/README.md#test-yourself"
+    "reference": "../../04-secure-monitor/key-vault/README.md#secret-identifiers-and-versions"
   },
   {
     "id": "kv-043",
     "domain": "04-secure-monitor",
     "topic": "key-vault",
     "type": "single",
-    "question": "What is the primary difference between Access Policies and Azure RBAC for Key Vault?",
+    "question": "Which authorization model is recommended for the Key Vault data plane?",
     "choices": [
-      "Access Policies are vault-specific, RBAC is Azure-wide",
-      "Access Policies use roles, RBAC uses permissions",
-      "Access Policies are for secrets only, RBAC is for keys only",
-      "There is no difference"
+      "Azure RBAC, because it provides centralized role assignments and better separation of access management",
+      "Legacy access policies, because Contributors should grant themselves secret access",
+      "Storage account shared access signatures",
+      "Anonymous public access"
     ],
     "answer": [0],
-    "explanation": "The primary difference is scope: Access Policies are vault-specific and provide granular control per vault. Azure RBAC is the standard Azure role-based access control that can be applied at various scopes (subscription, resource group, individual resource).",
+    "explanation": "Microsoft recommends Azure RBAC for Key Vault data-plane authorization. Access policies are the legacy model; they let principals with vault write permission modify data access, which weakens separation of duties.",
     "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
   },
   {
@@ -731,16 +731,16 @@
     "domain": "04-secure-monitor",
     "topic": "key-vault",
     "type": "single",
-    "question": "What is the maximum RSA key size supported in Standard tier?",
+    "question": "You saved the version string from yesterday's secret and need to read that exact version for rollback. Which Python call does that?",
     "choices": [
-      "1024 bits",
-      "2048 bits",
-      "3072 bits",
-      "4096 bits"
+      "`client.get_secret('db-password', saved_version)`",
+      "`client.get_secret('db-password')`",
+      "`client.list_properties_of_secret_versions('db-password')`",
+      "`client.set_secret('db-password', saved_version)`"
     ],
-    "answer": [3],
-    "explanation": "The Standard tier of Azure Key Vault supports RSA keys up to 4096 bits (RSA 2048, 3072, 4096). EC keys are also supported (P-256, P-384, P-521).",
-    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+    "answer": [0],
+    "explanation": "The optional second argument to SecretClient.get_secret is the version. Omitting it targets the latest version; listing versions returns metadata rather than the value; set_secret creates a new version.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#secret-identifiers-and-versions"
   },
   {
     "id": "kv-047",
@@ -756,23 +756,23 @@
     ],
     "answer": [3],
     "explanation": "Valid secret permissions in Access Policies are: get, list, set, delete, recover, purge, backup, restore. 'execute' is not a valid permission for secrets.",
-    "reference": "../../04-secure-monitor/key-vault/README.md#worked-examples"
+    "reference": "../../04-secure-monitor/key-vault/README.md#control-plane-and-data-plane"
   },
   {
     "id": "kv-048",
     "domain": "04-secure-monitor",
     "topic": "key-vault",
     "type": "multi",
-    "question": "Which of the following Azure services can have a Managed Identity? (Select all that apply)",
+    "question": "A service uses a versionless Key Vault reference but still uses yesterday's secret after rotation. Which causes are plausible? (Select all that apply)",
     "choices": [
-      "Virtual Machines",
-      "App Services",
-      "Azure Functions",
-      "Storage Accounts",
-      "Azure Kubernetes Service"
+      "The application cached the resolved value and has not refreshed it",
+      "A configuration provider's secret refresh interval has not elapsed",
+      "Versionless identifiers are permanently pinned to their first version",
+      "The application never performed another read after the new version was created",
+      "Key Vault deletes the newest version until the app restarts"
     ],
-    "answer": [0, 1, 2, 4],
-    "explanation": "Virtual Machines, App Services, Azure Functions, and Azure Kubernetes Service can all have Managed Identities. Storage Accounts do not have Managed Identities (they use other authentication methods).",
+    "answer": [0, 1, 3],
+    "explanation": "A versionless identifier targets the latest version when it is read, but an application or provider may cache the previously resolved value. It must read or refresh again after rotation.",
     "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
   },
   {
@@ -780,31 +780,114 @@
     "domain": "04-secure-monitor",
     "topic": "key-vault",
     "type": "single",
-    "question": "What is the primary use case for Azure Key Vault certificates?",
+    "question": "You need to verify that an application adopted a rotated secret without leaking sensitive data. What is the safest diagnostic?",
     "choices": [
-      "Storing database passwords",
-      "TLS/SSL for web applications",
-      "Encryption of data at rest",
-      "API authentication"
+      "Log the complete secret value and compare it with Key Vault",
+      "Log only the resolved secret version identifier",
+      "Put the secret in a metric dimension",
+      "Return the secret in an HTTP response header"
     ],
     "answer": [1],
-    "explanation": "The primary use case for Azure Key Vault certificates is TLS/SSL for web applications. Certificates contain X.509 certificates with public/private key pairs that can be used for TLS/SSL and authentication.",
-    "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
+    "explanation": "The version identifier proves which version was resolved without exposing the value. Secret values must not appear in logs, metrics, responses, terminal history, or CI output.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#exam-gotchas"
   },
   {
     "id": "kv-050",
     "domain": "04-secure-monitor",
     "topic": "key-vault",
-    "type": "single",
-    "question": "Which environment variable is used by DefaultAzureCredential to authenticate with a service principal?",
+    "type": "multi",
+    "question": "Which environment variables form the client-secret service-principal credential used by `DefaultAzureCredential`? (Select all that apply)",
     "choices": [
       "AZURE_CLIENT_ID",
+      "AZURE_TENANT_ID",
+      "AZURE_CLIENT_SECRET",
       "AZURE_SUBSCRIPTION_ID",
-      "AZURE_RESOURCE_GROUP",
       "AZURE_VAULT_NAME"
     ],
-    "answer": [0],
-    "explanation": "DefaultAzureCredential uses AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID environment variables for service principal authentication. AZURE_CLIENT_ID is the client ID of the service principal.",
+    "answer": [0, 1, 2],
+    "explanation": "EnvironmentCredential, which is part of `DefaultAzureCredential`, can use AZURE_CLIENT_ID, AZURE_TENANT_ID, and AZURE_CLIENT_SECRET for client-secret authentication. Subscription, resource group, and vault names identify resources; they do not authenticate the principal.",
     "reference": "../../04-secure-monitor/key-vault/README.md#hands-on-python"
+  },
+  {
+    "id": "kv-051",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "An Azure Function only needs to retrieve secret values. Which vault-scope role follows least privilege?",
+    "choices": [
+      "Key Vault Contributor",
+      "Key Vault Reader",
+      "Key Vault Secrets User",
+      "Key Vault Administrator"
+    ],
+    "answer": [2],
+    "explanation": "Key Vault Secrets User can read secret contents. Key Vault Reader sees metadata but not values, Key Vault Contributor is control-plane only, and Administrator grants much broader data-plane access than the function needs.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#control-plane-and-data-plane"
+  },
+  {
+    "id": "kv-052",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "build-list",
+    "question": "Put these steps in a safe order for rotating a database password stored in Key Vault:",
+    "choices": [
+      {"id": "generate", "text": "Generate a new password"},
+      {"id": "update-source", "text": "Update the database to accept the new password"},
+      {"id": "store", "text": "Store the matching value as a new Key Vault secret version"},
+      {"id": "refresh", "text": "Refresh and verify application consumers"},
+      {"id": "retire", "text": "Disable the old version after the transition is safe"}
+    ],
+    "answer": ["generate", "update-source", "store", "refresh", "retire"],
+    "explanation": "A complete rotation coordinates the source system, Key Vault, and consumers. The precise cutover can use a dual-credential strategy where supported, but an old credential must not be retired before consumers have moved safely.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#rotation-is-more-than-a-new-vault-version"
+  },
+  {
+    "id": "kv-053",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "You need Key Vault itself to create new versions of a cryptographic key on a schedule. What should you configure?",
+    "choices": [
+      "A key rotation policy",
+      "A secret content type",
+      "A Key Vault Reader role",
+      "A versioned secret URI"
+    ],
+    "answer": [0],
+    "explanation": "Cryptographic keys support native rotation policies that create new key versions on a schedule. Arbitrary external credentials stored as secrets generally need an integration workflow that also updates the issuing system.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#rotation-is-more-than-a-new-vault-version"
+  },
+  {
+    "id": "kv-054",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "single",
+    "question": "A user can create and configure the vault but receives 403 when calling `get_secret`. What is the most likely explanation?",
+    "choices": [
+      "The vault URI must use HTTP instead of HTTPS",
+      "The user has control-plane permission but lacks a secret data-plane role",
+      "Secret retrieval requires the Premium tier",
+      "Key Vault never supports interactive developer identities"
+    ],
+    "answer": [1],
+    "explanation": "Control-plane permissions to manage the vault do not grant data-plane access to secret values. Assign a suitable data role such as Key Vault Secrets User at an appropriate scope.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#control-plane-and-data-plane"
+  },
+  {
+    "id": "kv-055",
+    "domain": "04-secure-monitor",
+    "topic": "key-vault",
+    "type": "multi",
+    "question": "Which statements about Key Vault deletion protection are true? (Select all that apply)",
+    "choices": [
+      "Soft delete retains a deleted vault or object for recovery",
+      "Purge protection prevents early permanent deletion during retention",
+      "Purge protection can be disabled by a subscription Owner",
+      "The default soft-delete retention period is 90 days",
+      "Soft delete and purge protection are the same feature"
+    ],
+    "answer": [0, 1, 3],
+    "explanation": "Soft delete provides a recoverable state and defaults to 90 days. Purge protection adds a non-bypassable time-based lock during retention; once enabled it cannot be disabled, even by an Owner or Microsoft.",
+    "reference": "../../04-secure-monitor/key-vault/README.md#deletion-protection"
   }
 ]

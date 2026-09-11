@@ -4,7 +4,7 @@
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "What is Azure Cache for Redis (Azure Managed Redis)?",
+    "question": "What is Azure Managed Redis?",
     "choices": [
       "A relational database for storing structured data",
       "A fully managed, in-memory data store based on Redis",
@@ -12,7 +12,7 @@
       "A blob storage service for file storage"
     ],
     "answer": [1],
-    "explanation": "Azure Cache for Redis is a fully managed, in-memory data store based on the open-source Redis. It provides microsecond-latency access to data, making it ideal for caching.",
+    "explanation": "Azure Managed Redis is Microsoft's current managed Redis service, built on Redis Enterprise. It is separate from the retiring Azure Cache for Redis service and supports caching, Redis data structures, and optional modules such as RediSearch.",
     "reference": "../../02-data-services/azure-managed-redis/README.md#what-it-is"
   },
   {
@@ -20,7 +20,7 @@
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "What is the primary use case for Azure Cache for Redis?",
+    "question": "What is a primary use case for Azure Managed Redis in an AI application?",
     "choices": [
       "Long-term data storage",
       "Caching frequently accessed data for fast retrieval",
@@ -28,7 +28,7 @@
       "Processing streaming data"
     ],
     "answer": [1],
-    "explanation": "The primary use case for Azure Cache for Redis is caching — storing frequently accessed data in memory for fast retrieval, reducing load on slower primary data sources.",
+    "explanation": "Caching frequently requested data or model responses can lower latency and reduce load on the authoritative store. The application must still tolerate a cache miss because cached data can expire, be evicted, or be invalidated.",
     "reference": "../../02-data-services/azure-managed-redis/README.md#what-it-is"
   },
   {
@@ -45,7 +45,7 @@
     ],
     "answer": [1],
     "explanation": "Hash is the best data type for storing objects with multiple fields. It allows you to store field-value pairs, like a dictionary. Use HSET to set fields and HGET/HGETALL to retrieve them.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#1-redis-data-types"
+    "reference": "../../02-data-services/azure-managed-redis/README.md#1-data-structures-and-atomic-commands"
   },
   {
     "id": "azure-managed-redis-004",
@@ -60,8 +60,8 @@
       "Set"
     ],
     "answer": [2],
-    "explanation": "List is the best data type for implementing a FIFO (First-In-First-Out) queue. Use LPUSH/RPUSH to add items and LPOP/RPOP to remove them.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#1-redis-data-types"
+    "explanation": "A Redis list can implement FIFO by adding at one end and removing at the other, for example RPUSH followed by LPOP. Redis Streams are usually a better fit when consumer groups, acknowledgement, and durable processing semantics are required.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#1-data-structures-and-atomic-commands"
   },
   {
     "id": "azure-managed-redis-005",
@@ -77,7 +77,7 @@
     ],
     "answer": [3],
     "explanation": "Set is the data type that stores only unique values. Duplicates are automatically ignored when adding to a set.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#1-redis-data-types"
+    "reference": "../../02-data-services/azure-managed-redis/README.md#1-data-structures-and-atomic-commands"
   },
   {
     "id": "azure-managed-redis-006",
@@ -93,7 +93,7 @@
     ],
     "answer": [1],
     "explanation": "TTL (Time To Live) is a countdown timer that you can set on any Redis key. When the timer reaches zero, the key is automatically deleted from the cache.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#3-expiration-ttl-time-to-live"
+    "reference": "../../02-data-services/azure-managed-redis/README.md#2-cache-aside-expiration-and-invalidation"
   },
   {
     "id": "azure-managed-redis-007",
@@ -109,7 +109,7 @@
     ],
     "answer": [2],
     "explanation": "TTL is NOT automatically refreshed on access. Once set, the countdown continues regardless of how many times the key is read. This is a common exam gotcha.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#3-expiration-ttl-time-to-live"
+    "reference": "../../02-data-services/azure-managed-redis/README.md#2-cache-aside-expiration-and-invalidation"
   },
   {
     "id": "azure-managed-redis-008",
@@ -125,7 +125,7 @@
     ],
     "answer": [3],
     "explanation": "Cache-Aside (also called Lazy Loading) is the pattern where the application checks the cache first. On a cache miss, it fetches from the database, writes to the cache, and returns the data. This is the most common pattern.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#2-caching-patterns"
+    "reference": "../../02-data-services/azure-managed-redis/README.md#2-cache-aside-expiration-and-invalidation"
   },
   {
     "id": "azure-managed-redis-009",
@@ -140,8 +140,8 @@
       "Cache-Aside"
     ],
     "answer": [0],
-    "explanation": "Read-Through is the pattern where the cache sits between the application and the database. The cache automatically fetches data from the database when a cache miss occurs.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#2-caching-patterns"
+    "explanation": "In read-through, a cache abstraction or integration loads a missing value from the source. The Redis server does not automatically know how to query an arbitrary application database; that loader behavior must be implemented by the surrounding solution.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#2-cache-aside-expiration-and-invalidation"
   },
   {
     "id": "azure-managed-redis-010",
@@ -157,7 +157,7 @@
     ],
     "answer": [1],
     "explanation": "Write-Behind (also called Write-Back) has the risk of data loss. The application writes to cache, and the cache is supposed to write to the database later. If the cache fails before syncing, data can be lost.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#2-caching-patterns"
+    "reference": "../../02-data-services/azure-managed-redis/README.md#2-cache-aside-expiration-and-invalidation"
   },
   {
     "id": "azure-managed-redis-011",
@@ -167,29 +167,29 @@
     "question": "What is cache invalidation?",
     "choices": [
       "Automatically removing expired data",
-      "Manually removing or updating stale data in the cache",
+      "Removing or updating a cached value when its source changes",
       "Clearing the entire cache",
       "Refreshing the TTL on all keys"
     ],
     "answer": [1],
-    "explanation": "Cache invalidation is the process of manually removing or updating stale data in the cache when the source data changes. This prevents serving outdated information.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#4-cache-invalidation"
+    "explanation": "Cache invalidation removes or updates a cached value when the authoritative data changes. It can be triggered automatically by the application's write path or by an event; it is not limited to a person manually deleting keys.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#2-cache-aside-expiration-and-invalidation"
   },
   {
     "id": "azure-managed-redis-012",
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "Which distance metric is typically used for semantic similarity search with embeddings?",
+    "question": "An embedding model's documentation says to compare its output with cosine distance. Which RediSearch DISTANCE_METRIC should the vector field use?",
     "choices": [
-      "EUCLIDEAN",
       "COSINE",
       "L2",
+      "IP",
       "MANHATTAN"
     ],
-    "answer": [1],
-    "explanation": "COSINE distance is typically used for semantic similarity search with embeddings. It measures the cosine of the angle between vectors, which works well for semantic similarity. L2/EUCLIDEAN is used for geometric distance.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#5-vector-indexing-for-ai"
+    "answer": [0],
+    "explanation": "Use COSINE because the index metric must match the embedding model's guidance. Cosine is common for semantic embeddings, but it is not a universal default for every model.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#4-vector-indexing"
   },
   {
     "id": "azure-managed-redis-013",
@@ -205,22 +205,22 @@
     ],
     "answer": [2],
     "explanation": "RediSearch is the Redis module required for vector similarity search. It provides vector indexing and KNN (k-nearest neighbor) search capabilities.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#5-vector-indexing-for-ai"
+    "reference": "../../02-data-services/azure-managed-redis/README.md#4-vector-indexing"
   },
   {
     "id": "azure-managed-redis-014",
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "What is the command to store a vector embedding for similarity search?",
+    "question": "Which RediSearch command creates an index schema containing a vector field?",
     "choices": [
-      "FT.VECTORSET",
+      "FT.CREATE",
       "FT.VECTORADD",
-      "FT.VECTORSTORE",
+      "VECTOR.CREATE",
       "FT.INDEX"
     ],
-    "answer": [1],
-    "explanation": "FT.VECTORADD is the command to store a vector embedding in a RediSearch index for similarity search.",
+    "answer": [0],
+    "explanation": "FT.CREATE defines a RediSearch schema, including a VECTOR field and its algorithm, numeric type, dimensions, and distance metric. Store the actual vector in an indexed Redis hash or JSON document; FT.VECTORADD is not a RediSearch command.",
     "reference": "../../02-data-services/azure-managed-redis/README.md#hands-on-python"
   },
   {
@@ -228,15 +228,15 @@
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "What is the command to search for similar vectors (k-nearest neighbors)?",
+    "question": "Which RediSearch command can execute a KNN vector query?",
     "choices": [
-      "FT.VECTORQUERY",
+      "FT.SEARCH",
       "FT.VECTORSEARCH",
       "FT.KNN",
-      "FT.SIMILARITY"
+      "VECTOR.QUERY"
     ],
-    "answer": [1],
-    "explanation": "FT.VECTORSEARCH is the command to search for similar vectors (k-nearest neighbors) in a RediSearch vector index.",
+    "answer": [0],
+    "explanation": "FT.SEARCH (or FT.AGGREGATE) executes RediSearch vector queries. A KNN clause supplies the top-k value, vector field, and binary query vector, and vector syntax requires DIALECT 2 or later.",
     "reference": "../../02-data-services/azure-managed-redis/README.md#hands-on-python"
   },
   {
@@ -244,15 +244,15 @@
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "Which Azure Cache for Redis tier has no SLA and should not be used for production?",
+    "question": "An Azure Managed Redis workload needs the greatest compute throughput for a given memory size. Which tier should you evaluate first?",
     "choices": [
-      "Basic",
-      "Standard",
-      "Premium",
-      "Enterprise"
+      "Memory Optimized",
+      "Balanced",
+      "Compute Optimized",
+      "Flash Optimized"
     ],
-    "answer": [0],
-    "explanation": "The Basic tier has no SLA (Service Level Agreement) and is intended only for development and testing. Always use Standard, Premium, or Enterprise for production workloads.",
+    "answer": [2],
+    "explanation": "Compute Optimized provides the most vCPUs for a given memory size and is intended for throughput-intensive workloads. Validate the choice with measured memory, latency, throughput, and connection requirements.",
     "reference": "../../02-data-services/azure-managed-redis/README.md#exam-gotchas"
   },
   {
@@ -260,15 +260,15 @@
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "What is the default TLS port for Azure Cache for Redis?",
+    "question": "Which client port is used by Azure Managed Redis?",
     "choices": [
       "6379",
-      "6380",
+      "10000",
       "5432",
       "1433"
     ],
     "answer": [1],
-    "explanation": "The default TLS (SSL) port for Azure Cache for Redis is 6380. Port 6379 is the non-TLS port, which is not recommended for production.",
+    "explanation": "Azure Managed Redis uses port 10000. Port 6380 belongs to Azure Cache for Redis, while 6379 is the common Redis Open Source port.",
     "reference": "../../02-data-services/azure-managed-redis/README.md#exam-gotchas"
   },
   {
@@ -276,16 +276,16 @@
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "What is the smallest Premium tier size for Azure Cache for Redis?",
+    "question": "When must RediSearch be enabled on an Azure Managed Redis instance?",
     "choices": [
-      "P0 (256MB)",
-      "P1 (6GB)",
-      "P2 (13GB)",
-      "P3 (26GB)"
+      "After the first vector is stored",
+      "When the instance is created",
+      "When the first FT.CREATE command runs",
+      "Only after scaling the instance"
     ],
     "answer": [1],
-    "explanation": "The smallest Premium tier size is P1 with 6GB of memory. Premium tier is required for features like VNet isolation, persistence, and Redis modules like RediSearch.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#6-tiers-and-performance"
+    "explanation": "Modules are selected during Azure Managed Redis provisioning and cannot be added later. RediSearch also requires Enterprise clustering, NoEviction, and a supported in-memory tier.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#5-tiers-clustering-and-security"
   },
   {
     "id": "azure-managed-redis-019",
@@ -297,27 +297,28 @@
       "String",
       "Hash",
       "List",
-      "Vector"
+      "Sorted set",
+      "Vector as a standalone core Redis value type"
     ],
     "answer": [0, 1, 2, 3],
-    "explanation": "All of these are valid Redis data types. String, Hash, List, and Set are core types. Vector is available through the RediSearch module for AI/ML workloads.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#1-redis-data-types"
+    "explanation": "String, hash, list, and sorted set are core Redis structures. A vector is stored as a field in a hash or JSON document and indexed by RediSearch; it is not a normal core Redis value type.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#1-data-structures-and-atomic-commands"
   },
   {
     "id": "azure-managed-redis-020",
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "Which Azure Cache for Redis tier supports VNet isolation?",
+    "question": "Which Azure Managed Redis clustering policy is required by RediSearch?",
     "choices": [
-      "Basic",
-      "Standard",
-      "Premium",
-      "All tiers"
+      "OSSCluster",
+      "EnterpriseCluster",
+      "NoCluster",
+      "Any clustering policy"
     ],
-    "answer": [2],
-    "explanation": "Only the Premium tier supports VNet (Virtual Network) isolation, which allows you to deploy Redis within your private network for enhanced security.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#6-tiers-and-performance"
+    "answer": [1],
+    "explanation": "RediSearch requires EnterpriseCluster. OSSCluster normally offers stronger direct-shard throughput, but it cannot be combined with RediSearch.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#5-tiers-clustering-and-security"
   },
   {
     "id": "azure-managed-redis-021",
@@ -340,15 +341,15 @@
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "What is the maximum size for a single value in Redis?",
+    "question": "What is the difference between expiration and eviction in Redis?",
     "choices": [
-      "1MB",
-      "100MB",
-      "512MB",
-      "1GB"
+      "Expiration follows a key's TTL; eviction removes keys according to policy under memory pressure",
+      "Expiration is manual; eviction always follows a TTL",
+      "Expiration affects hashes only; eviction affects strings only",
+      "There is no difference"
     ],
-    "answer": [2],
-    "explanation": "The maximum size for a single value (string, hash, etc.) in Redis is 512MB.",
+    "answer": [0],
+    "explanation": "A TTL controls expiration. Eviction is driven by memory pressure and the configured eviction policy. RediSearch on Azure Managed Redis specifically requires NoEviction.",
     "reference": "../../02-data-services/azure-managed-redis/README.md#exam-gotchas"
   },
   {
@@ -356,7 +357,7 @@
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "Which caching strategy is best for data that changes frequently?",
+    "question": "A cached product price changes frequently and must become fresh soon after the source database is updated. Which strategy is the best fit?",
     "choices": [
       "Only use TTL",
       "Use TTL combined with event-based invalidation",
@@ -364,8 +365,8 @@
       "Cache forever and manually invalidate"
     ],
     "answer": [1],
-    "explanation": "For data that changes frequently, the best strategy is to use TTL (for automatic expiration) combined with event-based invalidation (manually removing/updating cache when source data changes). This prevents serving stale data.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#4-cache-invalidation"
+    "explanation": "Delete or update the cache entry when the source write commits, and also give the entry a bounded TTL. Event-driven invalidation provides prompt freshness; the TTL limits stale-data duration if an invalidation is missed.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#2-cache-aside-expiration-and-invalidation"
   },
   {
     "id": "azure-managed-redis-024",
@@ -380,23 +381,23 @@
       "GET_TTL"
     ],
     "answer": [0],
-    "explanation": "TTL is the command to check the remaining Time To Live of a key. It returns the number of seconds until expiration, or -1 if the key has no TTL set.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#3-expiration-ttl-time-to-live"
+    "explanation": "TTL returns the remaining lifetime in seconds. It returns -1 when the key exists without an expiry and -2 when the key does not exist.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#2-cache-aside-expiration-and-invalidation"
   },
   {
     "id": "azure-managed-redis-025",
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "What is the purpose of the redis-py connection parameter ssl_cert_reqs=None?",
+    "question": "How should a redis-py client validate TLS when connecting to Azure Managed Redis?",
     "choices": [
-      "To disable SSL verification",
-      "To allow self-signed certificates (used by Azure Managed Redis)",
-      "To enforce strict certificate validation",
-      "To use custom CA certificates"
+      "Disable certificate validation with ssl_cert_reqs=None",
+      "Keep certificate validation enabled and trust the normal public CA chain",
+      "Use plaintext because the connection stays inside Azure",
+      "Accept any certificate only when using Microsoft Entra ID"
     ],
     "answer": [1],
-    "explanation": "ssl_cert_reqs=None allows the redis-py client to connect to servers with self-signed certificates, which is what Azure Managed Redis uses. Without this, SSL/TLS connections would fail.",
+    "explanation": "Azure Managed Redis uses publicly trusted certificates. Keep normal hostname and certificate validation enabled. ssl_cert_reqs=None disables verification and makes a TLS connection vulnerable to impersonation.",
     "reference": "../../02-data-services/azure-managed-redis/README.md#hands-on-python"
   },
   {
@@ -404,48 +405,48 @@
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "Which distance metric should you use for geometric similarity (spatial data)?",
+    "question": "A model's evaluation guidance requires Euclidean distance for its output vectors. Which RediSearch DISTANCE_METRIC value should you configure?",
     "choices": [
       "COSINE",
-      "EUCLIDEAN (L2)",
+      "L2",
       "DOT_PRODUCT",
       "IP (Inner Product)"
     ],
     "answer": [1],
-    "explanation": "EUCLIDEAN (L2) distance is typically used for geometric similarity with spatial data. COSINE is better for semantic similarity with embeddings.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#5-vector-indexing-for-ai"
+    "explanation": "Configure L2, Redis's name for Euclidean distance, because the index metric should follow the model's evaluation guidance. Do not choose a metric solely from whether the input represents text or geometry.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#4-vector-indexing"
   },
   {
     "id": "azure-managed-redis-027",
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "What is the primary cost driver for Azure Cache for Redis?",
+    "question": "Which Azure Managed Redis tier is designed for a very large, read-heavy dataset when some extra latency is acceptable to reduce cost?",
     "choices": [
-      "Number of operations per second",
-      "Memory (GB) allocated",
-      "Number of connected clients",
-      "Bandwidth usage"
+      "Memory Optimized",
+      "Balanced",
+      "Compute Optimized",
+      "Flash Optimized"
     ],
-    "answer": [1],
-    "explanation": "The primary cost driver for Azure Cache for Redis is memory (GB) allocated. You pay for the amount of memory reserved, regardless of actual usage.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#7-pricing-model"
+    "answer": [3],
+    "explanation": "Flash Optimized keeps keys and hot values in RAM while colder values can use NVMe flash. It can reduce the cost of a large read-heavy dataset, but uniform access and write-heavy workloads can suffer.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#5-tiers-clustering-and-security"
   },
   {
     "id": "azure-managed-redis-028",
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "multi",
-    "question": "Which tiers support high availability (HA)? (Select all that apply)",
+    "question": "Which Azure Managed Redis tiers can use high availability? (Select all that apply)",
     "choices": [
-      "Basic",
-      "Standard",
-      "Premium",
-      "Enterprise"
+      "Memory Optimized",
+      "Balanced",
+      "Compute Optimized",
+      "Flash Optimized"
     ],
-    "answer": [1, 2, 3],
-    "explanation": "Standard, Premium, and Enterprise tiers all support high availability with multiple nodes. Basic tier is single-node with no SLA.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#6-tiers-and-performance"
+    "answer": [0, 1, 2, 3],
+    "explanation": "All four Azure Managed Redis tier families support high availability. It is enabled by default; disabling it removes data replication and affects the SLA.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#5-tiers-clustering-and-security"
   },
   {
     "id": "azure-managed-redis-029",
@@ -468,7 +469,7 @@
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "Which caching pattern writes data to both cache and database simultaneously?",
+    "question": "Which caching pattern synchronously updates the cache and authoritative store on the write path?",
     "choices": [
       "Cache-Aside",
       "Read-Through",
@@ -476,23 +477,23 @@
       "Write-Behind"
     ],
     "answer": [2],
-    "explanation": "Write-Through is the pattern where data is written to both cache and database simultaneously. This ensures data consistency but can impact write performance.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#2-caching-patterns"
+    "explanation": "In write-through, the write path synchronously updates the authoritative store and cache before completing. The two systems are not magically one atomic transaction, so the design still needs failure handling.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#2-cache-aside-expiration-and-invalidation"
   },
   {
     "id": "azure-managed-redis-031",
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "What is the typical dimension for text-embedding-ada-002 embeddings?",
+    "question": "What must the DIM setting in a RediSearch vector field match?",
     "choices": [
-      "512",
-      "768",
-      "1024",
-      "1536"
+      "The number of indexed documents",
+      "The cache size in GB",
+      "The length of every stored and query embedding",
+      "The number of metadata fields"
     ],
-    "answer": [3],
-    "explanation": "text-embedding-ada-002 produces embeddings with 1536 dimensions. When creating a RediSearch vector index, the DIM parameter must match this (e.g., DIM 1536).",
+    "answer": [2],
+    "explanation": "DIM is the number of numeric elements in each vector. It must match the selected embedding output and the query vector; do not hard-code a dimension copied from a different model or deployment.",
     "reference": "../../02-data-services/azure-managed-redis/README.md#exam-gotchas"
   },
   {
@@ -516,31 +517,31 @@
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "Which Azure CLI command creates a new Azure Cache for Redis instance?",
+    "question": "Which Azure CLI command group creates an Azure Managed Redis instance?",
     "choices": [
+      "az redisenterprise create",
       "az redis create",
-      "az cache create",
-      "az rediscache create",
-      "az storage create"
+      "az managed-redis create",
+      "az cache create"
     ],
     "answer": [0],
-    "explanation": "The Azure CLI command to create a new Azure Cache for Redis instance is 'az redis create'.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#cli-setup"
+    "explanation": "Azure Managed Redis uses az redisenterprise commands. The az redis command group manages the retiring Basic, Standard, and Premium Azure Cache for Redis tiers.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#setup"
   },
   {
     "id": "azure-managed-redis-034",
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "What is the purpose of the 'pipeline' feature in redis-py?",
+    "question": "What is the primary performance benefit of a redis-py pipeline?",
     "choices": [
-      "To execute multiple commands as a single transaction",
-      "To reduce round-trip latency for multiple commands",
-      "To encrypt data in transit",
-      "To compress data before storage"
+      "It sends a batch of commands with fewer network round trips",
+      "It makes every command globally atomic across shards",
+      "It encrypts values before storage",
+      "It compresses values before storage"
     ],
-    "answer": [1],
-    "explanation": "The pipeline feature in redis-py is used to reduce round-trip latency when executing multiple commands. Instead of sending each command separately, you can queue them up and send them all at once.",
+    "answer": [0],
+    "explanation": "A pipeline queues commands and sends them in batches, reducing network round trips. The non-cluster redis.Redis client defaults pipeline() to MULTI/EXEC; pass transaction=False for batching without that transaction. A cluster pipeline cannot make commands across hash slots one global transaction.",
     "reference": "../../02-data-services/azure-managed-redis/README.md#exam-gotchas"
   },
   {
@@ -564,15 +565,16 @@
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "build-list",
-    "question": "Put these steps in order to set up Azure Cache for Redis and use it for caching:",
+    "question": "Put these steps in order to set up Azure Managed Redis and use it for caching:",
     "choices": [
       {"id": "rg", "text": "Create a resource group"},
-      {"id": "redis", "text": "Create an Azure Cache for Redis instance"},
+      {"id": "redis", "text": "Create an Azure Managed Redis instance"},
+      {"id": "authorize", "text": "Assign the client identity a Redis data access policy"},
       {"id": "connect", "text": "Connect to Redis using redis-py"},
       {"id": "cache", "text": "Store and retrieve data from the cache"}
     ],
-    "answer": ["rg", "redis", "connect", "cache"],
-    "explanation": "Correct order: 1) Create resource group, 2) Create Redis cache, 3) Connect using redis-py, 4) Store and retrieve data. The resource group must exist first, then the cache, then you can connect and use it.",
+    "answer": ["rg", "redis", "authorize", "connect", "cache"],
+    "explanation": "Create the resource group, provision Azure Managed Redis with its immutable module and clustering choices, assign the client identity a Redis data access policy, connect the authenticated redis-py client, and then issue data commands.",
     "reference": "../../02-data-services/azure-managed-redis/README.md#setup"
   },
   {
@@ -604,39 +606,87 @@
       "Sorted Set allows duplicates, Set does not"
     ],
     "answer": [0],
-    "explanation": "The key difference is that Sorted Set (ZSET) maintains an order based on a score value associated with each member, while Set (SSET) is unordered. Sorted Sets are useful for leaderboards and rate limiting.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#1-redis-data-types"
+    "explanation": "A sorted set (ZSET) associates a score with each unique member and returns members in score order. A set contains unique unordered members. Sorted sets are useful for leaderboards and time- or score-ranked data.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#1-data-structures-and-atomic-commands"
   },
   {
     "id": "azure-managed-redis-039",
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "What is the purpose of the 'DIM' parameter when creating a RediSearch vector index?",
+    "question": "A redis-py client uses decode_responses=True and raises a decoding error when it reads a binary FLOAT32 embedding. What should you change?",
     "choices": [
-      "To specify the dimension of the vectors (e.g., 1536)",
-      "To specify the number of vectors to index",
-      "To specify the distance metric",
-      "To specify the index name"
+      "Use a client with binary responses for vector operations",
+      "Convert the vector field to a Redis list of text values",
+      "Disable TLS",
+      "Change the vector index to FLAT"
     ],
     "answer": [0],
-    "explanation": "The DIM parameter specifies the dimension of the vectors being indexed. It must match the dimension of your embeddings (e.g., 1536 for text-embedding-ada-002, 3072 for text-embedding-3-large).",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#5-vector-indexing-for-ai"
+    "explanation": "Embedding fields are arbitrary binary bytes and are not necessarily valid UTF-8. Keep binary responses enabled for vector operations; a separate text-decoding client can still be useful for ordinary string cache entries.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#vector-index-and-knn-query"
   },
   {
     "id": "azure-managed-redis-040",
     "domain": "02-data-services",
     "topic": "azure-managed-redis",
     "type": "single",
-    "question": "Which Azure Cache for Redis tier is required for the RediSearch module?",
+    "question": "Which Azure Managed Redis tier selection supports RediSearch?",
     "choices": [
-      "Basic",
-      "Standard",
-      "Premium",
-      "Enterprise"
+      "Any in-memory tier: Memory Optimized, Balanced, or Compute Optimized",
+      "Flash Optimized only",
+      "Balanced only",
+      "Every tier including Flash Optimized"
     ],
-    "answer": [2],
-    "explanation": "The RediSearch module (for vector indexing) is only available on Premium tier or as a separate Redis Stack instance. Basic and Standard tiers do not support Redis modules.",
-    "reference": "../../02-data-services/azure-managed-redis/README.md#5-vector-indexing-for-ai"
+    "answer": [0],
+    "explanation": "RediSearch is supported on the Memory Optimized, Balanced, and Compute Optimized in-memory tiers. It is not supported on Flash Optimized and also requires EnterpriseCluster and NoEviction.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#4-vector-indexing"
+  },
+  {
+    "id": "azure-managed-redis-041",
+    "domain": "02-data-services",
+    "topic": "azure-managed-redis",
+    "type": "single",
+    "question": "An application uses cache-aside for product records. A database update succeeds, but the cached copy still contains the old value. What should the write path do next?",
+    "choices": [
+      "Delete the product's cache key so the next read repopulates it",
+      "Read the old cache value to refresh its TTL",
+      "Disable expiration on the product key",
+      "Run FLUSHALL on the entire Redis instance"
+    ],
+    "answer": [0],
+    "explanation": "After the authoritative database update commits, invalidate the related key. The next cache-aside read reloads the current record. Deleting one key avoids the broad impact of clearing the entire cache.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#2-cache-aside-expiration-and-invalidation"
+  },
+  {
+    "id": "azure-managed-redis-042",
+    "domain": "02-data-services",
+    "topic": "azure-managed-redis",
+    "type": "multi",
+    "question": "You are provisioning Azure Managed Redis for RediSearch vector retrieval. Which settings are required? (Select all that apply)",
+    "choices": [
+      "Enable RediSearch when the instance is created",
+      "Use EnterpriseCluster",
+      "Use NoEviction",
+      "Use the Flash Optimized tier"
+    ],
+    "answer": [0, 1, 2],
+    "explanation": "RediSearch must be selected at creation and requires Enterprise clustering plus NoEviction. It is supported by the in-memory tier families, not Flash Optimized.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#4-vector-indexing"
+  },
+  {
+    "id": "azure-managed-redis-043",
+    "domain": "02-data-services",
+    "topic": "azure-managed-redis",
+    "type": "single",
+    "question": "A small compliance corpus requires exact top-k vector results, and query latency is acceptable. Which RediSearch vector algorithm should you choose?",
+    "choices": [
+      "FLAT",
+      "HNSW",
+      "OSSCluster",
+      "RedisBloom"
+    ],
+    "answer": [0],
+    "explanation": "FLAT performs exact nearest-neighbour search. HNSW is approximate and is normally chosen when lower latency at larger scale is worth a recall and memory trade-off.",
+    "reference": "../../02-data-services/azure-managed-redis/README.md#4-vector-indexing"
   }
 ]

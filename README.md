@@ -39,10 +39,9 @@ Official study guide: <https://learn.microsoft.com/en-us/credentials/certificati
 04-secure-monitor/        key-vault · app-configuration · opentelemetry · kql
 ```
 
-Each topic folder has a `README.md` guide. **[`04-secure-monitor/kql/`](04-secure-monitor/kql/)
-is fully written** as the reference model — the other topics are stubs to fill in as you
-study, using the KQL guide (and [`docs/TOPIC_TEMPLATE.md`](docs/TOPIC_TEMPLATE.md)) as the
-pattern.
+Each topic folder has a substantive `README.md` guide and a matching quiz bank. Use
+**[`04-secure-monitor/kql/`](04-secure-monitor/kql/)** as the reference for depth and style,
+and [`docs/TOPIC_TEMPLATE.md`](docs/TOPIC_TEMPLATE.md) when adding another topic.
 
 ## The quiz app
 
@@ -51,11 +50,12 @@ A React + Vite + TypeScript app in [`quiz/`](quiz/):
 - **Per-topic** practice or a **full-exam** run (sampled to match domain weights).
 - **Single-answer, multi-select, and build-list** (ordering) question types.
 - **Explanations** shown after you answer, linking back to the topic guide.
-- **Progress tracking** in your browser's `localStorage` so you can spot weak areas.
+- **Session score tracking**, with the theme preference saved in your browser.
 
 ```bash
 cd quiz
 npm install
+npm run validate:questions
 npm run dev      # open the printed local URL
 ```
 

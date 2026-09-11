@@ -2,7 +2,7 @@
 
 **Domain:** 03 — Connect to and consume Azure services (20–25%)
 **Maps to skill:** *Build serverless APIs, including implementing triggers and bindings* ·
-*Configure and deploy function apps* · *Implement input and output bindings*
+*Configure and deploy function apps*
 
 ---
 
@@ -10,7 +10,8 @@
 
 **Azure Functions** is Azure's **serverless compute** service — small pieces of code that run
 **automatically in response to events** (triggers) and **scale dynamically** based on demand.
-You pay only for the time your code executes, and Azure manages all the infrastructure.
+Azure manages the infrastructure. Consumption options meter on-demand executions; Premium,
+Dedicated, and optional always-ready capacity also incur cost while capacity is allocated.
 
 Think of a function as a **single-purpose micro-service**: it does **one thing** when **something
 happens**. That "something" is a **trigger** — an HTTP request, a message in a queue, a file
@@ -21,20 +22,20 @@ A binding is a declarative connection: "when this function runs, read this queue
 write results to this database as output." You focus on the business logic; Azure handles the
 plumbing.
 
-> Mental model — the function sits between **one** trigger and **any number** of bindings:
+> Mental model — each function chooses **one** trigger and can also have input/output bindings:
 >
 > ```
 >          TRIGGER                                    OUTPUT BINDINGS
 >      (exactly one —                              (zero or more — where
 >       what starts it)                             the results are sent)
 >
->   ┌──────────────┐                                  ┌──────────────┐
->   │ HTTP request │──┐                          ┌───▶│  Cosmos DB   │
->   └──────────────┘  │   ┌──────────────────┐   │    └──────────────┘
->                     ├──▶│  Azure Function  │───┤
->   ┌──────────────┐  │   │   (your code)    │   │    ┌──────────────┐
->   │ Queue message│──┘   └──────────────────┘   └───▶│    Queue     │
->   └──────────────┘               ▲                  └──────────────┘
+>   ┌────────────────────────┐                       ┌──────────────┐
+>   │ ONE TRIGGER, for example│                  ┌───▶│  Cosmos DB   │
+>   │ HTTP OR queue OR timer  │──▶┌────────────┐ │    └──────────────┘
+>   └────────────────────────┘   │  Function  │─┤
+>                                │ (your code)│ │    ┌──────────────┐
+>                                └────────────┘ └───▶│    Queue     │
+>                                       ▲            └──────────────┘
 >                                  │
 >                        ┌──────────────────┐
 >                        │  INPUT BINDINGS  │
@@ -46,7 +47,8 @@ plumbing.
 
 **Serverless** means:
 - **No servers to manage** — Azure handles provisioning, scaling, patching
-- **Pay-per-use** — billed only while code runs (Consumption/Flex) or per allocated instance (Premium)
+- **Consumption-based options** — on-demand executions are metered; always-ready or allocated
+  instances add idle cost when you configure or choose them
 - **Event-driven** — functions start automatically when triggered
 - **Automatic scaling** — from zero to many instances based on workload
 
@@ -67,7 +69,9 @@ tests these competencies:
 Expect scenario questions like:
 - "Which trigger should you use for processing files as they're uploaded?" → **Blob Storage trigger**
 - "How do you read a queue message without writing connection code?" → **Queue trigger (binding)**
-- "Your function must always be warm. Which plan?" → **Premium or Dedicated** (not Consumption)
+- "Your function must avoid idle cold starts. Which configuration?" → **Premium with an
+  always-ready/prewarmed instance, Flex Consumption with an always-ready instance, or Dedicated
+  with Always On**
 - "How do you pass configuration to a deployed function?" → **Application settings** (read via
   `os.environ`)
 - "Your function must reach a database behind a VNet. Which plan?" → **Flex Consumption, Premium,
@@ -96,7 +100,12 @@ unit and the thing you configure (runtime version, region, pricing plan, identit
 > - Application settings
 > - Hosting plan
 > - Region
-> - Scaling — instances scale the **whole app**, not individual functions
+> - Deployment unit and per-instance resources
+>
+> Scaling depends on the plan. Consumption and Premium add instances of the function host for the
+> app (Premium capacity is allocated at the plan level). Flex Consumption uses **per-function
+> scaling**: most triggers can scale independently, while all HTTP triggers form one scale group,
+> all Blob (Event Grid) triggers form another, and all Durable Functions triggers form another.
 
 ### 2. Triggers — what starts your function
 
@@ -155,19 +164,21 @@ The **hosting plan** determines performance, scaling behavior, and cost.
 
 | Plan | Scaling | Cost | Cold start | Timeout (default / max) | VNet |
 | --- | --- | --- | --- | --- | --- |
-| **Consumption** | 0 → 200 instances (100 on Linux) | Pay per execution | Possible | 5 min / 10 min | ✗ |
-| **Flex Consumption** | 0 → many, per-instance concurrency | Pay per execution + always-ready instances | Reduced (always-ready) | 30 min / unlimited | ✓ |
-| **Premium** | 1 → 100 instances, pre-warmed | Instance time + executions | Minimal | 30 min / unlimited | ✓ |
-| **Dedicated (App Service Plan)** | Fixed / autoscale VMs | Pay for the VMs, always | None (with Always On) | 30 min / unlimited | ✓ |
+| **Consumption (legacy)** | App-level, 0 → 200 Windows / 100 Linux instances | Execution-time metering | Possible | 5 min / 10 min | ✗ |
+| **Flex Consumption** | Per-function groups, 0 → 1,000 on-demand instances per group | On-demand execution + optional always-ready instances | Improved; always-ready reduces it further | 30 min / unbounded | ✓ |
+| **Premium** | Event-driven; capacity belongs to the plan | Allocated instances + executions | Avoided for covered workloads by prewarmed/always-ready instances | 30 min / unbounded | ✓ |
+| **Dedicated (App Service Plan)** | Manual/App Service autoscale | Pay for allocated App Service instances | Not normally an issue with Always On | 30 min / unbounded with Always On | ✓ |
 
 **Key differences:**
-- **Consumption** — the classic serverless plan. Scales to **zero**, so you pay nothing when idle,
-  but a first request after idling pays a **cold start**. Hard **10-minute ceiling**.
+- **Consumption (legacy)** — scales to **zero**, so there is no function execution charge while
+  idle, but the first request after idling can pay a **cold-start** delay. It has a hard
+  **10-minute function timeout**. Linux Consumption is receiving no new features or language
+  versions and retires on **30 September 2028**; use Flex Consumption for new Linux apps.
 - **Flex Consumption** — the newer serverless plan. Still scales to zero, but adds **VNet
-  integration**, **always-ready instances** to blunt cold starts, and per-instance concurrency
-  control.
-- **Premium** — always at least one warm instance, so no cold starts, plus VNet and longer runs.
-  You pay for that instance even when nothing is running.
+  integration**, optional **always-ready instances** to reduce cold starts, configurable
+  per-instance concurrency, and per-function scaling groups.
+- **Premium** — keeps prewarmed capacity and supports always-ready instances, VNet integration,
+  and longer runs. At least one Premium instance is billed for the plan.
 - **Dedicated** — runs on an App Service Plan you already pay for. Good for reusing spare capacity
   or when you need full App Service features. Requires **Always On** to keep non-HTTP triggers alive.
 
@@ -175,19 +186,25 @@ The **hosting plan** determines performance, scaling behavior, and cost.
 > - Classic **Consumption** is the one plan with a **hard 10-minute maximum** and **no VNet**.
 > - **Always On** matters only on **Dedicated** — without it the app idles out and timer/queue
 >   triggers stop firing.
-> - Scaling applies to the **whole Function App**, not to a single function.
+> - Flex Consumption is the scaling exception: most triggers scale independently in function
+>   groups. HTTP, Blob (Event Grid), and Durable Functions triggers each scale with their own
+>   respective group.
+> - Even on a plan with an unbounded function timeout, an HTTP-triggered response is still
+>   limited to about **230 seconds** by the Azure Load Balancer idle timeout. Return quickly and
+>   move longer work behind a queue or use the Durable Functions asynchronous pattern.
 
 ### 5. Project structure — the v2 programming model
 
 Python has **two** programming models. Since 2023 the default (and what you should learn) is **v2**.
 
-**v2 — decorators, one file** (used by the sample in this folder):
+**v2 — decorators, with an app entry point** (used by the sample in this folder):
 
 ```
 azure-functions/
-├── function_app.py         # ALL functions live here, registered on one `app` object
+├── function_app.py         # Creates `app`; functions may live here or in registered blueprints
+├── feature_blueprint.py    # Optional: decorators registered on a Blueprint for modular apps
 ├── host.json               # Global configuration for the whole app
-├── local.settings.json     # Local-only settings — NOT deployed, gitignored
+├── local.settings.example.json # Safe committed template; copy it to the ignored local.settings.json
 ├── requirements.txt        # Python dependencies
 └── .funcignore             # Files to exclude from deployment
 ```
@@ -209,20 +226,22 @@ azure-functions/
 
 | File | Purpose |
 | --- | --- |
-| `function_app.py` | **v2**: every function, defined with decorators |
+| `function_app.py` | **v2**: creates the app and defines functions and/or registers blueprints |
+| Blueprint module | **v2, optional**: groups decorated functions in another Python file |
 | `function.json` | **v1 only**: trigger and bindings for one function, as JSON |
 | `host.json` | Global settings for all functions: version, extension bundle, logging, retries, timeout |
-| `local.settings.json` | Local-only settings and connection strings — **never deployed**, never committed |
+| `local.settings.example.json` | Safe committed template for local settings; it contains emulator-only values |
+| `local.settings.json` | Local-only settings derived from the template; ignored by Git and excluded from normal deployment |
 | `requirements.txt` | pip dependencies — anything missing here is missing in Azure |
 | `.funcignore` | Excludes files from the deployment package |
 
-> **Exam gotcha:** exam questions still ask "which file configures a single function's trigger and
-> bindings?" — the expected answer is **`function.json`**, because that question predates v2. In v2
-> Python there is no `function.json`; the decorators generate it at build time. Know both.
+> **Exam gotcha:** pay attention to the programming model named in the question. In Python v1,
+> **`function.json`** configures one function. In Python v2, decorators in `function_app.py` or a
+> registered blueprint provide the binding metadata; you don't author a `function.json` file.
 
-> **Don't mix the models.** A project cannot use decorators *and* `function.json` folders. If a
-> `function.json` exists alongside `function_app.py`, the host gets confused about which functions
-> to index and typically loads none of them.
+> Keep one programming model per project. For a v1-to-v2 migration, convert each function's
+> `function.json` metadata to decorators and test function discovery before removing the old
+> layout. Avoid relying on undocumented behavior from a mixed layout.
 
 ### 6. Key Python decorators (v2)
 
@@ -230,11 +249,11 @@ azure-functions/
 import azure.functions as func
 
 # ONE FunctionApp object for the whole app, at module level in function_app.py
-app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
 # HTTP trigger — the URL becomes /api/hello
 @app.function_name(name="HttpExample")
-@app.route(route="hello", methods=["GET", "POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@app.route(route="hello", methods=["GET", "POST"], auth_level=func.AuthLevel.FUNCTION)
 def http_example(req: func.HttpRequest) -> func.HttpResponse: ...
 
 # Queue trigger — `connection` is the NAME of an app setting
@@ -267,6 +286,14 @@ def blob_example(blob: func.InputStream) -> None: ...
 Goal: create a Function App (plus the Storage account it requires) and deploy a Python function to
 it.
 
+**Prerequisites:** an Azure subscription, Azure CLI, `az login`, and permission to create resources
+and role assignments. The role assignment in this walkthrough can take several minutes to become
+effective.
+
+**Region and shell:** the examples use `westeurope` and **bash** syntax. Azure Cloud Shell's Bash
+mode is the simplest copy-paste environment. Choose another region only after confirming that it
+supports the selected plan and Python version.
+
 > **Three methods — pick one:**
 > - **[CLI](#cli-setup)** — copy-paste commands (requires [Azure CLI](https://learn.microsoft.com/cli/azure/))
 > - **[Azure Portal](#portal-setup-web-ui)** — point-and-click in the browser
@@ -274,49 +301,24 @@ it.
 
 ### Set your variables
 
-The CLI commands in **Setup** and **Cleanup** reference these as **shell variables** — set them
-once for your shell, then run the `az` commands as written.
+The CLI commands in **Setup** and **Cleanup** reference these as bash variables — set them once,
+then run the `az` commands in the same shell session.
 
 - **`RG`** — resource group
 - **`LOCATION`** — Azure region
 - **`STORAGE`** — Storage account name (required for Functions — globally unique, 3–24 chars,
   lowercase letters and digits only)
 - **`FUNCTIONAPP`** — Function App name (globally unique — it becomes `<name>.azurewebsites.net`)
-- **`PYTHON_VERSION`** — Python runtime version (e.g. `3.11`)
-
-Copy the block that matches your shell:
+- **`PYTHON_VERSION`** — Python runtime version (this guide uses `3.12`)
 
 ```bash
-# bash / zsh — Linux, and macOS (its default shell)
+# bash / zsh, including Azure Cloud Shell in Bash mode
 RG="ai200-func-rg"
 LOCATION="westeurope"
 STORAGE="ai200funcsa$(date +%s)"   # timestamp keeps the name unique
 FUNCTIONAPP="ai200-func-$(date +%s)"
-PYTHON_VERSION="3.11"
+PYTHON_VERSION="3.12"
 ```
-
-```fish
-# fish — Linux / macOS
-set RG ai200-func-rg
-set LOCATION westeurope
-set STORAGE ai200funcsa(date +%s)
-set FUNCTIONAPP ai200-func-(date +%s)
-set PYTHON_VERSION 3.11
-```
-
-```powershell
-# PowerShell — Windows (also cross-platform)
-$RG = "ai200-func-rg"
-$LOCATION = "westeurope"
-$STORAGE = "ai200funcsa$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
-$FUNCTIONAPP = "ai200-func-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
-$PYTHON_VERSION = "3.11"
-```
-
-> **Referencing variables:** the `az` snippets use bash-style `"$RG"`, which also works in fish and
-> PowerShell. In **cmd** use `%RG%` instead. The trailing `\` on long commands is a *bash*
-> line-continuation — in PowerShell use a backtick `` ` ``, in cmd use `^`, or put the command on
-> one line.
 
 ### CLI Setup
 
@@ -328,7 +330,8 @@ Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login`
 az group create --name "$RG" --location "$LOCATION"
 
 # 2. Create a Storage account — REQUIRED for every Function App.
-#    Used for trigger state, function keys, logs, and Durable Functions state.
+#    Functions uses it for host state and keys, and some plans/features also use it for
+#    deployment artifacts, diagnostic data, or Durable Functions state.
 #    The name must be globally unique across all of Azure.
 az storage account create \
   --name "$STORAGE" \
@@ -337,13 +340,65 @@ az storage account create \
   --sku Standard_LRS \
   --kind StorageV2
 
-# 3. Create the Function App on the Consumption plan (serverless, pay-per-use).
-#    --consumption-plan-location: this BOTH selects the Consumption plan AND sets the
-#      region. `az functionapp create` has NO --location parameter: you pass either
-#      --consumption-plan-location (Consumption), --flexconsumption-location (Flex),
-#      or --plan (Premium / Dedicated).
+# 3. Create the Function App on Flex Consumption, the recommended serverless plan for new
+#    Linux apps. --flexconsumption-location both selects the plan and sets its region.
+#    `az functionapp create` has no general --location parameter: use
+#    --flexconsumption-location (Flex), --consumption-plan-location (legacy Consumption),
+#    or --plan (Premium / Dedicated).
 #    --functions-version 4: the current runtime major version.
-#    --os-type Linux: required for Python.
+#    Flex Consumption is Linux-only, and Python Functions run on Linux.
+az functionapp create \
+  --name "$FUNCTIONAPP" \
+  --resource-group "$RG" \
+  --flexconsumption-location "$LOCATION" \
+  --storage-account "$STORAGE" \
+  --functions-version 4 \
+  --runtime python \
+  --runtime-version "$PYTHON_VERSION"
+
+# 4. Give the Function App a system-assigned managed identity, then authorize that identity to
+#    send, receive, and delete queue messages for this two-way queue-binding demo.
+#    The role ID is Storage Queue Data Contributor. Scope it to the one Storage account.
+FUNCTION_PRINCIPAL_ID=$(az functionapp identity assign \
+  --name "$FUNCTIONAPP" \
+  --resource-group "$RG" \
+  --query principalId \
+  --output tsv)
+STORAGE_ID=$(az storage account show \
+  --name "$STORAGE" \
+  --resource-group "$RG" \
+  --query id \
+  --output tsv)
+
+az role assignment create \
+  --assignee-object-id "$FUNCTION_PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "974c5e8b-45b9-4653-ba55-5f855dd0fb88" \
+  --scope "$STORAGE_ID"
+
+# 5. Configure an identity-based binding connection. `StorageConnection` in the decorator is a
+#    setting PREFIX, so the host combines the double-underscore settings below. `queueServiceUri`
+#    is valid for any named Queue Storage connection; `accountName` is a special shortcut only for
+#    AzureWebJobsStorage and must not be used here.
+STORAGE_QUEUE_URI="https://${STORAGE}.queue.core.windows.net"
+
+az functionapp config appsettings set \
+  --name "$FUNCTIONAPP" \
+  --resource-group "$RG" \
+  --settings \
+    "StorageConnection__queueServiceUri=$STORAGE_QUEUE_URI" \
+    "StorageConnection__credential=managedidentity" \
+    "APP_ENVIRONMENT=azure"
+
+# 6. Get the Function App URL
+az functionapp show --name "$FUNCTIONAPP" --resource-group "$RG" \
+  --query "defaultHostName" --output tsv
+```
+
+**Legacy Consumption plan** (shown because it still appears in existing deployments and exam
+questions; don't choose it for a new Linux app):
+
+```bash
 az functionapp create \
   --name "$FUNCTIONAPP" \
   --resource-group "$RG" \
@@ -353,34 +408,10 @@ az functionapp create \
   --runtime python \
   --runtime-version "$PYTHON_VERSION" \
   --os-type Linux
-
-# 4. Add the application settings your functions read.
-#    These become environment variables inside the running function.
-#    The queue binding looks for a setting NAMED "StorageConnection".
-STORAGE_CONN=$(az storage account show-connection-string \
-  --name "$STORAGE" --resource-group "$RG" --query connectionString --output tsv)
-
-az functionapp config appsettings set \
-  --name "$FUNCTIONAPP" \
-  --resource-group "$RG" \
-  --settings "StorageConnection=$STORAGE_CONN" "APP_ENVIRONMENT=azure"
-
-# 5. Get the Function App URL
-az functionapp show --name "$FUNCTIONAPP" --resource-group "$RG" \
-  --query "defaultHostName" --output tsv
 ```
 
-**Optional: Flex Consumption plan** (serverless *with* VNet support and always-ready instances):
-
-```bash
-az functionapp create \
-  --name "$FUNCTIONAPP" \
-  --resource-group "$RG" \
-  --flexconsumption-location "$LOCATION" \
-  --storage-account "$STORAGE" \
-  --runtime python \
-  --runtime-version "$PYTHON_VERSION"
-```
+> Linux Consumption supports Python only through 3.12 and retires on 30 September 2028. The
+> `3.12` value used here is compatible, but Flex Consumption is the current choice for new apps.
 
 **Optional: Premium plan** (pre-warmed instances, VNet, longer timeouts):
 
@@ -443,8 +474,8 @@ Prefer the browser? Create the same resources in the [Azure Portal](https://port
 3. **Create the Function App:**
    - Click **+ Create a resource** → search for "Function App" → **Create**
    - You are first asked to **select a hosting plan**. Pick:
-     - **Consumption** — the classic pay-per-execution serverless plan (use this for learning)
-     - *(Flex Consumption, Premium, App Service, and Container Apps are the other options)*
+     - **Flex Consumption** — the recommended serverless plan for a new Linux/Python app
+     - *(Premium, App Service, Container Apps, and legacy Consumption are the other options)*
    - Click **Select** to continue to the **Basics** tab
 
    **Basics tab:**
@@ -453,7 +484,7 @@ Prefer the browser? Create the same resources in the [Azure Portal](https://port
    - Function App name: `ai200-func-<something-unique>` (becomes `<name>.azurewebsites.net`)
    - Do you want to deploy code or container image?: **Code**
    - Runtime stack: **Python**
-   - Version: **3.11**
+   - Version: **3.12**
    - Region: `West Europe`
    - Operating System: **Linux** (the only option for Python)
    - Click **Next: Storage >**
@@ -461,13 +492,14 @@ Prefer the browser? Create the same resources in the [Azure Portal](https://port
    **Storage tab:**
    - Storage account: accept the auto-generated name, or **Create new** →
      `ai200funcsa<something-unique>` (lowercase letters and digits only, 3–24 chars)
-   - This account is **mandatory** — Functions keeps trigger state, function keys, and logs in it
+   - This account is **mandatory** — Functions keeps host state and keys there; selected plans and
+     features also use it for deployment artifacts, diagnostic data, or Durable Functions state
    - Click **Next: Networking >**
 
    **Networking tab:**
    - Enable public access: **On** (so you can call the HTTP function from your machine)
-   - Enable network injection: **Off** — on the Consumption plan VNet integration isn't available
-     anyway; it's offered on Flex Consumption, Premium, and Dedicated
+   - Enable virtual network integration: **Off** for this public learning sample. Flex Consumption
+     supports VNet integration when the connected resources require private access.
    - Click **Next: Monitoring >**
 
    **Monitoring tab:**
@@ -481,19 +513,26 @@ Prefer the browser? Create the same resources in the [Azure Portal](https://port
    - Click **Review + create** → **Create**
    - Deployment takes 1–3 minutes. Click **Go to resource** when it finishes.
 
-4. **Add application settings** (the equivalent of CLI step 4):
+4. **Enable passwordless access for the queue bindings** (the equivalent of CLI steps 4–5):
+   - Open the Function App → **Settings** → **Identity** → **System assigned** → set **Status** to
+     **On** → **Save**
+   - Open the Storage account → **Access control (IAM)** → **Add role assignment**
+   - Select **Storage Queue Data Contributor**, choose **Managed identity**, and select this
+     Function App. This lab role covers both the output binding and trigger; a production app should
+     use narrower sender/processor roles when its functions do not need both directions.
    - Open your Function App → **Settings** → **Environment variables** → **App settings** tab
-   - Click **+ Add**:
-     - Name: `StorageConnection`
-     - Value: the storage connection string — get it from your Storage account →
-       **Security + networking** → **Access keys** → **key1** → **Connection string** → *Show* →
-       copy
-   - Click **+ Add** again: Name `APP_ENVIRONMENT`, Value `azure`
+   - Add `StorageConnection__queueServiceUri` with value
+     `https://<storage-account>.queue.core.windows.net`
+   - Add `StorageConnection__credential` with value `managedidentity`
+   - Add `APP_ENVIRONMENT` with value `azure`
    - Click **Apply** → **Confirm**. The app restarts.
 
-   > These app settings are exactly what `os.environ.get("APP_ENVIRONMENT")` reads in your code,
-   > and what the `connection="StorageConnection"` on a binding resolves against.
+   > The binding treats `StorageConnection` as the prefix of this identity-based setting
+   > collection. It does not need a Storage access key. `APP_ENVIRONMENT` is the ordinary value
+   > read by `os.environ.get("APP_ENVIRONMENT")`.
    > `local.settings.json` is the **local** stand-in for this screen and is never deployed.
+   > Role assignments can take several minutes to propagate; retry after a short wait if the host
+   > initially reports authorization failure.
 
 5. **Find things later, in your Function App:**
 
@@ -507,10 +546,11 @@ Prefer the browser? Create the same resources in the [Azure Portal](https://port
    | Change the hosting plan | **Settings** → **Scale up (App Service plan)** |
    | Enable managed identity | **Settings** → **Identity** |
 
-> **Portal limitation worth knowing for the exam:** for **Python** you cannot author functions in
-> the portal — the in-portal code editor is unavailable, and Python apps are always deployed as a
-> package. You edit and deploy from your machine (or CI); the portal is for **configuring** and
-> **monitoring**.
+> **Portal limitation worth knowing:** in-portal editing is unavailable on Flex Consumption and
+> becomes read-only after you deploy this project from Core Tools or another external source.
+> Python portal editing exists only for supported plan/app combinations created and kept in the
+> portal, and it doesn't support custom packages. Local development plus deployment is the
+> recommended path for this sample.
 
 ### VS Code Setup
 
@@ -520,7 +560,7 @@ Prefer the browser? Create the same resources in the [Azure Portal](https://port
 4. Sign in to Azure (Azure icon in the sidebar → **Sign in to Azure**)
 5. `Ctrl+Shift+P` (`Cmd+Shift+P` on macOS) → **Azure Functions: Create New Project**
 6. Choose a folder → language **Python** → **Model V2** → a template (e.g. *HTTP trigger*) →
-   a function name → auth level **ANONYMOUS**
+   a function name → auth level **FUNCTION**
 7. To deploy: `Ctrl+Shift+P` → **Azure Functions: Deploy to Function App**
 
 ---
@@ -540,8 +580,9 @@ az group delete --name "$RG" --yes --no-wait
 az group list --output table
 ```
 
-> **Important:** deleting a resource group is **permanent**. Everything in it is destroyed and
-> cannot be recovered.
+> **Important:** resource-group deletion is destructive and has no general undo. Review the
+> resource list before confirming; any service-specific recovery depends on protections that were
+> configured for that individual resource.
 
 ### Portal Cleanup (Web UI)
 
@@ -574,7 +615,10 @@ explaining both the Python idiom and the Azure concept.
 ### Prerequisites
 
 - [Azure Functions Core Tools v4](https://learn.microsoft.com/azure/azure-functions/functions-run-local?tabs=v4)
-- Python 3.9–3.12 (the **local** version should match the Function App's runtime version)
+  (use a current 4.x release; current Microsoft quickstarts require 4.12 or later)
+- A currently supported Python version, **3.10–3.14** as of August 2026. The local version must
+  match the Function App runtime; this walkthrough uses 3.12. Linux Consumption stops at 3.12,
+  while Flex Consumption supports newer versions.
 - [Azurite](https://learn.microsoft.com/azure/storage/common/storage-use-azurite) — the local
   Storage emulator, so you can run the queue functions without touching Azure
 
@@ -589,9 +633,8 @@ npm install -g azurite
 
 ### 1. Create the virtual environment
 
-A **virtual environment** is a private folder of Python packages for this project only — the
-closest .NET analogy is that each project restores its own packages instead of using a machine-wide
-install.
+A **virtual environment** is a private folder of Python packages for this project only. Activating
+it makes `python` and `pip` use that folder instead of packages installed for the whole machine.
 
 ```bash
 # Create it (the folder is named .venv and is gitignored)
@@ -615,10 +658,16 @@ source .venv/bin/activate.fish
 pip install -r requirements.txt
 ```
 
-### 3. Check `local.settings.json`
+### 3. Create `local.settings.json` from the safe template
 
-This file already exists in the folder and is **gitignored** (it normally holds real connection
-strings). It should contain:
+`local.settings.json` can hold secrets, so Git ignores it. Create your local copy from the
+committed emulator-only template:
+
+```bash
+cp local.settings.example.json local.settings.json
+```
+
+The template contains:
 
 ```json
 {
@@ -632,13 +681,17 @@ strings). It should contain:
 }
 ```
 
-`UseDevelopmentStorage=true` is the magic value that points at **Azurite** running locally. To run
-against a real Storage account instead, replace both values with its connection string:
+`UseDevelopmentStorage=true` is the magic value that points at **Azurite** running locally. If you
+intentionally test against a real Storage account, inject its connection string only into the
+current shell rather than editing the template or local file:
 
 ```bash
-az storage account show-connection-string \
-  --name "$STORAGE" --resource-group "$RG" --query connectionString --output tsv
+export AzureWebJobsStorage="$(az storage account show-connection-string \
+  --name "$STORAGE" --resource-group "$RG" --query connectionString --output tsv)"
+export StorageConnection="$AzureWebJobsStorage"
 ```
+
+Those values are secrets and disappear when that shell closes. Prefer Azurite for this walkthrough.
 
 ### 4. Run locally
 
@@ -675,9 +728,9 @@ curl -X POST "http://localhost:7071/api/hello" \
   -d '{"name": "Frank"}'
 ```
 
-Note the URL is `/api/hello` — the **route**, not the function name. And there is no `?code=`
-because the function is `AuthLevel.ANONYMOUS`; with `FUNCTION` auth you'd append `?code=<key>` or
-send an `x-functions-key` header.
+Note the URL is `/api/hello` — the **route**, not the function name. Core Tools disables key
+enforcement locally unless you start it with `--enableAuth`, so these local calls don't need
+`?code=` even though the route uses `AuthLevel.FUNCTION`. Azure enforces the key after deployment.
 
 Watch the *Terminal 2* logs: `HttpHello` runs, writes to `demo-queue` via its output binding, and a
 second later `QueueProcessor` picks the message up. That's a trigger and an output binding working
@@ -686,7 +739,8 @@ together, with no connection code in your source.
 ### 6. Deploy to Azure
 
 ```bash
-# Publishes the code and (with --publish-local-settings) the app settings.
+# Publishes the code. It does NOT publish local.settings.json by default; the Azure settings were
+# created in CLI Setup step 4. Only opt in to --publish-local-settings after checking for secrets.
 # Core Tools builds the dependencies remotely for the Linux runtime.
 func azure functionapp publish "$FUNCTIONAPP"
 ```
@@ -694,7 +748,17 @@ func azure functionapp publish "$FUNCTIONAPP"
 Then call the deployed function:
 
 ```bash
-curl "https://$FUNCTIONAPP.azurewebsites.net/api/hello?name=Azure"
+# Read the function-specific key without printing it, then send it in a header. Keep the value
+# secret: a function key authorizes calls but does not identify the caller.
+FUNCTION_KEY=$(az functionapp function keys list \
+  --name "$FUNCTIONAPP" \
+  --resource-group "$RG" \
+  --function-name "HttpHello" \
+  --query default \
+  --output tsv)
+
+curl "https://$FUNCTIONAPP.azurewebsites.net/api/hello?name=Azure" \
+  --header "x-functions-key: $FUNCTION_KEY"
 ```
 
 > If the deployed app returns 404, check the **Overview → Functions** tab in the portal. An empty
@@ -711,7 +775,7 @@ already here):
 func init --worker-runtime python --model V2
 
 # Add functions to function_app.py (it appends, it does not create folders)
-func new --name HttpHello --template "HTTP trigger" --authlevel anonymous
+func new --name HttpHello --template "HTTP trigger" --authlevel function
 func new --name QueueProcessor --template "Azure Queue Storage trigger"
 func new --name TimerCleanup --template "Timer trigger"
 ```
@@ -726,16 +790,20 @@ func new --name TimerCleanup --template "Timer trigger"
   app setting called StorageConnection", not "connect to a service called StorageConnection".
   Putting a raw connection string there is a classic wrong answer.
 
-- **Every Function App requires a Storage account** — even one with only HTTP triggers. It holds
-  trigger state, function keys, logs, and Durable Functions state.
+- **Every Function App requires a Storage account** — even one with only HTTP triggers. The host
+  uses it for state and keys; plans and extensions can additionally use it for deployment content,
+  diagnostic data, or Durable Functions state. Application telemetry belongs in Application
+  Insights, not generically in this account.
 
 - **Application settings are environment variables.** Read them with `os.environ.get("Name")`.
-  `local.settings.json` is the local equivalent and is **never deployed** — the deployed app reads
-  the Function App's **Environment variables** blade instead.
+  `local.settings.json` is the local equivalent and is excluded from normal deployment. Core Tools
+  can publish its values only when you explicitly request that behavior. This repository tracks
+  only an emulator-only `.example` template; never place a real secret in any tracked file.
 
 - **Timeouts:** Consumption defaults to **5 minutes**, max **10** (`functionTimeout` in
-  `host.json`). Flex Consumption, Premium, and Dedicated default to **30 minutes** and can be set
-  to unlimited.
+  `host.json`). Flex Consumption and Premium default to **30 minutes** and are unbounded; Dedicated
+  is unbounded only with Always On. HTTP responses still face the platform's roughly **230-second**
+  load-balancer timeout, independent of `functionTimeout`.
 
 - **VNet integration:** available on **Flex Consumption, Premium, and Dedicated**. *Not* on the
   classic Consumption plan.
@@ -747,16 +815,19 @@ func new --name TimerCleanup --template "Timer trigger"
 - **Always On** is a **Dedicated-plan** setting. Without it, an idle app is unloaded and timer and
   queue triggers stop firing. It doesn't exist (and isn't needed) on Consumption/Premium.
 
-- **Scaling is per Function App**, not per function. All functions in an app share instances, the
-  plan, the language, and the settings.
+- **Scaling depends on the plan.** Consumption scales a function app; Premium capacity is managed
+  at the plan level. Flex Consumption uses per-function scale groups, with HTTP, Blob (Event Grid),
+  and Durable triggers grouped as described above. Functions in one app still deploy together and
+  share language and settings.
 
 - **`host.json` vs `function.json`:** `host.json` configures **all** functions in the app
   (timeout, retries, logging, extension bundle). `function.json` configures **one** function
   (trigger + bindings) — and exists only in the **v1** model. In v2 Python, decorators replace it.
 
-- **v2 model rules:** one `function_app.py`, one `FunctionApp()` object, all functions registered
-  on it. Multiple `FunctionApp()` instances or leftover `function.json` folders → the host finds
-  no functions and every call returns **404**.
+- **v2 model rules:** `function_app.py` exposes the app entry point. Small apps can define every
+  decorated function there; larger apps can register `Blueprint` objects from other modules.
+  Import/indexing errors can leave the app with no discovered functions and make HTTP routes return
+  **404**, so inspect host logs when the function list is empty.
 
 - **Poison messages:** a queue-triggered function that keeps throwing is retried
   **`maxDequeueCount`** times (default **5**), then the message is moved to
@@ -765,8 +836,12 @@ func new --name TimerCleanup --template "Timer trigger"
 - **Queue message deletion is automatic** — on success the host deletes it; on an exception it
   stays for retry. Don't write manual delete code.
 
-- **NCRONTAB has six fields** — `{second} {minute} {hour} {day} {month} {day-of-week}` — one more
-  than Linux cron. Timers run in **UTC** unless `WEBSITE_TIME_ZONE` says otherwise.
+- **NCRONTAB accepts five or six fields.** This guide uses the six-field form
+  `{second} {minute} {hour} {day} {month} {day-of-week}` when it needs to name a second. A five-field
+  expression omits seconds, so `*/5 * * * *` and `0 */5 * * * *` both run every five minutes.
+  Timers use **UTC** by default. `WEBSITE_TIME_ZONE` is supported on Windows plans and Linux
+  Premium/Dedicated, but **not** on Linux Flex Consumption or Linux Consumption; write this
+  walkthrough's schedule in UTC.
 
 - **HTTP auth levels:** `anonymous` (no key), `function` (function or host key), `admin` (master
   key). Keys go in `?code=` or the `x-functions-key` header. Keys are **not** identity — use
@@ -782,9 +857,11 @@ func new --name TimerCleanup --template "Timer trigger"
 - **Durable Functions** is the answer for stateful, multi-step orchestration (fan-out/fan-in,
   human approval, long-running workflows). It requires the Storage account.
 
-- **Managed identity** is the recommended way to reach other Azure services — bindings support
-  identity-based connections (`StorageConnection__accountName` instead of a connection string), so
-  you can drop secrets entirely.
+- **Managed identity** is the recommended way to reach other Azure services. For this named Queue
+  Storage binding, `connection="StorageConnection"` resolves the prefix
+  `StorageConnection__queueServiceUri` plus `StorageConnection__credential`. The
+  `__accountName` shortcut applies only to `AzureWebJobsStorage`, not arbitrary named binding
+  connections. Grant the function identity the required Storage data role as well.
 
 - **Application Insights** must be connected for the *Monitor* blade and KQL queries to show
   anything.
@@ -802,6 +879,7 @@ Take the **Azure Functions** quiz in the [quiz app](../../quiz/)
 
 - Azure Functions overview: <https://learn.microsoft.com/azure/azure-functions/functions-overview>
 - Python developer guide: <https://learn.microsoft.com/azure/azure-functions/functions-reference-python>
+- Supported runtime and Python versions: <https://learn.microsoft.com/azure/azure-functions/functions-versions>
 - v2 programming model: <https://learn.microsoft.com/azure/azure-functions/functions-reference-python?pivots=python-mode-decorators>
 - Triggers and bindings: <https://learn.microsoft.com/azure/azure-functions/functions-triggers-bindings?tabs=python>
 - HTTP bindings: <https://learn.microsoft.com/azure/azure-functions/functions-bindings-http-webhook?tabs=python>
@@ -809,6 +887,7 @@ Take the **Azure Functions** quiz in the [quiz app](../../quiz/)
 - Timer bindings: <https://learn.microsoft.com/azure/azure-functions/functions-bindings-timer?tabs=python>
 - Hosting plans compared: <https://learn.microsoft.com/azure/azure-functions/functions-scale>
 - Flex Consumption plan: <https://learn.microsoft.com/azure/azure-functions/flex-consumption-plan>
+- Portal development limitations: <https://learn.microsoft.com/azure/azure-functions/functions-how-to-use-azure-function-app-settings#development-limitations-in-the-azure-portal>
 - `host.json` reference: <https://learn.microsoft.com/azure/azure-functions/functions-host-json>
 - Identity-based connections: <https://learn.microsoft.com/azure/azure-functions/functions-reference#configure-an-identity-based-connection>
 - Durable Functions: <https://learn.microsoft.com/azure/azure-functions/durable/durable-functions-overview?tabs=python>

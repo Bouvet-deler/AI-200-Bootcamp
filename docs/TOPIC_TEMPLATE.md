@@ -49,7 +49,7 @@ az group create --name <resource-group> --location westeurope
 
 ## Quiz yourself
 
-Take the **<topic>** quiz in the [quiz app](../../quiz/) (bank:
+Take the **<topic>** quiz in the repository's `quiz/` app (bank:
 `quiz/src/questions/<domain>/<topic>.json`).
 
 ## Further reading

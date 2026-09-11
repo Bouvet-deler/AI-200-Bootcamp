@@ -363,8 +363,17 @@ body::before {
 }
 
 .select-wrapper:hover::after,
-.select-wrapper select:focus + ::after {
+.select-wrapper:focus-within::after {
   color: var(--accent-primary);
+}
+
+/* Keep keyboard focus visible even on controls whose native input is visually restyled. */
+button:focus-visible,
+a:focus-visible,
+.theme-toggle:focus-within,
+.mode-option:focus-within {
+  outline: 3px solid var(--accent-primary);
+  outline-offset: 3px;
 }
 
 /* Progress indicator */
@@ -598,6 +607,13 @@ body::before {
 }
 
 .build-list-choice-wrapper {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: grab;
 }
 
@@ -607,7 +623,7 @@ body::before {
 
 .build-list-choice-wrapper.selected {
   opacity: 0.5;
-  pointer-events: none;
+  cursor: not-allowed;
 }
 
 .build-list-choice-item {
@@ -743,6 +759,35 @@ body::before {
   overflow-wrap: break-word;
   word-break: break-word;
   font-weight: 500;
+}
+
+.build-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.build-list-move-btn {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.build-list-move-btn:hover:not(:disabled),
+.build-list-move-btn:focus-visible {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.build-list-move-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 
 .build-list-remove-btn {
@@ -887,6 +932,20 @@ body::before {
   margin-top: 1.5rem;
 }
 
+.answer-result {
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.answer-result.correct {
+  color: var(--correct-border);
+}
+
+.answer-result.wrong {
+  color: var(--wrong-border);
+}
+
 .explanation {
   padding: 1.25rem;
   background: var(--glass-bg);
@@ -1001,4 +1060,19 @@ body::before {
 *::before,
 *::after {
   transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.25s ease;
+}
+
+/* Respect the operating-system accessibility setting for people sensitive to motion. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

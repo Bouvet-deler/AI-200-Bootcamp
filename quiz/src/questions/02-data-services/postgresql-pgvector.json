@@ -4,7 +4,7 @@
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "What is Azure Database for PostgreSQL?",
+    "question": "What is Azure Database for PostgreSQL flexible server?",
     "choices": [
       "A fully managed relational database service based on PostgreSQL",
       "A NoSQL document database",
@@ -12,7 +12,7 @@
       "A vector database only"
     ],
     "answer": [0],
-    "explanation": "Azure Database for PostgreSQL is a fully managed relational database service that handles backups, high availability, security, and scaling automatically.",
+    "explanation": "It is Microsoft's managed PostgreSQL service. Azure operates backups, patching, storage, and optional high availability, while you choose and scale the compute and continue to use PostgreSQL SQL and clients.",
     "reference": "../../02-data-services/postgresql-pgvector/README.md#what-it-is"
   },
   {
@@ -28,7 +28,7 @@
       "A graph database"
     ],
     "answer": [0],
-    "explanation": "pgvector adds a vector data type for storing embedding vectors and specialized index types (HNSW, IVF, etc.) for fast similarity search.",
+    "explanation": "pgvector adds vector column types, distance operators, exact search, and the HNSW and IVFFlat approximate index access methods. Azure also offers DiskANN through the separate pg_diskann extension.",
     "reference": "../../02-data-services/postgresql-pgvector/README.md#what-it-is"
   },
   {
@@ -36,7 +36,7 @@
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "What is the primary use case for Azure Database for PostgreSQL + pgvector?",
+    "question": "Which AI workload is a strong fit for Azure Database for PostgreSQL with pgvector?",
     "choices": [
       "Storing and querying vector embeddings for AI/ML applications like RAG",
       "High-frequency trading",
@@ -44,7 +44,7 @@
       "Serving static websites"
     ],
     "answer": [0],
-    "explanation": "The primary use case is storing vector embeddings (from text, images, etc.) and performing fast similarity searches, which is the foundation of RAG and other AI applications.",
+    "explanation": "PostgreSQL with pgvector is a strong fit when vector embeddings, source text, and relational metadata need to be queried or updated together, such as tenant-filtered RAG retrieval.",
     "reference": "../../02-data-services/postgresql-pgvector/README.md#what-it-is"
   },
   {
@@ -60,7 +60,7 @@
       "Redundant Array of Generators - a backup system"
     ],
     "answer": [0],
-    "explanation": "RAG (Retrieval-Augmented Generation) is a pattern where an LLM retrieves relevant information from a knowledge base (using vector similarity search) before generating a response, improving accuracy and providing source grounding.",
+    "explanation": "Retrieval-augmented generation retrieves relevant source context before asking a model to generate an answer. Vector similarity is a common retrieval method, but RAG can also use keyword, hybrid, or structured retrieval.",
     "reference": "../../02-data-services/postgresql-pgvector/README.md#what-it-is"
   },
   {
@@ -70,21 +70,21 @@
     "type": "single",
     "question": "What is an embedding vector?",
     "choices": [
-      "An array of floating-point numbers that represents data in a high-dimensional space",
+      "A fixed-length numeric representation whose geometry encodes model-learned relationships",
       "A compressed database index",
       "A type of encryption key",
       "A PostgreSQL connection string"
     ],
     "answer": [0],
-    "explanation": "An embedding vector is an array of floats that represents data (text, images, etc.) in a multi-dimensional space where similar items have similar vectors.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#1-vector-basics"
+    "explanation": "An embedding is a fixed-length sequence of numeric values produced by a model. The model's intended distance metric determines how proximity should be interpreted.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#1-schema-design"
   },
   {
     "id": "postgresql-pgvector-006",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "Which distance metric is best for semantic similarity search in text-based applications?",
+    "question": "An embedding model's evaluation guidance specifies cosine distance. Which metric should the PostgreSQL retrieval query use?",
     "choices": [
       "Cosine distance",
       "L2 (Euclidean) distance",
@@ -92,8 +92,8 @@
       "Manhattan distance"
     ],
     "answer": [0],
-    "explanation": "Cosine distance (or cosine similarity) is best for semantic similarity because it measures the angle between vectors, which captures semantic relationships better than geometric distance measures.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#1-vector-basics"
+    "explanation": "Use cosine because the query metric should match the model's guidance. Cosine is common for text embeddings, but L2 or inner product can be correct for other models.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#1-schema-design"
   },
   {
     "id": "postgresql-pgvector-007",
@@ -108,8 +108,8 @@
       "0 to infinity, where 0 is most similar"
     ],
     "answer": [0],
-    "explanation": "Cosine distance ranges from 0 to 2. A distance of 0 means the vectors are identical (most similar), and 2 means they are diametrically opposed (least similar).",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#1-vector-basics"
+    "explanation": "For nonzero vectors, cosine distance ranges from 0 to 2. A distance of 0 means the vectors point in the same direction; 2 means they point in opposite directions. Magnitude does not have to be identical.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#2-distance-operators-and-operator-classes"
   },
   {
     "id": "postgresql-pgvector-008",
@@ -125,7 +125,7 @@
     ],
     "answer": [0],
     "explanation": "The <-> operator is used for L2 (Euclidean) distance calculations in pgvector.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#2-pgvector-data-types-and-operators"
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#2-distance-operators-and-operator-classes"
   },
   {
     "id": "postgresql-pgvector-009",
@@ -140,24 +140,24 @@
       "<==>"
     ],
     "answer": [1],
-    "explanation": "The <=> operator is used for cosine distance calculations in pgvector, which is ideal for semantic similarity search.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#2-pgvector-data-types-and-operators"
+    "explanation": "The <=> operator calculates cosine distance. Use it when cosine is the metric validated for the embedding model; it is common for semantic retrieval but is not universally correct.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#2-distance-operators-and-operator-classes"
   },
   {
     "id": "postgresql-pgvector-010",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "Which index type in pgvector is recommended for most use cases?",
+    "question": "You need an approximate pgvector index with no training step and a strong speed/recall trade-off. Which index should you evaluate first?",
     "choices": [
       "HNSW",
-      "IVF (Inverted File)",
-      "IVF + HNSW",
-      "Brute-force (no index)"
+      "IVFFlat",
+      "Exact scan",
+      "B-tree"
     ],
     "answer": [0],
-    "explanation": "HNSW (Hierarchical Navigable Small World) provides a good balance of speed and accuracy for most use cases, making it the recommended default index type.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-pgvector-index-types"
+    "explanation": "HNSW has no training step and usually offers a better speed/recall trade-off than IVFFlat, at the cost of slower builds and more memory. Benchmark it rather than treating it as universally best.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-exact-and-approximate-indexes"
   },
   {
     "id": "postgresql-pgvector-011",
@@ -173,23 +173,23 @@
     ],
     "answer": [0],
     "explanation": "HNSW stands for Hierarchical Navigable Small World, which is a graph-based algorithm for approximate nearest neighbor search.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-pgvector-index-types"
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-exact-and-approximate-indexes"
   },
   {
     "id": "postgresql-pgvector-012",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "Which index type is best for very large datasets (1M+ vectors)?",
+    "question": "Which Azure-specific vector index is provided by the separate pg_diskann extension rather than by pgvector itself?",
     "choices": [
-      "IVF + HNSW",
+      "DiskANN",
       "HNSW",
-      "Brute-force",
-      "IVF (Inverted File)"
+      "IVFFlat",
+      "IVF + HNSW"
     ],
     "answer": [0],
-    "explanation": "IVF + HNSW (hybrid) is best for very large datasets as it combines IVF's partitioning with HNSW's fast search within partitions, providing the best balance of speed, accuracy, and memory usage.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-pgvector-index-types"
+    "explanation": "DiskANN is supplied by Azure's pg_diskann extension. pgvector itself provides HNSW and IVFFlat; IVF + HNSW is not a pgvector access method.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-exact-and-approximate-indexes"
   },
   {
     "id": "postgresql-pgvector-013",
@@ -205,7 +205,7 @@
     ],
     "answer": [0],
     "explanation": "The correct syntax is embedding vector(1536), where vector is the pgvector data type and 1536 is the number of dimensions.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#2-pgvector-data-types-and-operators"
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#1-schema-design"
   },
   {
     "id": "postgresql-pgvector-014",
@@ -221,7 +221,7 @@
     ],
     "answer": [0],
     "explanation": "The index must use vector_cosine_ops operator class to support cosine distance queries with the <=> operator.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-pgvector-index-types"
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-exact-and-approximate-indexes"
   },
   {
     "id": "postgresql-pgvector-015",
@@ -230,14 +230,14 @@
     "type": "single",
     "question": "What is the correct SQL to create an HNSW index for cosine distance?",
     "choices": [
-      "CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef = 64);",
+      "CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);",
       "CREATE INDEX ON items USING hnsw (embedding vector_l2_ops) WITH (m = 16, ef = 64);",
-      "CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);",
+      "CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops) WITH (m = 16);",
       "CREATE INDEX ON items USING gin (embedding vector_cosine_ops);"
     ],
     "answer": [0],
-    "explanation": "This creates an HNSW index with the cosine operator class. The WITH clause specifies HNSW parameters: m (number of links) and ef (search parameter).",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-pgvector-index-types"
+    "explanation": "The HNSW index uses vector_cosine_ops for <=> queries. Its build options are m and ef_construction; hnsw.ef_search is a separate query-time setting, and ef is not a valid index option.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-exact-and-approximate-indexes"
   },
   {
     "id": "postgresql-pgvector-016",
@@ -246,14 +246,14 @@
     "type": "single",
     "question": "What happens if the index operator class does not match the query operator?",
     "choices": [
-      "The index will not be used, resulting in a slow brute-force scan",
+      "That index cannot support the ordering, so the planner may use an exact scan",
       "The query will return incorrect results",
       "PostgreSQL will automatically convert between operators",
       "The query will fail with an error"
     ],
     "answer": [0],
-    "explanation": "If the index operator class (e.g., vector_l2_ops) doesn't match the query operator (e.g., <=> for cosine), PostgreSQL cannot use the index and will perform a slow sequential scan of all vectors.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-pgvector-index-types"
+    "explanation": "An index built for a different operator class cannot support that distance ordering. PostgreSQL can still return correct results with an exact plan, often a sequential scan, but it cannot use that vector index for the mismatched operator.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-exact-and-approximate-indexes"
   },
   {
     "id": "postgresql-pgvector-017",
@@ -269,7 +269,7 @@
     ],
     "answer": [0],
     "explanation": "The <=> operator calculates cosine distance, and ORDER BY ... ASC LIMIT 5 returns the 5 rows with the smallest (most similar) distances.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#4-vector-similarity-search-knn"
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#4-metadata-filtered-rag-retrieval"
   },
   {
     "id": "postgresql-pgvector-018",
@@ -284,8 +284,8 @@
       "Use the index parameter in the vector query"
     ],
     "answer": [0],
-    "explanation": "You add a WHERE clause to filter by metadata. PostgreSQL will first filter by the WHERE conditions, then perform the vector similarity search on the filtered subset.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#4-vector-similarity-search-knn"
+    "explanation": "Express metadata restrictions in the WHERE clause and create suitable relational indexes for common filters. PostgreSQL's planner chooses the execution plan; with an approximate vector index, selective filters can require iterative scans or additional tuning to return enough matches.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#4-metadata-filtered-rag-retrieval"
   },
   {
     "id": "postgresql-pgvector-019",
@@ -294,126 +294,126 @@
     "type": "single",
     "question": "What is the purpose of the 'm' parameter in HNSW indexes?",
     "choices": [
-      "Controls the number of bi-directional links per node",
+      "Controls the maximum graph connections per point per layer",
       "Controls the number of clusters",
       "Controls the maximum number of vectors",
       "Controls the query timeout"
     ],
     "answer": [0],
-    "explanation": "The 'm' parameter in HNSW controls the width of the graph by specifying the number of bi-directional links each node has. Higher m = better accuracy but more memory usage.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#5-index-parameters-and-performance-tuning"
+    "explanation": "The m parameter controls the maximum graph connections per point per layer. Raising it can improve recall, but increases index size, build time, and memory use.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-exact-and-approximate-indexes"
   },
   {
     "id": "postgresql-pgvector-020",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "What is the purpose of the 'ef' parameter in HNSW indexes?",
+    "question": "What does the hnsw.ef_search setting control?",
     "choices": [
-      "Controls search time and accuracy (higher = better accuracy, slower queries)",
-      "Controls the number of dimensions",
-      "Controls the number of index replicas",
-      "Controls memory allocation"
+      "The query-time candidate list, trading more work for potentially higher recall",
+      "The vector column's dimensions",
+      "The number of database replicas",
+      "The index build memory allocation"
     ],
     "answer": [0],
-    "explanation": "The 'ef' (ef_search) parameter controls the query time and accuracy trade-off. Higher values result in better accuracy but slower queries.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#5-index-parameters-and-performance-tuning"
+    "explanation": "hnsw.ef_search is a session or transaction setting for query-time candidate exploration. A higher value can improve recall but increases query work. ef_construction is the separate build-time option.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-exact-and-approximate-indexes"
   },
   {
     "id": "postgresql-pgvector-021",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "What is the purpose of the 'lists' parameter in IVF indexes?",
+    "question": "What does the lists option control in an IVFFlat index?",
     "choices": [
-      "Controls the number of clusters/partitions",
-      "Controls the number of links per node",
-      "Controls the maximum vectors per cluster",
-      "Controls the query timeout"
+      "The number of clusters into which vectors are partitioned",
+      "The HNSW links per graph node",
+      "The number of query results",
+      "The connection-pool size"
     ],
     "answer": [0],
-    "explanation": "The 'lists' parameter in IVF (Inverted File) indexes controls the number of clusters/partitions. More lists = faster queries but more memory usage.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#5-index-parameters-and-performance-tuning"
+    "explanation": "lists controls the IVFFlat partitioning created during index training. Query-time ivfflat.probes controls how many lists are searched; lists and probes must be tuned together for the data and recall target.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-exact-and-approximate-indexes"
   },
   {
     "id": "postgresql-pgvector-022",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "Which Azure Database for PostgreSQL tier is recommended for production vector workloads?",
+    "question": "A steady production vector workload needs balanced compute and memory, and measurements do not show a memory bottleneck. Which tier is the most reasonable starting point?",
     "choices": [
       "Memory Optimized",
-      "Basic",
+      "Burstable",
       "General Purpose",
-      "Hyperscale"
+      "Basic"
     ],
-    "answer": [0],
-    "explanation": "Memory Optimized tier is recommended because pgvector indexes are memory-mapped, and having sufficient RAM to cache the index is critical for performance.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#6-azure-database-for-postgresql-tiers"
+    "answer": [2],
+    "explanation": "General Purpose is the balanced production starting point when measurements do not justify extra memory. Memory Optimized can help when the hot data and indexes are memory constrained; Burstable is aimed at low-concurrency, nonsustained demand.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#5-compute-memory-and-storage"
   },
   {
     "id": "postgresql-pgvector-023",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "What is the approximate memory requirement for 1M vectors at 1536 dimensions with HNSW indexing?",
+    "question": "A table has an embedding vector(3072) column. What happens if you try to create a pgvector HNSW index on that vector column?",
     "choices": [
-      "10-30 GB",
-      "1-2 GB",
-      "100-200 GB",
-      "500 MB"
+      "The index creation fails because indexed vector columns are limited to 2,000 dimensions",
+      "PostgreSQL silently truncates every vector to 2,000 dimensions",
+      "The index is automatically converted to a B-tree",
+      "HNSW always supports 16,000 vector dimensions"
     ],
     "answer": [0],
-    "explanation": "For 1M vectors at 1536 dimensions, the raw data is ~6 GB, and the HNSW index typically requires 2-4x that size, resulting in 10-30 GB total.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#5-index-parameters-and-performance-tuning"
+    "explanation": "Current pgvector HNSW and IVFFlat indexes support vector columns up to 2,000 dimensions. Choose an intentional reduced embedding size, evaluate halfvec with its precision trade-off, use exact search, or evaluate an index with different limits.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#2-distance-operators-and-operator-classes"
   },
   {
     "id": "postgresql-pgvector-024",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "Which tier has NO SLA (Service Level Agreement)?",
+    "question": "Which Azure Database for PostgreSQL flexible server tier does NOT support built-in high availability?",
     "choices": [
-      "Basic",
+      "Burstable",
       "General Purpose",
       "Memory Optimized",
-      "Hyperscale"
+      "Both General Purpose and Memory Optimized"
     ],
     "answer": [0],
-    "explanation": "The Basic tier has no SLA, making it suitable only for development and testing, not production workloads.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#6-azure-database-for-postgresql-tiers"
+    "explanation": "Burstable does not support built-in high availability. General Purpose and Memory Optimized support same-zone or, in supported regions, zone-redundant high availability.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#5-compute-memory-and-storage"
   },
   {
     "id": "postgresql-pgvector-025",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "Which Python library is most commonly used to connect to PostgreSQL?",
+    "question": "Which import uses the current Psycopg 3 PostgreSQL driver?",
     "choices": [
-      "psycopg2",
-      "asyncpg",
-      "SQLAlchemy",
-      "pgvector-py"
+      "import psycopg",
+      "import psycopg2",
+      "import redis",
+      "import azure.cosmos"
     ],
     "answer": [0],
-    "explanation": "psycopg2 is the most popular, mature, and widely-used Python library for connecting to PostgreSQL. psycopg2-binary is a pre-built version that's easier to install.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#7-connection-string-and-sdks"
+    "explanation": "Psycopg 3 is installed from the psycopg package and imported as psycopg. psycopg2 is the older major version with different context-manager and pooling behavior.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#hands-on-python"
   },
   {
     "id": "postgresql-pgvector-026",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "Which connection parameter is required for Azure Database for PostgreSQL?",
+    "question": "A client has the correct trusted root certificate and must encrypt the connection and verify the Azure PostgreSQL server's hostname. Which libpq setting provides that stronger validation?",
     "choices": [
-      "sslmode=require",
+      "sslmode=verify-full",
       "sslmode=disable",
       "port=1433",
-      "protocol=tcp"
+      "sslmode=allow"
     ],
     "answer": [0],
-    "explanation": "Azure Database for PostgreSQL requires SSL/TLS connections. sslmode=require ensures the connection uses SSL.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#7-connection-string-and-sdks"
+    "explanation": "sslmode=verify-full encrypts the connection, validates the certificate chain, and checks the hostname. sslmode=require encrypts traffic but does not provide the same server-identity verification.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#6-connection-optimization"
   },
   {
     "id": "postgresql-pgvector-027",
@@ -429,22 +429,22 @@
     ],
     "answer": [0],
     "explanation": "Connection pooling maintains a pool of open database connections that can be reused, avoiding the overhead of establishing a new connection (SSL handshake, authentication, etc.) for each query.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#7-connection-string-and-sdks"
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#6-connection-optimization"
   },
   {
     "id": "postgresql-pgvector-028",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "Which psycopg2 pool class is thread-safe?",
+    "question": "Which Psycopg 3 class provides a bounded, thread-safe synchronous connection pool?",
     "choices": [
-      "ThreadedConnectionPool",
-      "SimpleConnectionPool",
-      "Both are thread-safe",
-      "Neither is thread-safe"
+      "psycopg_pool.ConnectionPool",
+      "psycopg2.pool.SimpleConnectionPool",
+      "psycopg.Cursor",
+      "redis.ConnectionPool"
     ],
     "answer": [0],
-    "explanation": "ThreadedConnectionPool is thread-safe and should be used for multi-threaded applications. SimpleConnectionPool is NOT thread-safe.",
+    "explanation": "psycopg_pool.ConnectionPool is Psycopg 3's synchronous pool and can serve multiple threads. Configure min_size and max_size so the application reuses a bounded number of server connections.",
     "reference": "../../02-data-services/postgresql-pgvector/README.md#hands-on-python"
   },
   {
@@ -452,15 +452,15 @@
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "What is the minimum PostgreSQL version required for pgvector?",
+    "question": "Which name must be placed in Azure's extension allowlist before CREATE EXTENSION can install pgvector?",
     "choices": [
-      "PostgreSQL 11",
-      "PostgreSQL 10",
-      "PostgreSQL 12",
-      "PostgreSQL 14"
+      "vector",
+      "pgvector",
+      "hnsw",
+      "azure_vector"
     ],
     "answer": [0],
-    "explanation": "pgvector requires PostgreSQL 11 or higher. Azure Database for PostgreSQL supports this, but you should verify your specific version.",
+    "explanation": "The project is called pgvector, but its binary and PostgreSQL extension name are vector. Set azure.extensions to include vector, then run CREATE EXTENSION vector in each database that needs it.",
     "reference": "../../02-data-services/postgresql-pgvector/README.md#exam-gotchas"
   },
   {
@@ -484,32 +484,32 @@
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "Which Azure CLI command creates a PostgreSQL server?",
+    "question": "Which Azure CLI command creates a current Azure Database for PostgreSQL flexible server?",
     "choices": [
+      "az postgres flexible-server create",
       "az postgres server create",
       "az sql server create",
-      "az database postgres create",
-      "az postgres create"
+      "az database postgres create"
     ],
     "answer": [0],
-    "explanation": "az postgres server create is the correct Azure CLI command to create an Azure Database for PostgreSQL server.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#cli-setup"
+    "explanation": "Use az postgres flexible-server create. The az postgres server command group belongs to the retired Single Server deployment model.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#setup"
   },
   {
     "id": "postgresql-pgvector-032",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "Which Azure CLI command creates a database on an existing PostgreSQL server?",
+    "question": "Which Azure CLI command creates a database on an existing PostgreSQL flexible server?",
     "choices": [
+      "az postgres flexible-server db create",
       "az postgres database create",
-      "az postgres db create",
-      "az sql database create",
-      "az database create"
+      "az postgres flexible-server create",
+      "az sql database create"
     ],
     "answer": [0],
-    "explanation": "az postgres database create creates a new database on an existing Azure Database for PostgreSQL server.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#cli-setup"
+    "explanation": "Use az postgres flexible-server db create with the resource group, server name, and database name.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#setup"
   },
   {
     "id": "postgresql-pgvector-033",
@@ -532,7 +532,7 @@
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "Which operator is used for inner product in pgvector?",
+    "question": "Which pgvector operator returns the negative inner product so an ascending index scan can be used?",
     "choices": [
       "<#>",
       "<->",
@@ -540,8 +540,8 @@
       "<==>"
     ],
     "answer": [0],
-    "explanation": "The <#> operator calculates the inner product (dot product) of two vectors. Negative values indicate more similarity when vectors are normalized.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#2-pgvector-data-types-and-operators"
+    "explanation": "The <#> operator returns the negative inner product. Larger positive inner products therefore become smaller returned values and sort first in ascending order.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#2-distance-operators-and-operator-classes"
   },
   {
     "id": "postgresql-pgvector-035",
@@ -556,24 +556,24 @@
       "They are unrelated"
     ],
     "answer": [0],
-    "explanation": "Cosine distance is calculated as 1 - cosine similarity, so distance ranges from 0 (identical vectors, similarity=1) to 2 (opposite vectors, similarity=-1).",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#1-vector-basics"
+    "explanation": "Cosine distance is 1 - cosine similarity. For nonzero vectors it ranges from 0 (same direction, similarity 1) to 2 (opposite directions, similarity -1).",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#2-distance-operators-and-operator-classes"
   },
   {
     "id": "postgresql-pgvector-036",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "Which embedding model produces 1536-dimensional vectors?",
+    "question": "A deployment emits 1,024-element embeddings, but the PostgreSQL column is vector(1536). What should you do?",
     "choices": [
-      "text-embedding-ada-002",
-      "text-embedding-3-small",
-      "text-embedding-3-large",
-      "text-davinci-003"
+      "Change the schema or model output so stored and query vectors use the same intentional dimension",
+      "Pad every vector without validating retrieval quality",
+      "Rely on pgvector to infer a different size for each row",
+      "Change only the HNSW m option"
     ],
     "answer": [0],
-    "explanation": "text-embedding-ada-002 produces 1536-dimensional embedding vectors. text-embedding-3-small produces 1024-dim vectors, and text-embedding-3-large produces 3072-dim vectors.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#what-it-is"
+    "explanation": "A fixed-dimension vector column rejects vectors of another length. Make the model deployment, stored column, index, and query vectors agree; changing embedding size normally requires re-embedding and rebuilding the index.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#1-schema-design"
   },
   {
     "id": "postgresql-pgvector-037",
@@ -589,7 +589,7 @@
     ],
     "answer": [0],
     "explanation": "Metadata filtering (e.g., by category, date, author) restricts the vector similarity search to a relevant subset, improving both performance and result quality in RAG applications.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#4-vector-similarity-search-knn"
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#4-metadata-filtered-rag-retrieval"
   },
   {
     "id": "postgresql-pgvector-038",
@@ -604,7 +604,7 @@
       "Storing vectors alongside relational data"
     ],
     "answer": [2],
-    "explanation": "PostgreSQL + pgvector does NOT automatically generate embeddings. You need to generate embeddings using an external model (like Azure OpenAI) and store them in the database.",
+    "explanation": "The pgvector extension itself does not generate embeddings. The application or a separate model integration must create them before pgvector can store and compare them.",
     "reference": "../../02-data-services/postgresql-pgvector/README.md#what-it-is"
   },
   {
@@ -612,31 +612,31 @@
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "Which tier offers the fastest performance for vector workloads?",
+    "question": "Measurements show that a production vector index's hot pages do not fit in memory. Which compute tier should you evaluate?",
     "choices": [
       "Memory Optimized",
-      "Basic",
-      "General Purpose",
-      "All tiers have the same performance"
+      "Burstable",
+      "General Purpose only",
+      "Every tier has identical memory per vCore"
     ],
     "answer": [0],
-    "explanation": "Memory Optimized tier offers the fastest performance because it has more memory per vCore, which is critical for memory-mapped vector indexes.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#6-azure-database-for-postgresql-tiers"
+    "explanation": "Memory Optimized provides more memory per vCore and is worth evaluating for a measured memory bottleneck. It is not automatically fastest for every workload; CPU, I/O, concurrency, and cost still require benchmarking.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#5-compute-memory-and-storage"
   },
   {
     "id": "postgresql-pgvector-040",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "What command should you use to verify that your vector query is using the index?",
+    "question": "Which command both executes a representative vector query and reports its plan and buffer activity?",
     "choices": [
-      "EXPLAIN ANALYZE",
-      "EXPLAIN",
+      "EXPLAIN (ANALYZE, BUFFERS)",
       "ANALYZE",
-      "CHECK INDEX"
+      "CHECK INDEX",
+      "SHOW INDEX"
     ],
     "answer": [0],
-    "explanation": "EXPLAIN ANALYZE shows the query execution plan and actually executes the query, allowing you to verify that the index is being used.",
+    "explanation": "EXPLAIN (ANALYZE, BUFFERS) executes the query and reports the actual plan, timing, and buffer activity. Plain EXPLAIN estimates a plan without running the query.",
     "reference": "../../02-data-services/postgresql-pgvector/README.md#exam-gotchas"
   },
   {
@@ -644,16 +644,16 @@
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "multi",
-    "question": "Which of the following are valid pgvector index types? (Select all that apply)",
+    "question": "Which are pgvector approximate index access methods? (Select all that apply)",
     "choices": [
       "HNSW",
-      "IVF",
-      "IVF + HNSW",
-      "Brute-force (no index)"
+      "IVFFlat",
+      "DiskANN",
+      "Exact sequential scan"
     ],
-    "answer": [0, 1, 2, 3],
-    "explanation": "All of these are valid: HNSW (Hierarchical Navigable Small World), IVF (Inverted File), IVF + HNSW (hybrid), and brute-force (no index, just sequential scan).",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-pgvector-index-types"
+    "answer": [0, 1],
+    "explanation": "pgvector provides HNSW and IVFFlat. DiskANN is supplied by Azure's separate pg_diskann extension, and an exact sequential scan is a search plan rather than an index type.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#3-exact-and-approximate-indexes"
   },
   {
     "id": "postgresql-pgvector-042",
@@ -665,11 +665,12 @@
       "<-> (L2 distance)",
       "<=> (cosine distance)",
       "<#> (inner product)",
+      "<+> (L1 distance)",
       "<==> (exact match)"
     ],
-    "answer": [0, 1, 2],
-    "explanation": "pgvector provides three operators: <-> for L2 (Euclidean) distance, <=> for cosine distance, and <#> for inner product. <==> is not a valid pgvector operator.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#2-pgvector-data-types-and-operators"
+    "answer": [0, 1, 2, 3],
+    "explanation": "The listed valid operators are <-> for L2 distance, <=> for cosine distance, <#> for negative inner product, and <+> for L1 distance. <==> is not a pgvector operator.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#2-distance-operators-and-operator-classes"
   },
   {
     "id": "postgresql-pgvector-043",
@@ -691,48 +692,48 @@
     "id": "postgresql-pgvector-044",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
-    "type": "multi",
-    "question": "Which Python libraries can be used to connect to PostgreSQL? (Select all that apply)",
+    "type": "single",
+    "question": "A new sample follows the current guide and installs psycopg[binary,pool]. Which module should it import to open a database connection?",
     "choices": [
+      "psycopg",
       "psycopg2",
       "asyncpg",
-      "SQLAlchemy",
-      "redis-py"
+      "redis"
     ],
-    "answer": [0, 1, 2],
-    "explanation": "psycopg2, asyncpg, and SQLAlchemy are all valid Python libraries for PostgreSQL. redis-py is for Redis, not PostgreSQL.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#7-connection-string-and-sdks"
+    "answer": [0],
+    "explanation": "The current Psycopg 3 package is imported as psycopg. The optional pool dependency exposes psycopg_pool for bounded connection pools.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#hands-on-python"
   },
   {
     "id": "postgresql-pgvector-045",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "What Azure Database for PostgreSQL SKU is recommended for a small production vector workload with up to 100K vectors?",
+    "question": "How should you choose a flexible-server SKU for a vector workload?",
     "choices": [
-      "GP_Gen5_4 (General Purpose, 4 vCores, 16 GB RAM)",
-      "MO_Gen5_4 (Memory Optimized, 4 vCores, 32 GB RAM)",
-      "Basic_50 (Basic, 1 vCore, 2 GB RAM)",
-      "HS_Gen5_2 (Hyperscale, 2 vCores)"
+      "Measure dimension, index, filters, concurrency, recall, CPU, memory, and I/O, then select a current SKU",
+      "Always use a retired GP_Gen5_4 SKU below 100,000 vectors",
+      "Always use Memory Optimized regardless of workload",
+      "Size only from the number of rows"
     ],
     "answer": [0],
-    "explanation": "For up to 100K vectors, General Purpose tier with 4 vCores and 16 GB RAM (GP_Gen5_4) is a good starting point. Memory Optimized is better for larger workloads.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#6-azure-database-for-postgresql-tiers"
+    "explanation": "Vector count alone cannot determine a SKU. Benchmark representative dimensions, index type, filters, concurrency, recall target, ingestion, cache behavior, CPU, memory, storage IOPS, and throughput, then choose a current flexible-server SKU.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#5-compute-memory-and-storage"
   },
   {
     "id": "postgresql-pgvector-046",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "What is the correct way to enable pgvector in a Python application using psycopg2?",
+    "question": "What two steps enable pgvector on Azure Database for PostgreSQL flexible server?",
     "choices": [
-      "Execute CREATE EXTENSION vector; after connecting to the database",
-      "Import the pgvector module in Python",
-      "Install pgvector via pip install pgvector",
-      "Enable it in the Azure portal"
+      "Allowlist vector in azure.extensions, then run CREATE EXTENSION vector in each target database",
+      "Install only the Python pgvector package",
+      "Run CREATE INDEX before creating the extension",
+      "Enable the Redis RediSearch module"
     ],
     "answer": [0],
-    "explanation": "You enable pgvector by executing the SQL command CREATE EXTENSION vector; on your PostgreSQL database. This needs to be done once per database.",
+    "explanation": "Azure first requires vector in the server's azure.extensions allowlist. CREATE EXTENSION vector then installs it separately in each database that uses vector types and operators.",
     "reference": "../../02-data-services/postgresql-pgvector/README.md#hands-on-python"
   },
   {
@@ -740,48 +741,48 @@
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "Which method is most efficient for bulk inserting vectors into PostgreSQL?",
+    "question": "Which PostgreSQL mechanism is normally the most efficient starting point for bulk-loading a large vector corpus?",
     "choices": [
-      "Use COPY command or executemany()",
-      "Use INSERT with single row at a time",
-      "Use a script that creates individual INSERT statements",
-      "Use a NoSQL import tool"
+      "COPY",
+      "One INSERT and commit per row",
+      "SELECT for every vector",
+      "A Redis pipeline"
     ],
     "answer": [0],
-    "explanation": "The COPY command or psycopg2's executemany() for batch inserts are the most efficient methods for bulk inserting vectors, reducing round-trips to the server.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#exam-gotchas"
+    "explanation": "COPY is PostgreSQL's bulk-loading mechanism and avoids the round trips of individual inserts. Load representative data before building IVFFlat, and often before building any large ANN index.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#5-compute-memory-and-storage"
   },
   {
     "id": "postgresql-pgvector-048",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "What is the SLA for Azure Database for PostgreSQL General Purpose tier?",
+    "question": "A team increased flexible-server storage for an index build and now wants to shrink the allocated storage. What should it expect?",
     "choices": [
-      "99.99%",
-      "99.9%",
-      "99.95%",
-      "No SLA"
+      "Allocated storage can be increased but cannot later be shrunk",
+      "Storage always shrinks automatically after VACUUM",
+      "Changing to Burstable shrinks storage",
+      "Dropping the index immediately reduces the allocated storage setting"
     ],
     "answer": [0],
-    "explanation": "General Purpose tier offers a 99.99% SLA (Service Level Agreement), providing high availability for production workloads.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#6-azure-database-for-postgresql-tiers"
+    "explanation": "Flexible-server storage capacity can be increased but not later reduced. Plan headroom and cost before scaling; deleting data or an index does not lower the configured allocation.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#5-compute-memory-and-storage"
   },
   {
     "id": "postgresql-pgvector-049",
     "domain": "02-data-services",
     "topic": "postgresql-pgvector",
     "type": "single",
-    "question": "What is the typical size multiplier for an HNSW index compared to raw vector data?",
+    "question": "An HNSW index build reports that its graph no longer fits in maintenance_work_mem. What is the sound response?",
     "choices": [
-      "2-4x",
-      "0.5-1x",
-      "5-10x",
-      "10-20x"
+      "Increase maintenance_work_mem only within available memory and monitor the build",
+      "Set maintenance_work_mem larger than all server RAM",
+      "Change the query operator without rebuilding",
+      "Open more client connections"
     ],
     "answer": [0],
-    "explanation": "HNSW indexes typically require 2-4 times the storage of the raw vector data, depending on the parameters (m, ef) used.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#5-index-parameters-and-performance-tuning"
+    "explanation": "Sufficient maintenance_work_mem can speed an HNSW build, but an excessive value risks memory pressure. Increase it within measured capacity and monitor progress; there is no universal HNSW-to-raw-data size multiplier.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#5-compute-memory-and-storage"
   },
   {
     "id": "postgresql-pgvector-050",
@@ -797,6 +798,54 @@
     ],
     "answer": [0],
     "explanation": "Connection pooling is the best practice for production applications as it reuses connections, avoiding the overhead of establishing a new connection (SSL, authentication) for each query.",
-    "reference": "../../02-data-services/postgresql-pgvector/README.md#7-connection-string-and-sdks"
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#6-connection-optimization"
+  },
+  {
+    "id": "postgresql-pgvector-051",
+    "domain": "02-data-services",
+    "topic": "postgresql-pgvector",
+    "type": "single",
+    "question": "An HNSW query requests 10 tenant-filtered matches but sometimes returns fewer because the filter removes approximate candidates. What should you evaluate first?",
+    "choices": [
+      "Enable/tune iterative scans or raise the query-time candidate search setting",
+      "Remove the tenant filter",
+      "Change the primary key to the embedding",
+      "Create a new connection for every query"
+    ],
+    "answer": [0],
+    "explanation": "Approximate search and selective filters can leave too few qualifying candidates. Current pgvector iterative scans can continue scanning; increasing hnsw.ef_search or using partitioning/exact search for a selective subset are other measured options. Do not remove an access boundary.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#4-metadata-filtered-rag-retrieval"
+  },
+  {
+    "id": "postgresql-pgvector-052",
+    "domain": "02-data-services",
+    "topic": "postgresql-pgvector",
+    "type": "single",
+    "question": "A query orders by embedding <=> $1, but the only vector index uses vector_l2_ops. What should you change to make a cosine index usable?",
+    "choices": [
+      "Build the index with vector_cosine_ops",
+      "Reverse the ORDER BY direction",
+      "Change LIMIT to OFFSET",
+      "Use a B-tree on the vector"
+    ],
+    "answer": [0],
+    "explanation": "The <=> cosine operator pairs with vector_cosine_ops. An L2 operator class supports <-> instead, so PostgreSQL cannot use that index for cosine ordering.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#2-distance-operators-and-operator-classes"
+  },
+  {
+    "id": "postgresql-pgvector-053",
+    "domain": "02-data-services",
+    "topic": "postgresql-pgvector",
+    "type": "single",
+    "question": "A connection-heavy service uses General Purpose flexible server and thousands of short transactions. Which change reduces server connection overhead?",
+    "choices": [
+      "Enable built-in PgBouncer and test the app on port 6432",
+      "Open a new direct port-5432 connection for every statement",
+      "Increase vector dimensions",
+      "Disable TLS"
+    ],
+    "answer": [0],
+    "explanation": "Built-in PgBouncer pools server connections and listens on port 6432. Azure uses transaction pooling by default, so test session state, temporary tables, settings, and prepared-statement behavior before production use.",
+    "reference": "../../02-data-services/postgresql-pgvector/README.md#6-connection-optimization"
   }
 ]

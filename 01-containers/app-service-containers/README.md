@@ -14,7 +14,9 @@
 
 Where it sits in the container landscape:
 
-- **App Service (containers)** — **simplest managed hosting**: one app per container, deployment slots, app settings, Key Vault references. **No Kubernetes knowledge needed.**
+- **App Service (containers)** — **simplest managed web hosting**: one main container, optional
+  sidecars on a sidecar-enabled Linux app, deployment slots, app settings, and Key Vault
+  references. **No Kubernetes knowledge needed.**
 - **Container Apps** — serverless containers with **scale-to-zero**, event-driven scaling via KEDA, microservices in shared environments, revisions for safe rollouts.
 - **AKS** — **full Kubernetes control**: you operate the workloads, manifests, networking, and day-2 operations.
 
@@ -30,11 +32,12 @@ The skill bullet is *"Deploy containers to Azure App Service, including configur
 - **Configuring environment variables** (app settings) and **secrets** (Key Vault references) that get injected into the running container.
 - **Understanding deployment slots** — staging environments with **swap** for zero-downtime production rollouts.
 - **Scaling** — App Service uses **App Service Plans** (not Kubernetes pods); scaling is by plan tier and instance count.
-- **Authentication** — how the App Service app gets **AcrPull** permission on ACR (managed identity).
+- **Authentication** — how the App Service app gets the appropriate ACR pull permission through
+  managed identity.
 - **Networking** — custom domains, TLS/SSL, VNet integration options.
 - **Logging & diagnostics** — where container logs appear (App Service Logs, Log Stream, Container console).
 
-You need to recognize App Service as the answer for **"a single web app/API, simplest managed hosting, always-on is acceptable"** scenarios, and know how to **configure it with containers** specifically.
+You need to recognize App Service as the answer for **"a single web app/API, simplest managed hosting, reserved plan capacity is acceptable"** scenarios, and know how to **configure it with containers** specifically.
 
 ---
 
@@ -45,9 +48,9 @@ You need to recognize App Service as the answer for **"a single web app/API, sim
 | Term | What it is |
 | --- | --- |
 | **App Service Plan** | Defines the **compute** — region, VM size, OS (Linux/Windows), and **pricing tier** (Free, Basic, Standard, Premium). The plan is the billing/scale unit; multiple apps can share one plan. |
-| **App** | Your application resource. One app = one **container** (App Service doesn't do multi-container pods like Container Apps or AKS). |
-| **Deployment Slots** | Live staging environments with their own hostname. **Swap** moves a slot's config + container to production instantly (zero downtime). |
-| **App Settings** | Environment variables injected into your app at runtime (non-secret config). Accessible via `os.environ` in Python, `process.env` in Node, etc. |
+| **App** | Your application resource. A classic custom-container app runs one container. A sidecar-enabled Linux app has one **main** container and can add sidecars; all belong to and scale with the same app. This is not a Kubernetes pod API. |
+| **Deployment Slots** | Live staging environments with their own hostname. A swap warms the source slot, then switches it into the target (often production). Settings marked **deployment slot settings** stay with their slot. |
+| **App Settings** | Name/value settings exposed to the container as environment variables, accessible through `os.environ` in Python. Values are encrypted at rest, but use Key Vault references instead of placing secrets directly in settings. |
 | **Key Vault References** | Special syntax (`@Microsoft.KeyVault(...)`) that pulls **secrets** from Azure Key Vault into app settings — no secrets stored in App Service config. |
 
 ### What changes with containers
@@ -56,32 +59,30 @@ When your app runs a **container** instead of code, these specifics apply:
 
 | Concept | How it works with containers |
 | --- | --- |
-| **Image source** | Pulls from **Azure Container Registry (ACR)** or Docker Hub. Images from ACR require the app's **managed identity** to have the **AcrPull** role. |
-| **Container configuration** | Specified in the **Container Settings** blade: image name, tag, startup command, ports, environment variables. |
-| **Port mapping** | Your container must listen on the **port you declare** (default 80). App Service **does not** auto-detect the port from the image. |
+| **Image source** | Pulls from **Azure Container Registry (ACR)** or Docker Hub. For an ACR using **RBAC Registry Permissions**, the app's managed identity needs **AcrPull**. For **RBAC Registry + ABAC Repository Permissions**, use **Container Registry Repository Reader** instead. |
+| **Container configuration** | Configure the image, startup command, and registry authentication. Classic Linux custom containers use `linuxFxVersion`; sidecar-enabled apps store each container as a site-container resource. |
+| **Port mapping** | App Service assumes a classic custom container listens on port 80. Set the `WEBSITES_PORT` app setting when it listens elsewhere. In a sidecar-enabled app, exactly one **main** container receives external HTTP traffic; sidecars share its network namespace and are reached on `localhost:<port>`. The sidecar `Port`/`targetPort` field is metadata, not an App Service routing switch. |
 | **Continuous Deployment** | Can auto-pull a new image on **tag update** (e.g. `latest`) from ACR, or use **webhooks** for custom triggers. |
-| **Scaling** | Controlled by the **App Service Plan** — you scale the *plan's* instances, not the container itself. **No scale-to-zero** (always-on by default). |
-| **Storage** | By default, the container's filesystem is **ephemeral** — it resets on restart. Use **Azure Files** or **Azure Blob Storage** via mount paths for persistent data. |
+| **Scaling** | Controlled by the **App Service Plan** — you scale the *plan's* instances, not the container itself. There is **no scale-to-zero**; paid plan capacity remains allocated. **Always On** is a separate setting that keeps an app loaded and is off by default. |
+| **Storage** | Image-layer writes outside the App Service persistent path are **ephemeral** and can disappear on restart or instance replacement. Enable App Service storage where appropriate or mount supported Azure Storage for persistent data. |
 | **Logging** | Container stdout/stderr appears in **App Service Logs** (filesystem) and **Log Stream** (live). You can also get a **console** into the running container for debugging. |
 
 ### App Service Plans — the compute behind your container
 
-All tiers support containers, but **Linux containers** (the common choice) are **not available on Free or Shared tiers**. The tier determines scaling, features, and cost:
+The **plan** is the billing and scale unit. Linux custom containers require a paid plan; the
+quickstart uses **Basic B1**. Choose **Standard or higher when you need deployment slots**.
+Feature availability and instance limits change over time and also differ for Linux and Windows
+containers, so avoid memorizing a broad SKU matrix that mixes the two operating systems. For the
+exam, keep these design facts straight:
 
-| Feature | **Free (F1)** | **Basic (B1-B3)** | **Standard (S1-S3)** | **Premium (P1-P3)** | **PremiumV2 (PV2)** | **PremiumV3 (PV3)** |
-| --- | --- | --- | --- | --- | --- | --- |
-| Linux containers | no | yes | yes | yes | yes | yes |
-| Windows containers | no | yes | yes | yes | yes | yes |
-| **Custom domains + TLS** | Limited (1) | yes | yes | yes | yes | yes |
-| **Deployment slots** | no | no | yes | yes | yes | yes |
-| **Auto-scale** (instance count) | no | no | yes (manual) | yes | yes | yes |
-| **Always On** | no | yes | yes | yes | yes | yes |
-| **VNet integration** | no | no | yes | yes | yes | yes |
-| **Private Endpoint** | no | no | no | no | yes | yes |
-| **Multiple instances** | 1 | Up to 3 | Up to 10 | Up to 20 | Up to 30 | Up to 50 |
-| **ACU (CPU + memory)** | 60 | 200-800 | 200-1600 | 200-3200 | 420-8400 | 420-16800 |
-
-> **Memory hook:** **Standard (S1) is the minimum viable tier for production containers** — it adds deployment slots, auto-scale, and VNet integration. Free and Basic tiers are for **evaluation only**.
+- **Basic** can host a Linux custom container, but has no deployment slots or Azure Monitor
+  autoscale.
+- **Standard, Premium, and Isolated** support deployment slots; the number of slots depends on
+  the tier.
+- **Windows custom containers have different plan requirements** from Linux containers. Check the
+  current Windows-container documentation instead of applying the Linux B1 minimum to them.
+- App Service scales the plan's workers. It does not provide the event-driven scale-to-zero model
+  of Container Apps.
 
 ### Container-specific settings
 
@@ -92,19 +93,25 @@ When you deploy a container to App Service, you configure it with these key sett
 | **Image and tag** | The container image to run | ai200acr.azurecr.io/web-api:v1.0 |
 | **Startup Command** | (Optional) overrides the image's ENTRYPOINT | gunicorn --bind 0.0.0.0:80 app:app |
 | **Startup File** | (Optional) overrides the image's CMD | Not used if Startup Command is set |
-| **Port** | **The port your container listens on** — must match what the app expects | 80 or 8080 |
+| **Classic-container HTTP port** | App setting used when the main container listens somewhere other than the assumed port 80 | WEBSITES_PORT=8080 |
+| **Sidecar `Port` / `targetPort`** | Metadata describing the container port; it does not configure public App Service routing | 8080 |
 | **App Settings** | Environment variables available to the container | DB_HOST=server.database.azure.com |
-| **Key Vault References** | Secure way to inject secrets as environment variables | DB_PASSWORD=@Microsoft.KeyVault(SecretUri=https://kv.vault.azure.net/...) |
+| **Key Vault References** | Secure way to inject secrets as environment variables | DB_PASSWORD=@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/...) |
 | **Continuous Deployment** | Auto-update container when image tag changes | On with tag latest |
 
-> **Critical:** The **Port** setting **must match** the port your container actually listens on. If your app listens on 8080, set the App Service port to 8080. App Service **does not** introspect the image to auto-discover this. Wrong port = **502 Bad Gateway** errors.
+> **Critical:** For a classic custom container listening on 8080, set
+> `WEBSITES_PORT=8080`; `EXPOSE` alone does not configure classic-container routing. In a
+> sidecar-enabled app, designate the externally reachable container as the **main** container
+> (`isMain: true`). Do not use its `Port`/`targetPort` field as a routing fix: App Service treats
+> that field as metadata. The main container reaches a sidecar over `localhost:<sidecar-port>`.
 
 ### Managed identity and ACR pull permissions
 
-For your App Service app to pull an image from **Azure Container Registry (ACR)**, its **system-assigned managed identity** needs the **AcrPull** role on the registry. This is handled automatically in two ways:
-
-1. **During app creation** — if you create the App Service app **from the Azure portal**, there's a checkbox to "Pull image from Azure Container Registry" — selecting it and choosing your ACR grants the identity **AcrPull** automatically.
-2. **Manual grant** — if you create the app first, you can grant the role manually:
+For an ACR using **RBAC Registry Permissions**, the App Service identity used for image pull needs
+the **AcrPull** role on the registry. The app must also be told to use managed-identity registry
+credentials. Portal workflows can perform some of this wiring, but automation should make all
+three steps explicit: enable/attach an identity, grant its data-plane role, and enable managed
+identity for ACR pulls.
 
 ```bash
 # Get the app's principal ID
@@ -118,20 +125,39 @@ az role assignment create \
   --assignee "$APP_PRINCIPAL_ID" \
   --role "AcrPull" \
   --scope "$ACR_ID"
+
+# Tell a classic container app to use its managed identity for ACR authentication.
+az webapp config set \
+  --resource-group <rg> \
+  --name <app> \
+  --generic-configurations '{"acrUseManagedIdentityCreds": true}'
 ```
 
-> **Exam tip:** This is a common scenario. When an App Service container can't pull from ACR, the symptom is **"Image pull failed"** or **"Unauthorized"** in the logs — and the fix is ensuring the app's managed identity has **AcrPull** on the registry.
+An ACR using **RBAC Registry + ABAC Repository Permissions** uses **Container Registry Repository
+Reader**, normally with a repository-name condition, instead of `AcrPull`.
+
+> **Exam tip:** This is a common scenario. When an App Service container can't pull from ACR, the
+> symptom is **"Image pull failed"** or **"Unauthorized"** in the logs. On an ACR using **RBAC
+> Registry Permissions**, ensure the app's managed identity has **AcrPull**; on an ABAC-enabled
+> registry, use **Container Registry Repository Reader** instead.
 
 ### Deployment slots for containers
 
 **Deployment slots** are live environments with their own hostname (e.g., myapp-staging.azurewebsites.net) that runs a different version of your app. For containers, this means:
 
 - Each slot can point to a **different image/tag** (e.g., staging uses web-api:dev, production uses web-api:v1.0).
-- **Auto swap** — automatically swap slots when a condition is met (e.g., after a warm-up period).
-- **Manual swap** — instantly move the container + configuration from a slot to production.
-- **Swap with preview** — temporarily swap to test, then swap back to undo.
+- **Manual swap** — App Service applies the target slot's sticky configuration to the source,
+  restarts and warms the source, then switches routing/content between the slots.
+- **Swap with preview** — pauses after applying the target configuration to the source. Validate
+  the source slot, then complete or cancel the swap.
+- **Rollback** — swap the same two slots again; the previous production workload moved to the
+  source slot during the first swap.
 
-> **Key point:** When you **swap**, App Service moves the **entire configuration** (app settings, connection strings, container image reference) from the source slot to the target. The old production container is **not restarted** — a new one is started from the new image. This means **zero downtime** for the swap itself, but your app's startup time still applies.
+> **Key point:** Not every setting moves. App settings and connection strings normally swap, but
+> any value marked as a **deployment slot setting** stays with its slot. Managed identities,
+> custom domains, scale settings, VNet integration, and several platform settings also stay with
+> the slot. This is how a staging slot can keep a staging database while its tested image is
+> promoted. Auto swap is **not supported** for Linux web apps or Web App for Containers.
 
 ### Logging and diagnostics for containers
 
@@ -139,10 +165,12 @@ az role assignment create \
 | --- | --- | --- |
 | **Log Stream** | Live stdout/stderr from the running container | Portal: App Service -> Log stream or CLI: az webapp log tail --name <app> --resource-group <rg> |
 | **App Service Logs** | Persisted logs (stdout/stderr) + web server logs | Portal: App Service -> App Service logs (turn on Application Logging (Filesystem) and Detailed error messages) |
-| **Container console** | Shell into the running container (for debugging) | Portal: App Service -> Development Tools -> Console -> Container console |
+| **SSH/console** | Interactive diagnosis when the custom image has the required SSH support | Portal development tools; availability depends on the image configuration |
 | **Diagnose and solve problems** | Guided troubleshooting for common issues | Portal: App Service -> Diagnose and solve problems |
 
-> **Note:** Container logs are **ephemeral** by default — they live only as long as the container instance. For persistent logging, **mount Azure Files** or stream to **Application Insights**.
+> **Note:** Treat local container logs as short-lived. For retained, queryable telemetry, export
+> logs to Azure Monitor/Application Insights or another external sink rather than relying on the
+> writable container layer.
 
 ---
 
@@ -154,7 +182,7 @@ Goal: create an App Service Plan, deploy a containerized app from a sample image
 
 > **Two methods available:**
 > - **[CLI](#cli-setup)** — Copy-paste commands below
-> - **[Azure Portal (Web UI)](#portal-setup)** — Point-and-click in your browser
+> - **[Azure Portal (Web UI)](#portal-setup-web-ui)** — Point-and-click in your browser
 
 ### Set your variables
 
@@ -204,7 +232,10 @@ set APP=ai200-app%RANDOM%
 set ACR=ai200acr%RANDOM%
 ```
 
-> **Referencing the variables in the commands below.** The az snippets are written bash-style ("$RG") and work unchanged in bash/zsh, fish, and PowerShell (all expand $RG). In cmd, write %RG% instead.
+> **Shell note.** The full command walk-through below uses **Bash** syntax, including `export`,
+> `read`, `unset`, `$RANDOM`, and command substitution. Run it in Azure Cloud Shell (Bash), bash,
+> or zsh. The alternative blocks above only show how to define the initial variables; do not mix
+> them with Bash-specific commands. In Command Prompt, use `%RG%`-style variables.
 
 ### CLI Setup
 
@@ -224,7 +255,8 @@ az acr create \
   --name "$ACR" \
   --resource-group "$RG" \
   --sku Basic \
-  --admin-enabled false
+  --admin-enabled false \
+  --role-assignment-mode rbac
 
 # 4. Build a sample image IN THE CLOUD with ACR Tasks.
 #    This builds a tiny public Node.js hello-world image on ACR's builders
@@ -232,7 +264,10 @@ az acr create \
 az acr build \
   --registry "$ACR" \
   --image "web-api:v1.0" \
-  "https://github.com/Azure-Samples/acr-build-helloworld-node.git"
+  "https://github.com/Azure-Samples/acr-build-helloworld-node"
+
+# Query the actual login server instead of constructing it; a DNS-name scope can add a hash.
+LOGIN_SERVER=$(az acr show --name "$ACR" --resource-group "$RG" --query loginServer --output tsv)
 
 # 5. Create the App Service Plan (Standard S1 tier supports Linux containers + slots).
 #    --is-linux ensures a Linux container (required for most images).
@@ -243,48 +278,57 @@ az appservice plan create \
   --is-linux \
   --location "$LOCATION"
 
-# 6. Create the App Service app running the container.
-#    --deploy-container-image-name points at the image in your ACR.
-#    App Service will automatically grant the app's identity AcrPull on the registry.
+# 6. Create the app, attach a system-assigned identity, and select that identity for ACR auth.
+#    Role assignment is a separate authorization step below; creation does not make the app's
+#    identity an ACR reader by itself.
 az webapp create \
   --name "$APP" \
   --resource-group "$RG" \
   --plan "$PLAN" \
-  --deploy-container-image-name "${ACR}.azurecr.io/web-api:v1.0"
+  --container-image-name "$LOGIN_SERVER/web-api:v1.0" \
+  --assign-identity "[system]" \
+  --acr-use-identity \
+  --acr-identity "[system]"
 
-# 7. Configure environment variables (app settings).
+# 7. Grant the identity permission to pull artifacts from this RBAC-only registry.
+APP_PRINCIPAL_ID=$(az webapp identity show \
+  --name "$APP" \
+  --resource-group "$RG" \
+  --query principalId \
+  --output tsv)
+ACR_ID=$(az acr show --name "$ACR" --resource-group "$RG" --query id --output tsv)
+az role assignment create \
+  --assignee-object-id "$APP_PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "AcrPull" \
+  --scope "$ACR_ID"
+
+# 8. Configure environment variables (app settings).
 #    These are injected into the container as environment variables.
 az webapp config appsettings set \
   --name "$APP" \
   --resource-group "$RG" \
   --settings "APP_ENV=production" "LOG_LEVEL=info"
 
-# 8. Print the app's URL — it may take a minute to start the container.
+# 9. Print the app's URL. A new role assignment can take a few minutes to propagate; App Service
+#    retries the image pull, so inspect Log Stream if the first startup reports Unauthorized.
 az webapp show --name "$APP" --resource-group "$RG" --query defaultHostName --output tsv
 # Then browse to https://<url> to see the running app.
 
-# 9. Enable Continuous Deployment from ACR (auto-update on new tag).
+# 10. Optional: create/configure the ACR webhook used for continuous deployment of this tag.
 az webapp deployment container config \
   --name "$APP" \
   --resource-group "$RG" \
-  --enable-ci true \
-  --docker-registry-server-url "https://${ACR}.azurecr.io"
+  --enable-cd true
 ```
 
-**RBAC — grant the apps identity AcrPull (if not auto-granted).** The app creation above should auto-grant AcrPull. If you see pull errors, grant it manually:
+**If an existing app still uses registry credentials**, switch it to managed-identity ACR auth:
 
 ```bash
-# Get the apps principal ID
-APP_PRINCIPAL_ID=$(az webapp show --resource-group "$RG" --name "$APP" --query identity.principalId --output tsv)
-
-# Get the ACR resource ID
-ACR_ID=$(az acr show --name "$ACR" --resource-group "$RG" --query id --output tsv)
-
-# Grant AcrPull
-az role assignment create \
-  --assignee "$APP_PRINCIPAL_ID" \
-  --role "AcrPull" \
-  --scope "$ACR_ID"
+az webapp config set \
+  --resource-group "$RG" \
+  --name "$APP" \
+  --generic-configurations '{"acrUseManagedIdentityCreds": true}'
 ```
 
 ### Portal Setup (Web UI)
@@ -304,7 +348,7 @@ Prefer the browser? Create the same resources in the [Azure Portal](https://port
 3. **Build and push a sample image:**
    - Open the registry -> Tasks -> Quick tasks -> Build
    - Source: Public repository
-   - Repository URL: https://github.com/Azure-Samples/acr-build-helloworld-node.git
+   - Repository URL: https://github.com/Azure-Samples/acr-build-helloworld-node
    - Image name: web-api
    - Image tag: v1.0
    - Click Run
@@ -346,12 +390,13 @@ Prefer the browser? Create the same resources in the [Azure Portal](https://port
 
 ## Hands-on (Python)
 
-A Python script that manages your App Service container app programmatically using the Azure Resource Management SDK (azure-mgmt-web). It can:
+A read-only Python inspector that uses the Azure Resource Management SDK (`azure-mgmt-web`). It
+can:
 
-- List all web apps in a resource group
-- Get and update app settings (environment variables)
-- Get the container configuration (image, port, startup command)
-- List and swap deployment slots
+- List all web apps in a resource group.
+- Inspect classic and sidecar-enabled container metadata.
+- List app-setting **names** while redacting all values.
+- List deployment slots without changing or swapping them.
 
 > New to Python? [app.py](app.py) is heavily commented — every non-trivial line explains both the Python idiom and the Azure concept.
 
@@ -398,13 +443,14 @@ export AZURE_APP_NAME="ai200-app..."
 ### Run the sample
 
 ```bash
-# List your apps and their container configs in the resource group.
-python app.py
+# List apps in the configured resource group (the default operation is "list").
+python app.py list
 
-# Or pass specific commands (see app.py --help for options):
-python app.py --list-apps
-python app.py --get-settings
-python app.py --get-container-config
+# Inspect one app's container metadata and redacted setting names.
+python app.py inspect --app-name "$AZURE_APP_NAME"
+
+# List that app's deployment slots.
+python app.py slots --app-name "$AZURE_APP_NAME"
 ```
 
 > Tip: To deactivate the virtual environment when done: deactivate
@@ -418,10 +464,10 @@ Copy-paste Azure CLI snippets to manage your container app and diagnose common i
 ### 1. Update the container image
 
 ```bash
-az webapp deployment container update \
+az webapp config container set \
   --name "$APP" \
   --resource-group "$RG" \
-  --docker-image-name "${ACR}.azurecr.io/web-api:v2.0"
+  --container-image-name "$LOGIN_SERVER/web-api:v2.0"
 ```
 
 ### 2. Add/change environment variables
@@ -436,16 +482,36 @@ az webapp config appsettings set \
 ### 3. Add a Key Vault secret reference
 
 ```bash
-# Store a secret in Key Vault
-KEYVAULT_NAME="ai200-kv"
+# Create an RBAC-enabled study vault. Its name must be globally unique.
+KEYVAULT_NAME="ai200kv${RANDOM}"
 SECRET_NAME="db-password"
+az keyvault create \
+  --name "$KEYVAULT_NAME" \
+  --resource-group "$RG" \
+  --location "$LOCATION" \
+  --enable-rbac-authorization true
+
+# Bash/zsh: read the study value without placing it literally in shell history, then create a
+# secret version.
+read -rsp "Temporary database password: " DB_PASSWORD
+printf '\n'
 az keyvault secret set \
   --vault-name "$KEYVAULT_NAME" \
   --name "$SECRET_NAME" \
-  --value "SuperSecret123!"
+  --value "$DB_PASSWORD"
+unset DB_PASSWORD
 
-# Reference the secret in App Service
-SECRET_URI=$(az keyvault secret show --name "$SECRET_NAME" --vault-name "$KEYVAULT_NAME" --query id --output tsv)
+# A Key Vault reference is resolved with the app's managed identity. AcrPull does not grant secret
+# access, so assign the separate least-privilege Key Vault Secrets User role at the vault scope.
+KEYVAULT_ID=$(az keyvault show --name "$KEYVAULT_NAME" --query id --output tsv)
+az role assignment create \
+  --assignee-object-id "$APP_PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role "Key Vault Secrets User" \
+  --scope "$KEYVAULT_ID"
+
+# Use a versionless URI so App Service can pick up newer secret versions after its cache refresh.
+SECRET_URI="https://${KEYVAULT_NAME}.vault.azure.net/secrets/${SECRET_NAME}"
 az webapp config appsettings set \
   --name "$APP" \
   --resource-group "$RG" \
@@ -462,11 +528,11 @@ az webapp deployment slot create \
   --slot "staging"
 
 # Deploy a different image to the staging slot
-az webapp deployment container update \
+az webapp config container set \
   --name "$APP" \
   --resource-group "$RG" \
   --slot "staging" \
-  --docker-image-name "${ACR}.azurecr.io/web-api:dev"
+  --container-image-name "$LOGIN_SERVER/web-api:dev"
 
 # Swap staging to production (zero-downtime deployment)
 az webapp deployment slot swap \
@@ -479,6 +545,12 @@ az webapp deployment slot swap \
 ### 5. View container logs
 
 ```bash
+# Enable short-lived filesystem capture of container stdout and stderr before tailing it.
+az webapp log config \
+  --name "$APP" \
+  --resource-group "$RG" \
+  --docker-container-logging filesystem
+
 # Stream live logs from the container (stdout + stderr)
 az webapp log tail \
   --name "$APP" \
@@ -493,13 +565,18 @@ az webapp log download \
 
 ### 6. Diagnose common container issues
 
-**Symptom: 502 Bad Gateway**
-- Cause: Container is not listening on the Port configured in App Service, or the app crashed.
-- Fix: Check the Port setting matches your containers listen port. View logs with az webapp log tail.
+**Symptom: startup/availability failure**
+- Cause: The classic container isn't listening on its configured port, the intended main
+  sidecar-enabled container is not configured as `isMain: true`, a startup check failed, or the
+  process crashed.
+- Fix: For a classic custom container, check `WEBSITES_PORT`. For a sidecar-enabled app, confirm
+  the intended container is the main one and inspect Log Stream; changing `targetPort` does not
+  change App Service routing.
 
 **Symptom: Image pull failed / Unauthorized**
-- Cause: Apps managed identity lacks AcrPull on the ACR.
-- Fix: Grant the role as shown in Setup.
+- Cause: The app's managed identity lacks the ACR data-plane permission for the registry mode.
+- Fix: Grant **AcrPull** on an RBAC-only registry, or **Container Registry Repository Reader** on
+  an ABAC-enabled registry, as shown in Setup.
 
 **Symptom: Container won't start / exits immediately**
 - Cause: Missing environment variable, bad config, or app error.
@@ -507,22 +584,34 @@ az webapp log download \
 
 **Symptom: Changes not appearing**
 - Cause: App Service caches the container image. Continuous Deployment may not be enabled.
-- Fix: Enable CI/CD (az webapp deployment container config --enable-ci true) or manually restart the app.
+- Fix: Enable CI/CD (`az webapp deployment container config --enable-cd true`) or manually restart the app.
 
 ---
 
 ## Exam gotchas
 
-- One container per app. App Service runs a single container per web app. If you need multi-container pods or microservices, use Container Apps or AKS.
-- Port must match. The Port setting in App Service must match the port your container listens on. Default is 80. Wrong port = 502 Bad Gateway.
-- Always On is required for containers. Unlike code-based apps, containers must have Always On enabled (included in Standard tier and above). Free/Basic tiers do not support Linux containers at all.
-- Standard (S1) minimum for production. Free/Basic tiers lack deployment slots, auto-scale, VNet integration. Standard S1 is the practical minimum for containerized apps.
-- Managed identity + AcrPull. App Service uses its system-assigned managed identity to pull from ACR. It needs the AcrPull role. This is often auto-configured, but know how to grant it manually.
+- **Classic versus sidecar-enabled.** A classic app runs one custom container. A sidecar-enabled
+  Linux app runs one main container plus optional sidecars; they share the app lifecycle and scale.
+- **Ports and sidecars differ.** Classic custom containers assume port 80 unless `WEBSITES_PORT`
+  is set. A sidecar-enabled app sends external traffic only to its main container; its
+  `Port`/`targetPort` field is metadata, and sidecars are reached over `localhost`. `EXPOSE` alone
+  does not configure classic-container routing.
+- **Know what the tier buys.** Basic B1 supports a Linux custom container. Standard or higher is
+  required for deployment slots; use current documentation for Windows-container plan support.
+- Managed identity + ACR permission. For **RBAC Registry Permissions**, App Service uses its
+  selected managed identity with **AcrPull**. An ABAC-enabled registry instead uses **Container
+  Registry Repository Reader**. Know which registry mode the scenario specifies.
 - App Settings = environment variables. App Services App Settings become environment variables inside the container. Key Vault references let you inject secrets the same way.
-- No scale-to-zero. App Service containers are always-on (on paid tiers). For scale-to-zero, use Container Apps + KEDA.
-- Deployment slots move the whole config. Swapping slots moves the container image + all app settings. The old production container is stopped and replaced (not restarted).
+- No scale-to-zero. Paid App Service plans retain allocated capacity. **Always On** is a separate,
+  off-by-default setting that keeps an app loaded; for demand-driven scale-to-zero, use Container
+  Apps + KEDA.
+- **Slot settings stay put.** Values marked as deployment slot settings don't swap. Managed
+  identities, custom domains, scale settings, and VNet integration also remain with the slot.
+- **No auto swap for containers.** Auto swap isn't supported for Web App for Containers or other
+  Linux web apps; use an explicit, warmed slot swap.
 - Logs are ephemeral. Container stdout/stderr are not persisted by default. Use Application Insights or Azure Files mount for persistent logging.
-- az webapp create with --deploy-container-image-name is the CLI pattern for container deployments.
+- `az webapp create --container-image-name` is the current CLI pattern; the older
+  `--deployment-container-image-name` flag is deprecated.
 - Continuous Deployment from ACR. Enable it to auto-pull new image tags (e.g., latest). Without it, you must manually redeploy after pushing a new image.
 
 ---
@@ -540,4 +629,4 @@ Take the App Service (containers) quiz in the [quiz app](../../quiz/)
 - Deployment slots: https://learn.microsoft.com/azure/app-service/deploy-staging-slots
 - App Service managed identity: https://learn.microsoft.com/azure/app-service/overview-managed-identity
 - Key Vault references in App Service: https://learn.microsoft.com/azure/app-service/app-service-key-vault-references
-- Azure Resource Management azure-mgmt-web SDK: https://learn.microsoft.com/python/api/overview/azure/web-readme
+- Azure Resource Management `azure-mgmt-web` SDK: https://learn.microsoft.com/python/api/overview/azure/mgmt-web-readme

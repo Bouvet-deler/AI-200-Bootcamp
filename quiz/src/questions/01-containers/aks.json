@@ -4,15 +4,15 @@
     "domain": "01-containers",
     "topic": "aks",
     "type": "single",
-    "question": "What does Azure manage for you in Azure Kubernetes Service (AKS), and what do you pay for?",
+    "question": "Which statement correctly describes AKS control-plane management pricing?",
     "choices": [
-      "Azure manages the worker nodes for free; you pay for the control plane",
-      "Azure manages the control plane for free; you pay for the worker node VMs",
-      "Azure manages everything for free; AKS has no compute cost",
-      "You manage both the control plane and the nodes; Azure only bills for storage"
+      "Azure manages worker nodes for free, while every control-plane tier has a management charge.",
+      "Azure manages the control plane; the Free tier has no cluster-management fee, while Standard and Premium add one.",
+      "Azure manages everything for free, including worker-node compute.",
+      "You manage both the control plane and nodes; Azure bills only for storage."
     ],
     "answer": [1],
-    "explanation": "AKS is managed Kubernetes: Azure runs the control plane (API server, scheduler, etcd) at no charge. You pay for the worker node VMs in your node pools (and extras like a LoadBalancer public IP).",
+    "explanation": "AKS always operates the control plane, and you still pay for worker-node VMs and connected resources. The Free management tier has no cluster-management fee; Standard and Premium add cluster-management pricing and an uptime SLA, with Premium also adding extended Kubernetes-version support.",
     "reference": "../../01-containers/aks/README.md#what-it-is"
   },
   {
@@ -103,12 +103,12 @@
     "question": "Pods on your AKS cluster are stuck in ImagePullBackOff pulling an image from your Azure Container Registry. What is the most likely fix?",
     "choices": [
       "Restart the control plane",
-      "Attach the ACR so the cluster's managed identity gets the AcrPull role",
+      "Attach the ACR so the kubelet managed identity gets the AcrPull role",
       "Add a LoadBalancer Service",
       "Increase the node count"
     ],
     "answer": [1],
-    "explanation": "ImagePullBackOff from ACR usually means the cluster can't authenticate to the registry. `az aks update --attach-acr <acr>` grants the cluster's managed identity the AcrPull role — no imagePullSecrets needed. (Also verify the image name/tag.)",
+    "explanation": "ImagePullBackOff from ACR usually means the nodes cannot authenticate to the registry. For an RBAC-only ACR, `az aks update --attach-acr <acr>` grants the kubelet managed identity AcrPull, so no imagePullSecrets are needed. Also verify the image name and tag.",
     "reference": "../../01-containers/aks/README.md#exam-gotchas"
   },
   {
@@ -120,11 +120,11 @@
     "choices": [
       "Contributor, to your user account",
       "AcrPush, to the ACR admin user",
-      "AcrPull, to the cluster's managed identity",
+      "AcrPull, to the kubelet managed identity",
       "Reader, to the node pool"
     ],
     "answer": [2],
-    "explanation": "Attaching an ACR grants the cluster's managed identity the AcrPull role on that registry, so nodes can pull images without imagePullSecrets in the manifest.",
+    "explanation": "Attaching an RBAC-only ACR grants AcrPull to the kubelet managed identity, which is the identity used by nodes to pull images. An ABAC-enabled registry needs a repository-scoped reader role instead.",
     "reference": "../../01-containers/aks/README.md#core-concepts"
   },
   {
@@ -252,7 +252,7 @@
       "Non-secret in a Secret; sensitive value in a ConfigMap"
     ],
     "answer": [1],
-    "explanation": "Non-secret configuration goes in a ConfigMap; sensitive values go in a Secret (stored base64-encoded, not strongly encrypted by default). Don't put passwords or keys in a ConfigMap.",
+    "explanation": "Non-secret configuration belongs in a ConfigMap and sensitive configuration belongs in a Secret. Base64 in a Secret manifest is only an API representation, not a confidentiality boundary. AKS storage is encrypted at rest separately; still restrict Secret access with RBAC and use Key Vault/workload identity when appropriate.",
     "reference": "../../01-containers/aks/README.md#core-concepts"
   },
   {
@@ -260,15 +260,15 @@
     "domain": "01-containers",
     "topic": "aks",
     "type": "single",
-    "question": "How are values in a Kubernetes Secret stored by default?",
+    "question": "What does the base64 value in a Kubernetes Secret manifest mean?",
     "choices": [
-      "Strongly encrypted with a customer-managed key",
-      "Base64-encoded (encoding, not strong encryption by default)",
-      "As plaintext in the manifest only",
-      "Hashed and unrecoverable"
+      "It is strongly encrypted with a customer-managed key.",
+      "It is base64-encoded for the Kubernetes API; that encoding is not a confidentiality boundary.",
+      "It is plaintext and is never encrypted at rest by AKS.",
+      "It is hashed and cannot be recovered by a pod."
     ],
     "answer": [1],
-    "explanation": "By default a Secret stores values base64-encoded — that is encoding, not encryption. Anyone who can read the Secret can decode it. Use RBAC, and enable encryption-at-rest for real protection.",
+    "explanation": "Base64 makes binary data safe for a text manifest; anyone able to read the Secret can decode it. That fact is separate from AKS platform encryption at rest and optional Key Vault KMS integration. Use Kubernetes RBAC and avoid committing Secret manifests.",
     "reference": "../../01-containers/aks/README.md#core-concepts"
   },
   {
@@ -397,6 +397,54 @@
     ],
     "answer": [1],
     "explanation": "A Pod is one disposable running instance; a Deployment maintains a desired number of pods and performs rolling updates/rollbacks; a Service provides a stable name/IP that load-balances across the pods it selects.",
+    "reference": "../../01-containers/aks/README.md#core-concepts"
+  },
+  {
+    "id": "aks-026",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "A pod is healthy enough to keep running, but it must be removed from a Service until it can accept requests. Which probe should fail?",
+    "choices": [
+      "Readiness probe",
+      "Liveness probe",
+      "Startup probe only",
+      "Image pull probe"
+    ],
+    "answer": [0],
+    "explanation": "A failed readiness probe removes the pod from Service endpoints without restarting it. A failed liveness probe tells Kubernetes to restart the container.",
+    "reference": "../../01-containers/aks/README.md#core-concepts"
+  },
+  {
+    "id": "aks-027",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "A newly deployed pod remains Pending. Which investigation is most likely to reveal the immediate scheduling cause?",
+    "choices": [
+      "Run kubectl describe pod <pod-name> and inspect Events for FailedScheduling",
+      "Run kubectl logs <pod-name>; Pending pods always have application logs",
+      "Rebuild the image with a different tag",
+      "Create a deployment slot"
+    ],
+    "answer": [0],
+    "explanation": "Pending commonly means the scheduler cannot place the pod because of insufficient requested CPU/memory or a NotReady node. kubectl describe exposes the scheduler Events that state the reason.",
+    "reference": "../../01-containers/aks/README.md#exam-gotchas"
+  },
+  {
+    "id": "aks-028",
+    "domain": "01-containers",
+    "topic": "aks",
+    "type": "single",
+    "question": "An AKS cluster uses an ACR configured for RBAC plus ABAC repository permissions. What should you do instead of using az aks update --attach-acr?",
+    "choices": [
+      "Grant the kubelet managed identity Container Registry Repository Reader for the needed repository",
+      "Give every pod an AcrPush role",
+      "Store the ACR admin password in each Deployment manifest",
+      "Grant Reader to the AKS control plane only"
+    ],
+    "answer": [0],
+    "explanation": "The attach-acr shortcut does not support an ACR using RBAC plus ABAC repository permissions. Grant the kubelet identity the least-privilege Container Registry Repository Reader permission instead.",
     "reference": "../../01-containers/aks/README.md#core-concepts"
   }
 ]

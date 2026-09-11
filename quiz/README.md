@@ -16,7 +16,8 @@ A React + Vite + TypeScript application for practicing AI-200 exam questions.
 ```bash
 cd quiz
 npm install
-npm audit fix        # Optional: auto-fix any dependency vulnerabilities
+npm run validate:questions
+npm run build
 npm run dev
 ```
 
@@ -51,17 +52,20 @@ quiz/
 ### Question Schema
 
 ```typescript
-interface Question {
-  id: string;           // unique identifier
-  domain: string;      // e.g., "04-secure-monitor"
-  topic: string;       // e.g., "kql"
-  type: 'single' | 'multi' | 'build-list';  // question type
-  question: string;    // the question text
-  choices: string[];   // array of answer choices
-  answer: number[];    // array of correct choice indices (0-based)
-  explanation: string; // teaching explanation shown after answering
-  reference?: string;  // link to topic guide (optional)
-}
+type Question =
+  | {
+      type: 'single' | 'multi';
+      choices: string[];
+      answer: number[]; // zero-based choice indices
+    }
+  | {
+      type: 'build-list';
+      choices: { id: string; text: string }[];
+      answer: string[]; // choice IDs in the correct order
+    };
+
+// Every variant also includes a unique id, domain, topic, question,
+// teaching explanation, and (when a guide exists) reference.
 ```
 
 ### Example Question
@@ -86,18 +90,20 @@ Full-exam mode samples questions according to official AI-200 domain weights:
 
 | Domain | Weight |
 | --- | --- |
-| 01-containers | 22.5% |
-| 02-data-services | 27.5% |
-| 03-connect-consume | 22.5% |
-| 04-secure-monitor | 22.5% |
+| 01-containers | 23.75% (official range 20–25%) |
+| 02-data-services | 28.75% (official range 25–30%) |
+| 03-connect-consume | 23.75% (official range 20–25%) |
+| 04-secure-monitor | 23.75% (official range 20–25%) |
 
-Weights are defined in `src/lib/examWeights.ts` and can be adjusted as needed.
+Microsoft publishes ranges, not an exact distribution. The representative values above stay
+inside those ranges and add up to 100%; the app uses largest-remainder rounding to create a
+whole-number question allocation.
 
 ## Tech Stack
 
-- **Framework**: React 18
-- **Bundler**: Vite 5
-- **Language**: TypeScript 5
+- **Framework**: React 19
+- **Bundler**: Vite 8
+- **Language**: TypeScript 6
 - **Styling**: Plain CSS (no framework)
 - **Font**: Inter from Google Fonts
 
@@ -105,6 +111,8 @@ Weights are defined in `src/lib/examWeights.ts` and can be adjusted as needed.
 
 | Script | Description |
 | --- | --- |
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
+| `npm run dev` | Validate all banks, then start the development server |
+| `npm run validate:questions` | Validate every discovered JSON question bank and local guide reference |
+| `npm run build` | Validate every bank, type-check, and build for production |
+| `npm run check` | Run the complete production-build check |
 | `npm run preview` | Preview production build |

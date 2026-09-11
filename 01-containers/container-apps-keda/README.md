@@ -34,7 +34,9 @@ Together, they give you **event-driven, serverless containers** that can scale t
 
 Key distinctions from other hosts:
 - **No Kubernetes to manage** — ACA hides K8s behind a simple YAML/JSON or CLI experience
-- **Scale to zero** — unlike App Service, ACA can have 0 replicas and cost nothing when idle
+- **Scale to zero** — unlike App Service, ACA can run with 0 replicas when idle. There are no
+  replica *usage* charges at zero, although separately configured resources such as logging and
+  networking can still incur charges.
 - **Event-driven** — KEDA can trigger scaling based on external events (Service Bus messages,
   Storage Queue length, Event Hub, etc.)
 - **Microservices-ready** — multiple containers/applications in one shared environment
@@ -87,24 +89,26 @@ Registry (ACR) ──images──►
 
 | Term | What it is | Analogy |
 | --- | --- | --- |
-| **Environment** | The "workspace" — a network boundary that holds apps/jobs. All apps in the same environment share a VNet, Log Analytics workspace, and can communicate via internal DNS. | Like a Kubernetes namespace, but with networking built-in |
+| **Environment** | The "workspace" — a network and observability boundary that holds apps/jobs. Apps in the same environment can use built-in service discovery; an environment can optionally be connected to a VNet. | Like a Kubernetes namespace, but with networking built-in |
 | **Application (App)** | A long-running service. Defined in a manifest (YAML/JSON) with containers, scale rules, ingress. | Like a Deployment + Service in Kubernetes |
 | **Container** | A single container image running as part of an app. An app can have 1-N containers. | Like a container in a pod |
 | **Job** | An event-driven or scheduled container that runs to completion. Unlike Apps, Jobs are **not** long-running. | Like a CronJob in Kubernetes |
-| **Revision** | An immutable version of an app. Created on every deployment. You can split traffic between revisions. | Like a Deployment revision in Kubernetes (but first-class in ACA) |
+| **Revision** | An immutable version of an app created by a **revision-scope** change (such as an image, container setting, or scale rule). You can split traffic between active revisions. | Like a Deployment revision in Kubernetes (but first-class in ACA) |
 
 > **Exam gotcha:** A **Job** is for batch/triggered work (runs once, exits). An **App** is for long-running
 > services (APIs, web apps). Pick the right one.
 
 ### 2. Revisions — Immutable Deployments
 
-Every time you deploy an app (change the manifest or image), Container Apps creates a new **revision**.
+A **revision-scope** update — for example an image, container, or scale-rule change — creates a new
+**revision**. Application-scope updates such as an ingress or traffic-setting change do not.
 Revisions are **immutable** — they never change. This enables:
 
 - **Rollbacks** — instantly revert to a previous revision
 - **Canary deployments** — send 5% of traffic to the new revision, monitor, then ramp up
 - **Blue-green** — switch all traffic from old to new revision at once
-- **A/B testing** — route traffic based on headers or other rules
+- **Experiment routing** — split by revision weight or label; use an additional routing layer when
+  you need header- or cookie-based experiments
 
 ```
 Old Revision (v1)       New Revision (v2)
@@ -127,7 +131,7 @@ KEDA (Kubernetes-based Event Driven Autoscaler) is built into Container Apps. It
 
 **How KEDA works:**
 1. You define **scale rules** (triggers) in your app manifest
-2. KEDA **polling** the event source (e.g., "how many messages in the queue?")
+2. KEDA **polls** the event source (e.g., "how many messages are in the queue?")
 3. When the event metric crosses your threshold, KEDA **scales out** your containers
 4. When traffic subsides, KEDA **scales in** — even to **zero**
 
@@ -135,30 +139,31 @@ KEDA (Kubernetes-based Event Driven Autoscaler) is built into Container Apps. It
 
 | Scaler Type | Event Source | Use Case |
 | --- | --- | --- |
-| `http` | Incoming HTTP requests | Scale on web traffic |
-| `cpu` | CPU usage | Scale when CPU > threshold |
-| `memory` | Memory usage | Scale when memory > threshold |
+| HTTP rule | Incoming HTTP requests | Scale on web traffic; this is a built-in Container Apps rule |
+| CPU or memory rule | CPU or memory use | Scale from resource usage; these rules cannot scale to zero on their own |
 | `azure-queue` | Azure Storage Queue | Scale based on queue length |
 | `azure-servicebus` | Service Bus queue/topic | Scale on message count |
 | `azure-eventhub` | Event Hub | Scale on event throughput |
 | `azure-blob-storage` | Blob Storage | Scale based on blob count |
-| `azure-cosmosdb` | Cosmos DB | Scale based on RU/s or collection size |
+| `azure-cosmosdb` | Cosmos DB change feed | Scale based on a KEDA-supported Cosmos DB trigger |
 | `cron` | Scheduled timer | Scale up/down on a schedule |
 | `rabbitmq` | RabbitMQ queue | Scale on queue length |
 | `redis` | Redis lists/streams | Scale based on Redis data |
 
-> **Exam gotcha:** The `http` scaler is **automatically added** for every app with ingress enabled.
-> You get HTTP-based scaling out of the box.
+> **Exam gotcha:** If you enable ingress and don't define any scale rule, Container Apps applies its
+> default HTTP rule (minimum 0, maximum 10 replicas). Define an explicit rule when you need a
+> different threshold or a non-HTTP event source.
 
 ### 4. Ingress and Networking
 
-**Ingress** — Controls how external traffic reaches your app. Options:
+**Ingress** — Controls incoming traffic to your app. It can be disabled, or enabled with one of
+these visibility settings:
 
 | Type | Behavior | Use Case |
 | --- | --- | --- |
 | `external` | Publicly accessible via a FQDN (`<app>.<environment>.<region>.azurecontainerapps.io`) | Public web APIs |
-| `internal` | Only accessible within the environment's VNet | Microservices talking to each other |
-| `none` | No external access | Background workers, jobs |
+| `internal` | Reachable only by other Container Apps in the same environment | Microservices talking to each other |
+| disabled | No ingress endpoint | Background workers and jobs |
 
 **Custom domains and TLS** are supported via Azure-managed certificates or your own.
 
@@ -176,7 +181,7 @@ to grant your app access to other Azure resources (Key Vault, Storage, Service B
 
 > **Two methods available:**
 > - **[CLI](#cli-setup)** — Copy-paste commands below (requires [Azure CLI](https://learn.microsoft.com/cli/azure/))
-> - **[Azure Portal (Web UI)](#portal-setup)** — Point-and-click in your browser
+> - **[Azure Portal (Web UI)](#portal-setup-web-ui)** — Point-and-click in your browser
 
 ### Set your variables
 
@@ -189,6 +194,7 @@ for your shell, then run the `az` commands as written.
 | `LOCATION` | Azure region |
 | `CONTAINERAPPS_ENV` | Container Apps environment name |
 | `LOG_ANALYTICS` | Log Analytics workspace name (for logs) |
+| `ACR_NAME` | Globally unique Azure Container Registry name |
 
 Copy the block that matches your shell:
 
@@ -198,6 +204,7 @@ RG="ai200-rg"
 LOCATION="westeurope"
 CONTAINERAPPS_ENV="ai200-aca-env"
 LOG_ANALYTICS="ai200-logs"
+ACR_NAME="ai200acr${RANDOM}${RANDOM}"
 ```
 
 ```fish
@@ -206,6 +213,7 @@ set RG ai200-rg
 set LOCATION westeurope
 set CONTAINERAPPS_ENV ai200-aca-env
 set LOG_ANALYTICS ai200-logs
+set ACR_NAME ai200acr(random 100000 999999)
 ```
 
 ```powershell
@@ -214,6 +222,7 @@ $RG = "ai200-rg"
 $LOCATION = "westeurope"
 $CONTAINERAPPS_ENV = "ai200-aca-env"
 $LOG_ANALYTICS = "ai200-logs"
+$ACR_NAME = "ai200acr$(Get-Random -Minimum 100000 -Maximum 999999)"
 ```
 
 ```bat
@@ -222,6 +231,7 @@ set RG=ai200-rg
 set LOCATION=westeurope
 set CONTAINERAPPS_ENV=ai200-aca-env
 set LOG_ANALYTICS=ai200-logs
+set ACR_NAME=ai200acr%RANDOM%%RANDOM%
 ```
 
 ### Prerequisites
@@ -265,7 +275,7 @@ az containerapp env create \
 az containerapp env list --resource-group "$RG" --output table
 ```
 
-The environment is now ready. Next, you'll [deploy an app](#hands-on-python).
+The environment is now ready. Next, you'll [deploy an app](#hands-on-python--simple-web-api-with-queue-based-scaling).
 
 ### Portal Setup (Web UI)
 
@@ -306,7 +316,7 @@ Run this when you're done experimenting, or whenever you want to start fresh.
 
 > **Two methods available:**
 > - **[CLI](#cli-cleanup)** — Copy-paste commands below
-> - **[Azure Portal (Web UI)](#portal-cleanup)** — Point-and-click in your browser
+> - **[Azure Portal (Web UI)](#portal-cleanup-web-ui)** — Point-and-click in your browser
 
 ### CLI Cleanup
 
@@ -346,6 +356,9 @@ Prefer the browser? Delete resources in the [Azure Portal](https://portal.azure.
 
 ## Hands-on (Python) — Simple Web API with Queue-Based Scaling
 
+The deployment commands in this hands-on section use **Bash** syntax (for example, Azure Cloud
+Shell). They build on the Bash variables defined in [Set your variables](#set-your-variables).
+
 Let's build a **Flask web API** that:
 1. Serves HTTP requests (auto-scaled by KEDA's `http` scaler)
 2. Processes messages from an Azure Storage Queue (auto-scaled by KEDA's `azure-queue` scaler)
@@ -357,12 +370,13 @@ The app demonstrates **dual scaling**: it scales based on both HTTP traffic AND 
 ### Project Structure
 
 ```
-ai200-container-apps-keda/
+ai200-container-apps-keda/           # After creating the local exercise files below
 ├── app/                          # Your application code
 │   ├── main.py                   # Flask app with queue processing
 │   ├── requirements.txt          # Python dependencies
 │   └── Dockerfile                # Container image definition
-├── container-app.yaml            # Container Apps manifest
+├── container-app.template.yaml   # Safe tracked manifest template
+├── container-app.yaml            # Generated local manifest; ignored because it contains a secret
 └── README.md                     # This file
 ```
 
@@ -494,15 +508,15 @@ CMD ["python", "main.py"]
 First, create an Azure Container Registry and build/push your image:
 
 ```bash
-# Create ACR (if you haven't already)
-az acr create --name ai200acr --resource-group "$RG" --sku Basic --location "$LOCATION"
+# Create a globally unique ACR name (the variable was set in the Bash variable block above).
+az acr create --name "$ACR_NAME" --resource-group "$RG" --sku Basic --location "$LOCATION"
 
 # Build and push the image using ACR Tasks (no local Docker required!)
-az acr build --registry ai200acr --image ai200-container-apps-demo:v1.0 ./app
+az acr build --registry "$ACR_NAME" --image ai200-container-apps-demo:v1.0 ./app
 
 # Verify the image exists
-az acr repository list --name ai200acr --output table
-az acr repository show-tags --name ai200acr --repository ai200-container-apps-demo --output table
+az acr repository list --name "$ACR_NAME" --output table
+az acr repository show-tags --name "$ACR_NAME" --repository ai200-container-apps-demo --output table
 ```
 
 ### 3. Create a Storage Account and Queue
@@ -526,101 +540,66 @@ STORAGE_CONNECTION_STRING=$(az storage account show-connection-string \
 # Create a queue
 az storage queue create --name orders --account-name "$STORAGE_ACCOUNT" --connection-string "$STORAGE_CONNECTION_STRING"
 
-echo "Storage connection string: $STORAGE_CONNECTION_STRING"
+# Keep the value in this shell variable for the local manifest. Do not echo, commit, or paste it
+# into source control.
 ```
 
 **Save the connection string** — you'll need it for the app configuration.
 
 ### 4. Create the Container Apps Manifest
 
-**container-app.yaml:**
+The tracked [`container-app.template.yaml`](container-app.template.yaml) has variable references,
+not a connection string. Run the following **Bash** commands after the storage-account step to
+render an ignored local `container-app.yaml` with your actual values. `envsubst` is available in
+Azure Cloud Shell; on another Bash environment, install the `gettext` package if it is missing.
 
-```yaml
-# Container Apps manifest for our demo app
-# Deploy with: az containerapp create --resource-group $RG --name ai200-demo --yaml container-app.yaml
+```bash
+# Query the values the template needs. These commands do not print the connection string.
+ENVIRONMENT_ID=$(az containerapp env show \
+  --name "$CONTAINERAPPS_ENV" \
+  --resource-group "$RG" \
+  --query id \
+  --output tsv)
+ACR_LOGIN_SERVER=$(az acr show \
+  --name "$ACR_NAME" \
+  --resource-group "$RG" \
+  --query loginServer \
+  --output tsv)
 
-location: westeurope
-kind: Deployment
-metadata:
-  name: ai200-demo
-properties:
-  environmentId: "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/$RG/providers/Microsoft.App/containerAppsEnvironments/$CONTAINERAPPS_ENV"
-  
-  # The containers that make up this app
-  containers:
-    - name: web-api
-      image: ai200acr.azurecr.io/ai200-container-apps-demo:v1.0
-      resources:
-        cpu: 0.25
-        memory: 0.5Gi
-      env:
-        - name: PORT
-          value: "8000"
-        - name: QUEUE_CONNECTION_STRING
-          value: "$STORAGE_CONNECTION_STRING"  # Replace with your actual connection string
-        - name: QUEUE_NAME
-          value: "orders"
-  
-  # Ingress configuration - makes the app publicly accessible
-  ingress:
-    external: true
-    targetPort: 8000
-    transport: auto
-    traffic:
-      - weight: 100
-        revisionSuffix: latest
-  
-  # Scale rules for KEDA
-  scale:
-    minReplicas: 0  # Scale to zero when idle
-    maxReplicas: 5
-    rules:
-      # Scale based on HTTP traffic (auto-added for ingress, but we can customize)
-      - name: http-scaler
-        custom:
-          type: http
-          metadata:
-            concurrentRequests: "50"  # Scale out when > 50 concurrent requests
-      
-      # Scale based on Azure Storage Queue length
-      - name: queue-scaler
-        custom:
-          type: azure-queue
-          metadata:
-            queueName: "orders"
-            connection: "$STORAGE_CONNECTION_STRING"  # Same connection string as above
-            queueLength: "5"  # Scale out when > 5 messages in queue
+# envsubst reads only exported variables. The generated file is ignored because it contains the
+# storage connection string, so do not rename it to a tracked template.
+export LOCATION ENVIRONMENT_ID ACR_LOGIN_SERVER STORAGE_CONNECTION_STRING
+envsubst < container-app.template.yaml > container-app.yaml
 ```
 
-> **Important:** Replace `$STORAGE_CONNECTION_STRING` with the actual connection string from step 3.
-> For CLI deployment, you can set it as an environment variable and use `"${STORAGE_CONNECTION_STRING}"` in
-> the YAML.
+> **Important:** `container-app.yaml` contains a real connection string and is ignored by Git.
+> For a production deployment, make `storage-queue-connection` a Key Vault-backed Container Apps
+> secret instead of putting a value in YAML.
 
 ### 5. Deploy the Application
 
 ```bash
-# Deploy using the manifest
+# The local manifest was generated in the previous step with the resource IDs and secret value.
 az containerapp create \
   --resource-group "$RG" \
   --name ai200-demo \
-  --environment "$CONTAINERAPPS_ENV" \
-  --image ai200acr.azurecr.io/ai200-container-apps-demo:v1.0 \
-  --target-port 8000 \
-  --ingress external \
-  --min-replicas 0 \
-  --max-replicas 5 \
-  --scale-rule-name http-scaler \
-  --scale-rule-type http \
-  --scale-rule-metadata concurrentRequests=50 \
-  --scale-rule-name queue-scaler \
-  --scale-rule-type azure-queue \
-  --scale-rule-metadata queueName=orders connection="$STORAGE_CONNECTION_STRING" queueLength=5 \
-  --env-vars PORT=8000 QUEUE_CONNECTION_STRING="$STORAGE_CONNECTION_STRING" QUEUE_NAME=orders \
-  --registry-server ai200acr.azurecr.io \
-  --registry-identity system
+  --yaml container-app.yaml
 
-# Alternatively, deploy from the YAML manifest:
-# az containerapp create --resource-group $RG --name ai200-demo --yaml container-app.yaml
+# The app's system-assigned identity now exists. Grant it read access to the registry; this is a
+# separate authorization step from selecting `identity: system` in the manifest.
+APP_PRINCIPAL_ID=$(az containerapp identity show --name ai200-demo --resource-group "$RG" --query principalId --output tsv)
+ACR_ID=$(az acr show --name "$ACR_NAME" --resource-group "$RG" --query id --output tsv)
+az role assignment create \
+  --assignee-object-id "$APP_PRINCIPAL_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role AcrPull \
+  --scope "$ACR_ID"
+
+# If the first private-image pull happened before the role assignment propagated, list the
+# revision and restart its displayed name after a short wait.
+az containerapp revision list --name ai200-demo --resource-group "$RG" --output table
+# az containerapp revision restart --name ai200-demo --resource-group "$RG" --revision <revision-name>
+
 ```
 
 The deployment will:
@@ -667,31 +646,38 @@ for i in {1..10}; do
     --connection-string "$STORAGE_CONNECTION_STRING"
 done
 
-# Watch the app scale up (may take 30-60 seconds)
-az containerapp revision list \
+# List replicas for the latest revision. Re-run this command while the queue drains; the revision
+# command has no --watch option. Custom queue rules poll every 30 seconds by default.
+az containerapp replica list \
   --name ai200-demo \
   --resource-group "$RG" \
-  --output table \
-  --watch
+  --output table
 
-# Check the current scale
+# Show the complete configured scale definition in one JMESPath query. Supplying --query more than
+# once keeps only the final query, so project every value into a single object.
 az containerapp show \
   --name ai200-demo \
   --resource-group "$RG" \
-  --query properties.template.scale.minReplicas \
-  --query properties.template.scale.maxReplicas \
-  --query properties.template.scale.rules
+  --query '{min:properties.template.scale.minReplicas,max:properties.template.scale.maxReplicas,rules:properties.template.scale.rules}' \
+  --output json
 ```
 
 ### 8. Update and Create a New Revision
 
 ```bash
-# Update the app by changing the image tag or configuration
-# This creates a new revision
+# Build and push a second image tag before referencing it in the revision update.
+az acr build \
+  --registry "$ACR_NAME" \
+  --image ai200-container-apps-demo:v2.0 \
+  ./app
+
+# This sample has an azureQueue custom event rule, which requires single-revision mode. A
+# revision-scope image change creates v2; Container Apps keeps v1 live until v2 is ready, then
+# routes the traffic to v2. Do not switch this queue-driven app to multiple-revision mode.
 az containerapp update \
   --name ai200-demo \
   --resource-group "$RG" \
-  --image ai200acr.azurecr.io/ai200-container-apps-demo:v2.0 \
+  --image "$ACR_LOGIN_SERVER/ai200-container-apps-demo:v2.0" \
   --revision-suffix v2
 
 # List all revisions
@@ -699,42 +685,68 @@ az containerapp revision list \
   --name ai200-demo \
   --resource-group "$RG" \
   --output table
+```
 
-# Split traffic between revisions (canary deployment)
-az containerapp update \
-  --name ai200-demo \
-  --resource-group "$RG" \
-  --traffic-split latest=75,v2=25
+For a **separate HTTP-only app** (no custom event scale rule), a weighted canary requires
+multiple-revision mode **before** the v2 update. Capture the old revision name, deploy v2, then
+assign weights. This is the pattern to recognize for exam questions; do not apply it to the
+queue-driven sample above.
 
-# Roll back to the previous revision
-az containerapp update \
-  --name ai200-demo \
+```bash
+# The target app must have HTTP/TCP scale rules only.
+HTTP_ONLY_APP="<http-only-container-app>"
+az containerapp revision set-mode \
+  --name "$HTTP_ONLY_APP" \
   --resource-group "$RG" \
-  --revision-suffix latest
+  --mode multiple
+
+# Save the current active revision name before creating v2.
+V1_REVISION=$(az containerapp revision list \
+  --name "$HTTP_ONLY_APP" \
+  --resource-group "$RG" \
+  --query '[?properties.active].name | [0]' \
+  --output tsv)
+
+# Deploy the updated image with a recognizable suffix, then split ingress traffic.
+az containerapp update \
+  --name "$HTTP_ONLY_APP" \
+  --resource-group "$RG" \
+  --image "$ACR_LOGIN_SERVER/<image-repository>:v2.0" \
+  --revision-suffix v2
+az containerapp ingress traffic set \
+  --name "$HTTP_ONLY_APP" \
+  --resource-group "$RG" \
+  --revision-weight "$V1_REVISION=75" latest=25
 ```
 
 ---
 
 ## Exam gotchas
 
-- **Scale to zero is NOT available on App Service** — only Container Apps and Functions support
-  true scale-to-zero. App Service can stop/start but bills for reserved capacity.
+- **Scale to zero is NOT available on App Service** — in this host comparison, use Container Apps
+  or an appropriate Azure Functions hosting plan when a workload must wake on demand. App Service
+  bills for reserved plan capacity.
 - **KEDA is built into Container Apps** — you don't need to install it. It's automatic.
-- **Every app with ingress gets HTTP scaling by default** — the `http` scaler is auto-added.
+- **Default HTTP scaling is conditional** — it applies when ingress is enabled and you don't define
+  a scale rule. Explicit rules replace that default.
 - **Jobs vs Apps** — Jobs run to completion; Apps are long-running. Don't confuse them.
-- **Revisions are immutable** — you can't change a revision. Update the app to create a new revision.
-- **Traffic splitting requires unique revision suffixes** — use `--revision-suffix` when deploying
-  to enable traffic splitting later.
+- **Revisions are immutable** — you can't change a revision. Make a revision-scope update to
+  create another one; application-scope changes don't create a revision.
+- **Traffic splitting requires multiple active revisions** — a revision suffix is optional and makes
+  names easier to recognize, but Container Apps can generate a revision name for you.
 - **Managed identity for ACR** — grant the Container App's managed identity **AcrPull** on ACR.
   Use `--registry-identity system` for system-assigned identity.
-- **Environment is the network boundary** — all apps in an environment share networking and can
-  communicate via internal DNS (`<app-name>.<environment-name>.internal`).
+- **Environment is the network boundary** — apps in an environment can use service discovery. For
+  a simple internal HTTP call, use `http://<app-name>`; the full internal FQDN also includes the
+  environment identifier and region.
 - **Custom domains require TLS** — you can't have a custom domain without HTTPS.
-- **KEDA poller is every 30 seconds by default** — scaling is not instant; expect 30-60 second delay
-  for scale out/in.
-- **Concurrency vs queue length** — the `http` scaler uses `concurrentRequests` (default 1); the
+- **Timing depends on the rule.** HTTP and TCP rules evaluate a 15-second request/connection
+  window every 15 seconds. The 30-second default polling interval applies to custom event rules,
+  such as `azure-queue`; scaling is not instant.
+- **Concurrency vs queue length** — the `http` scaler uses `concurrentRequests` (default 10); the
   `azure-queue` scaler uses `queueLength`. Know which applies to which trigger.
-- **Maximum replicas is 30 by default** — can be increased to 100 per app.
+- **Replica defaults are 0 minimum and 10 maximum per revision** — both are configurable, subject
+  to the current service quota. CPU- and memory-only rules cannot wake an app from zero.
 
 ---
 
@@ -751,6 +763,6 @@ Take the **container-apps-keda** quiz in the [quiz app](../../quiz/)
 - Container Apps vs other Azure container options: <https://learn.microsoft.com/azure/container-apps/compare-options>
 - KEDA documentation: <https://keda.sh/docs/>
 - KEDA scalers reference: <https://keda.sh/scalers/>
-- Azure Container Apps YAML reference: <https://learn.microsoft.com/azure/container-apps/container-app-version-yaml>
+- Azure Container Apps YAML reference: <https://learn.microsoft.com/azure/container-apps/azure-resource-manager-api-spec>
 - Container Apps networking: <https://learn.microsoft.com/azure/container-apps/networking>
-- Container Apps authentication: <https://learn.microsoft.com/azure/container-apps/managed-identities>
+- Container Apps managed identities: <https://learn.microsoft.com/azure/container-apps/managed-identity>

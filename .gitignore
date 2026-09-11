@@ -22,9 +22,12 @@ __pycache__/
 # Azure / secrets — never commit credentials
 *.pem
 *.key
-# NOTE: local.settings.json is deliberately tracked in this study repo — the checked-in copies
-# hold placeholders only (e.g. "UseDevelopmentStorage=true"). Never paste a real connection
-# string or key into one; use `func settings add` with the local emulator, or Key Vault.
+# Local state produced by the Cosmos DB change-feed learning sample.
+change-feed.continuation
+# A generated Container Apps manifest includes the storage connection string used by the guide.
+/01-containers/container-apps-keda/container-app.yaml
+# Local Functions settings can contain connection strings. Commit only .example templates.
+local.settings.json
 
-# Clause local settings
+# Claude local settings
 .claude/

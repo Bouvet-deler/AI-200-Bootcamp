@@ -124,7 +124,7 @@
       "Unlimited"
     ],
     "answer": [2],
-    "explanation": "Event Grid retries a failed delivery up to 30 times by default, with exponential backoff, configurable from 1-30 via --max-delivery-attempts.",
+    "explanation": "Event Grid allows up to 30 delivery attempts by default, including the initial attempt, with an exponential-backoff schedule. The subscription can configure a value from 1 through 30 with --max-delivery-attempts.",
     "reference": "../../03-connect-consume/event-grid/README.md#4-delivery-retries-and-dead-lettering"
   },
   {
@@ -164,7 +164,7 @@
     "domain": "03-connect-consume",
     "topic": "event-grid",
     "type": "single",
-    "question": "Where can Event Grid dead-letter undeliverable events?",
+    "question": "For an Event Grid Basic subscription, where can Event Grid dead-letter undeliverable events?",
     "choices": [
       "A Service Bus dead-letter queue",
       "A Storage Blob container",
@@ -228,7 +228,7 @@
     "domain": "03-connect-consume",
     "topic": "event-grid",
     "type": "multi",
-    "question": "Which of these are valid Event Grid event handlers? (Select all that apply)",
+    "question": "Which of these are valid Event Grid Basic event handlers? (Select all that apply)",
     "choices": [
       "Azure Function (Event Grid trigger)",
       "Storage Queue",
@@ -254,7 +254,7 @@
     ],
     "answer": [1],
     "explanation": "Service Bus is designed for reliable business-message processing with FIFO ordering (via sessions) and transactional semantics. Event Grid is for lightweight notifications; Event Hubs is for high-volume streaming telemetry.",
-    "reference": "../../03-connect-consume/event-grid/README.md#6-event-grid-vs-service-bus-vs-event-hubs"
+    "reference": "../../03-connect-consume/event-grid/README.md#6-event-grid-vs-service-bus-vs-event-hubs-vs-storage-queues"
   },
   {
     "id": "event-grid-017",
@@ -270,7 +270,7 @@
     ],
     "answer": [2],
     "explanation": "Event Hubs is built for high-throughput, partitioned event streaming with replay support - the right fit for ingesting a high-volume telemetry firehose. Event Grid is for lower-volume notifications; Service Bus is for business messages.",
-    "reference": "../../03-connect-consume/event-grid/README.md#6-event-grid-vs-service-bus-vs-event-hubs"
+    "reference": "../../03-connect-consume/event-grid/README.md#6-event-grid-vs-service-bus-vs-event-hubs-vs-storage-queues"
   },
   {
     "id": "event-grid-018",
@@ -286,7 +286,7 @@
     ],
     "answer": [0],
     "explanation": "Event Grid's push-based pub/sub model fans a single event out to many independent subscribers, each with its own handler - exactly the 'react to something that happened, no polling' scenario.",
-    "reference": "../../03-connect-consume/event-grid/README.md#6-event-grid-vs-service-bus-vs-event-hubs"
+    "reference": "../../03-connect-consume/event-grid/README.md#6-event-grid-vs-service-bus-vs-event-hubs-vs-storage-queues"
   },
   {
     "id": "event-grid-019",
@@ -373,7 +373,7 @@
     "domain": "03-connect-consume",
     "topic": "event-grid",
     "type": "single",
-    "question": "An advanced filter is limited to how many per event subscription by default?",
+    "question": "What is the maximum number of advanced filters on one Event Grid subscription?",
     "choices": [
       "5",
       "10",
@@ -382,6 +382,86 @@
     ],
     "answer": [2],
     "explanation": "An event subscription supports up to 25 advanced filters and 25 filter values in total across those filters, letting you build granular routing logic without a custom relay function.",
+    "reference": "../../03-connect-consume/event-grid/README.md#3-filters--who-gets-which-event"
+  },
+  {
+    "id": "event-grid-025",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "A webhook returns HTTP 403 for an Event Grid delivery, and the subscription has a valid Blob dead-letter destination. What happens?",
+    "choices": [
+      "Event Grid treats 403 as success",
+      "Event Grid immediately schedules the event for dead-lettering instead of normal retries",
+      "Event Grid retries forever",
+      "Event Grid moves the event to a Service Bus DLQ"
+    ],
+    "answer": [1],
+    "explanation": "For webhook endpoints, 400, 401, 403, and 413 are configuration-related failures that Event Grid does not normally retry. It schedules the event for the configured Blob dead-letter destination; without one, the event is dropped.",
+    "reference": "../../03-connect-consume/event-grid/README.md#4-delivery-retries-and-dead-lettering"
+  },
+  {
+    "id": "event-grid-026",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "A custom topic accepts CloudEvents v1.0 as its input schema. Which delivery schema can an event subscription choose?",
+    "choices": [
+      "CloudEvents v1.0 only",
+      "Event Grid schema only",
+      "Either CloudEvents or Event Grid schema",
+      "Avro only"
+    ],
+    "answer": [0],
+    "explanation": "A CloudEvents-input custom topic can deliver only CloudEvents. By contrast, a topic using the Event Grid input schema can deliver either the Event Grid schema or CloudEvents, so input and delivery schemas are related but separate settings.",
+    "reference": "../../03-connect-consume/event-grid/README.md#2-event-schema--cloudevents-vs-event-grid-schema"
+  },
+  {
+    "id": "event-grid-027",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "A Python publisher uses DefaultAzureCredential and only needs to send custom events to one topic. Which role is the least-privileged choice at that topic's scope?",
+    "choices": [
+      "Owner",
+      "Contributor",
+      "EventGrid Data Sender",
+      "Azure Service Bus Data Sender"
+    ],
+    "answer": [2],
+    "explanation": "EventGrid Data Sender grants the data-plane publish operation. Contributor manages resources but does not grant event publishing, while Owner is unnecessarily broad. Scope the sender role to the one topic when possible.",
+    "reference": "../../03-connect-consume/event-grid/README.md#cli-setup"
+  },
+  {
+    "id": "event-grid-028",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "A handler successfully writes an event's business effect, but its HTTP acknowledgement is lost and Event Grid delivers the same event again. What design prevents a duplicate business effect?",
+    "choices": [
+      "Assume Event Grid provides exactly-once delivery",
+      "Record processed event IDs or use an idempotency key before applying the effect",
+      "Return HTTP 500 for every event",
+      "Disable the event subscription after each delivery"
+    ],
+    "answer": [1],
+    "explanation": "Event Grid provides at-least-once delivery, so duplicates are possible when an acknowledgement is lost or a retry was already queued. An idempotent handler recognizes the event ID or another stable business key and does not repeat an already-applied effect.",
+    "reference": "../../03-connect-consume/event-grid/README.md#4-delivery-retries-and-dead-lettering"
+  },
+  {
+    "id": "event-grid-029",
+    "domain": "03-connect-consume",
+    "topic": "event-grid",
+    "type": "single",
+    "question": "A subscription has subjectBeginsWith=\"orders/\", included event type Orders.OrderCreated, and an advanced filter data.total > 100. Which event is delivered?",
+    "choices": [
+      "Orders.OrderCreated, subject orders/42, total 150",
+      "Orders.OrderShipped, subject orders/42, total 150",
+      "Orders.OrderCreated, subject inventory/42, total 150",
+      "Orders.OrderCreated, subject orders/43, total 75"
+    ],
+    "answer": [0],
+    "explanation": "Different filters on one subscription are combined with AND. Only the first event has the required subject prefix, event type, and total. Multiple accepted values within one In-style filter would be OR alternatives, but that does not make separate filters optional.",
     "reference": "../../03-connect-consume/event-grid/README.md#3-filters--who-gets-which-event"
   }
 ]
