@@ -4,8 +4,11 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "predev": "npm run validate:questions",
     "dev": "vite",
-    "build": "tsc && vite build",
+    "validate:questions": "node scripts/validate-questions.mjs",
+    "build": "npm run validate:questions && tsc && vite build",
+    "check": "npm run build",
     "preview": "vite preview"
   },
   "dependencies": {

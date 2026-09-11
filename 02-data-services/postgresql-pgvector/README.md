@@ -1,910 +1,547 @@
-# Azure Database for PostgreSQL + pgvector
+# Azure Database for PostgreSQL flexible server with pgvector
 
 **Domain:** 02 — Develop AI solutions by using Azure data management services (25–30%)
-**Maps to skill:** *Connect and query PostgreSQL by using SDKs* · *Model schemas and implement indexing strategies* · *Configure compute/memory/storage for vector workloads* · *Run vector similarity search, store embeddings, semantic retrieval, and implement RAG with metadata filter* · *Implement connection optimization*
-
----
+**Maps to skill:** *Connect and query Azure Database for PostgreSQL by using SDKs* · *Model
+schemas and implement indexing strategies* · *Optimize query latency and reduce pgvector compute
+overhead* · *Configure compute, memory, and storage for vector workloads* · *Run vector similarity
+search and RAG with metadata filters* · *Optimize connections*
 
 ## What it is
 
-**Azure Database for PostgreSQL** is a **fully managed relational database service** based on the open-source PostgreSQL database engine. It provides **automated backups, high availability, security, and scaling** without the operational overhead of managing your own database servers.
+**Azure Database for PostgreSQL flexible server** is Microsoft's managed PostgreSQL service.
+Azure operates the server, backups, patching, storage, and optional high availability while the
+application continues to use PostgreSQL SQL and client libraries.
 
-**pgvector** is an **open-source extension** for PostgreSQL that adds **vector similarity search** capabilities. It introduces:
-- A `vector` data type for storing **embedding vectors** (arrays of floats)
-- **Index types** optimized for fast similarity search (exact and approximate)
-- **Distance metrics** for comparing vectors (cosine, L2/Euclidean, inner product)
+**pgvector** is an open-source PostgreSQL extension. It adds vector column types, distance
+operators, and exact or approximate nearest-neighbour search. The product is called pgvector, but
+the extension name used by Azure and SQL is `vector`:
 
-**Why this combination is powerful:**
+```sql
+CREATE EXTENSION vector;
+```
 
-The same PostgreSQL database that stores your **relational data** (users, products, orders) can also store **vector embeddings** and perform **blazing-fast similarity searches**. This is the foundation of **Retrieval-Augmented Generation (RAG)** — where an LLM retrieves relevant context from your data before generating a response.
+This combination is useful when relational metadata and embeddings belong in the same transaction.
+For example, a RAG system can filter documents by tenant, security label, language, and expiry date
+with SQL before ranking the remaining rows by embedding distance.
 
 > Mental model:
 >
-> ```
->                   User Query
->                       │
->                       ▼
->              ┌─────────────────┐
->              │   Application   │
->              │   (LLM + RAG)   │
->              └────────┬────────┘
->                       │
->                       ▼
->      ┌────────────────────────────────────┐
->      │  Azure Database for PostgreSQL     │
->      │  + pgvector extension              │
->      │                                    │
->      │  ┌─────────────┐  ┌──────────────┐ │
->      │  │  Relational │  │   Vector     │ │
->      │  │   Tables    │  │   Indexes    │ │
->      │  │ (users, etc)│  │ (embeddings) │ │
->      │  └─────────────┘  └──────────────┘ │
->      └────────────────────────────────────┘
->                         │
->                         ▼
->   Similarity search results (top-k nearest neighbors)
+> ```text
+> question → embedding model → query vector
+>                                │
+>                                ▼
+> PostgreSQL: metadata filter + vector distance + LIMIT top-k
+>                                │
+>                                ▼
+> retrieved text → prompt context → language model answer
 > ```
 
-**Key capabilities:**
-- **Store embeddings** — vectors from models like `text-embedding-ada-002` (1536 dimensions), `text-embedding-3-small` (1024 dim), or `text-embedding-3-large` (3072 dim)
-- **Fast similarity search** — find the most similar vectors in milliseconds using specialized indexes
-- **Metadata filtering** — combine vector search with SQL WHERE clauses (e.g., "find similar documents in category X")
-- **Full transaction support** — ACID compliance means your vectors and metadata stay consistent
-- **Hybrid workloads** — run both OLTP and vector search from the same connection
-
----
+Vector search retrieves context; it does not itself generate the answer.
 
 ## Why it's on the exam
 
-The AI-200 exam tests these core competencies for Azure Database for PostgreSQL + pgvector:
+AI-200 scenarios can test whether you can:
 
-- **Connection and querying** — using SDKs (psycopg2, asyncpg) to connect and execute queries
-- **Schema design** — creating tables with vector columns, choosing appropriate data types
-- **Indexing strategies** — selecting the right index type (HNSW, IVF, or brute-force) for your workload
-- **Vector operations** — storing embeddings, performing similarity search (KNN)
-- **RAG implementation** — combining vector search with metadata filtering
-- **Connection optimization** — connection pooling, prepared statements, batch operations
-- **Performance tuning** — configuring compute, memory, and storage for vector workloads
+- connect once and reuse PostgreSQL connections;
+- model content, relational metadata, and a fixed-dimension vector together;
+- parameterize SQL rather than concatenate user input;
+- match a query distance operator to the index's operator class;
+- choose an exact scan, HNSW, IVFFlat, or Azure's DiskANN option from workload requirements;
+- combine vector ranking with a selective metadata filter;
+- tune recall, latency, memory, storage throughput, and index-build cost; and
+- choose application pooling or built-in PgBouncer for connection-heavy workloads.
 
-Expect scenario questions like:
-- "Which index type is best for approximate nearest neighbor search?" → **HNSW**
-- "How do you store embeddings alongside metadata in PostgreSQL?" → **Create a table with a vector column + JSON/regular columns**
-- "What distance metric is best for semantic similarity?" → **COSINE**
-- "How do you implement metadata filtering with vector search?" → **Use the `<->` or `<=>` operator in a WHERE clause with additional filters**
-
----
+The current Azure deployment model is **flexible server**. The retired Single Server commands
+(`az postgres server ...`) and old `GP_Gen5_*` / `MO_Gen5_*` SKUs should not be used.
 
 ## Core concepts
 
-### 1. Vector Basics
+### 1. Schema design
 
-A **vector** (or **embedding**) is an array of floating-point numbers that represents data in a high-dimensional space. In AI/ML:
-- **Text embeddings** — convert text to vectors where semantically similar text has similar vectors
-- **Image embeddings** — convert images to vectors capturing visual features
-- **Similarity** — vectors close together in space represent similar content
+An **embedding** is a fixed-length numeric representation produced by a model. Similar inputs are
+near each other according to the metric for which that model was designed.
 
-**Distance metrics** (how we measure "closeness"):
-
-| Metric | Formula | Use Case | Range |
-| --- | --- | --- | --- |
-| **Cosine** | 1 - cosine similarity | Semantic search (text) | 0 to 2 (lower = more similar) |
-| **L2 (Euclidean)** | sqrt(sum((a-b)²)) | Geometric distance | 0 to ∞ (lower = more similar) |
-| **Inner Product** | -dot(a, b) | Equivalent to cosine for normalized vectors | -∞ to ∞ (higher = more similar) |
-
-> **Exam gotcha:** For **semantic similarity** (text, RAG), use **COSINE** distance. For geometric similarity, use **L2**. Inner product is mathematically equivalent to cosine for normalized vectors.
-
-### 2. pgvector Data Types and Operators
-
-**Data type:**
 ```sql
--- Create a vector column with 3 dimensions
-ALTER TABLE items ADD COLUMN embedding vector(3);
-
--- Or with 1536 dimensions (for text-embedding-ada-002)
-ALTER TABLE documents ADD COLUMN embedding vector(1536);
+CREATE TABLE documents (
+    id text PRIMARY KEY,
+    tenant_id text NOT NULL,
+    category text NOT NULL,
+    content text NOT NULL,
+    embedding vector(1536) NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
 ```
 
-**Operators:**
+Important choices:
 
-| Operator | Description | Returns |
+- Declare a dimension, such as `vector(1536)`, when the column will be indexed. The query vector
+  must have the same length.
+- Store common filter fields in typed relational columns. Use `jsonb` for genuinely flexible
+  metadata, not as a substitute for every column.
+- Keep the original text and source identity needed for RAG citations.
+- Use the same embedding model and preprocessing for stored and query vectors. Changing models
+  normally requires re-embedding the corpus and rebuilding the index.
+- Do not assume one named model always has one dimension; some embedding APIs allow a requested
+  output size.
+
+pgvector also offers `halfvec`, `bit`, and sparse-vector types. `halfvec` can reduce storage and
+support more dimensions at lower precision. Treat that as a measured quality/cost decision, not a
+free optimization. Current pgvector HNSW and IVFFlat indexes support a `vector` column up to 2,000
+dimensions and a `halfvec` column up to 4,000 dimensions. A higher-dimensional embedding therefore
+needs an intentionally reduced output size, a suitable narrower type, exact search, or a different
+index such as Azure's separately installed DiskANN extension. Verify the selected index's own
+limits rather than assuming that a storable vector is also indexable.
+
+### 2. Distance operators and operator classes
+
+| Meaning | Query operator | Index operator class |
 | --- | --- | --- |
-| `<->` | L2 distance (Euclidean) | float |
-| `<=>` | Cosine distance | float |
-| `<#>` | Inner product (negative = more similar) | float |
+| L2 / Euclidean distance | `<->` | `vector_l2_ops` |
+| Negative inner product | `<#>` | `vector_ip_ops` |
+| Cosine distance | `<=>` | `vector_cosine_ops` |
+| L1 / taxicab distance | `<+>` | `vector_l1_ops` where supported |
+
+Lower values sort first for the distance operators. `<#>` returns the **negative** inner product so
+that PostgreSQL can use an ascending index scan.
+
+For nonzero vectors, cosine similarity ranges from -1 to 1, so pgvector's cosine **distance**
+(`1 - cosine similarity`) ranges from 0 to 2. Rank nearest results by distance in ascending order;
+do not sort cosine distance descending as though it were a similarity score.
+
+For cosine similarity, convert the returned distance only when a similarity value is actually
+needed:
 
 ```sql
--- Find items with embedding closest to query_vector using L2 distance
-SELECT *, embedding <-> '[0.1, 0.2, 0.3]' AS distance
-FROM items
-ORDER BY distance ASC
-LIMIT 5;
-
--- Find items using cosine distance (best for semantic similarity)
-SELECT *, embedding <=> '[0.1, 0.2, 0.3]' AS cosine_distance
-FROM items
-ORDER BY cosine_distance ASC
-LIMIT 5;
+SELECT 1 - (embedding <=> $1::vector) AS cosine_similarity
+FROM documents;
 ```
 
-### 3. pgvector Index Types
+Cosine distance is common for semantic text retrieval, but select the metric recommended and
+validated for the embedding model. An index built with `vector_cosine_ops` will not accelerate an
+L2 query using `<->`.
 
-| Index Type | Algorithm | Speed | Accuracy | Memory | Use Case |
-| --- | --- | --- | --- | --- | --- |
-| **None (brute-force)** | Linear scan | Slow | 100% | Low | Small datasets (<10K vectors) |
-| **HNSW** | Hierarchical Navigable Small World | Fast | ~95-99% | Medium | General purpose, recommended default |
-| **IVF (Inverted File)** | Partition vectors into clusters | Very fast | Configurable | High | Large datasets with clustering |
-| **IVF + HNSW** | Hybrid of IVF and HNSW | Very fast | ~95-99% | High | Best for very large datasets |
+### 3. Exact and approximate indexes
 
-**Creating indexes:**
+Without a vector index, PostgreSQL calculates the distance for candidate rows and performs an exact
+nearest-neighbour search. Exact search has perfect recall and can be a good choice for a small or
+highly selective candidate set.
+
+Azure Database for PostgreSQL supports these vector-index approaches:
+
+| Approach | Strength | Cost or constraint |
+| --- | --- | --- |
+| Exact scan | Perfect recall; no vector-index build | Compute grows with candidate count |
+| HNSW (`vector` extension) | Strong speed/recall trade-off; no training step | Slower build and more memory than IVFFlat |
+| IVFFlat (`vector` extension) | Faster build and less memory than HNSW | Needs representative data/training; recall depends on lists and probes |
+| DiskANN (`pg_diskann` extension) | Azure-optimized scale with strong speed/recall | Separate Azure extension and its own tuning parameters |
+
+Create an HNSW cosine index like this:
+
 ```sql
--- HNSW index (recommended for most use cases)
-CREATE INDEX ON items USING hnsw (embedding vector_l2_ops) WITH (m = 16, ef = 64);
-
--- For cosine distance
-CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef = 64);
-
--- For inner product
-CREATE INDEX ON items USING hnsw (embedding vector_ip_ops) WITH (m = 16, ef = 64);
-
--- IVF index with 100 clusters
-CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
-
--- IVF + HNSW hybrid (best for large datasets)
-CREATE INDEX ON items USING ivfhnsw (embedding vector_l2_ops) WITH (m = 16, ef = 64, lists = 100);
+CREATE INDEX documents_embedding_hnsw
+ON documents
+USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 64);
 ```
 
-> **Exam gotcha:** The **operator class** in the index (`vector_l2_ops`, `vector_cosine_ops`, `vector_ip_ops`) **must match** the operator you use in queries. Using `<->` with `vector_cosine_ops` will not use the index.
+- HNSW `m` controls graph connectivity. Increasing it can improve recall but uses more memory and
+  build time.
+- `ef_construction` controls how many candidates are considered while building the graph.
+- `hnsw.ef_search` is a session or transaction setting for query-time recall versus latency.
 
-**Index parameters:**
-- **`m`** (HNSW) — number of bi-directional links per node (higher = more accurate, more memory)
-- **`ef`** (HNSW) — search time parameter (higher = more accurate, slower)
-- **`lists`** (IVF) — number of clusters/partitions (higher = faster, more memory)
-- **`ef_search`** — search time parameter for IVF-HNSW
+Create an IVFFlat index after loading representative rows:
 
-### 4. Vector Similarity Search (KNN)
-
-**Basic KNN search:**
 ```sql
--- Find 5 nearest neighbors using L2 distance
-SELECT id, name, embedding <-> '[0.1, 0.2, 0.3]' AS distance
-FROM items
-ORDER BY distance ASC
-LIMIT 5;
+CREATE INDEX documents_embedding_ivfflat
+ON documents
+USING ivfflat (embedding vector_cosine_ops)
+WITH (lists = 100);
 
--- Using cosine distance (better for semantic search)
-SELECT id, name, embedding <=> '[0.1, 0.2, 0.3]' AS cosine_distance
-FROM items
-ORDER BY cosine_distance ASC
-LIMIT 5;
+-- Search more lists for better recall at the cost of more work for this transaction only.
+BEGIN;
+SET LOCAL ivfflat.probes = 10;
+SELECT id FROM documents ORDER BY embedding <=> $1::vector LIMIT 10;
+COMMIT;
 ```
 
-**With metadata filtering (the power of RAG):**
+`IVF`, `IVF + HNSW`, and an `ivfhnsw` access method are not pgvector index names. The supported
+pgvector access method is `ivfflat`.
+
+Use `EXPLAIN (ANALYZE, BUFFERS)` to see whether PostgreSQL chose an index and where time and I/O are
+spent. A sequential scan is not automatically a defect: for a tiny table or a very selective
+relational filter, it can be cheaper.
+
+### 4. Metadata-filtered RAG retrieval
+
+Parameterize both the vector and metadata. Filtering by tenant is a correctness and security
+boundary, not just a performance optimization.
+
 ```sql
--- Find similar documents in a specific category
-SELECT id, title, content, embedding <=> '[0.1, 0.2, 0.3]' AS score
+SELECT id,
+       content,
+       embedding <=> $1::vector AS distance
 FROM documents
-WHERE category = 'technology'
-  AND embedding IS NOT NULL
-ORDER BY score ASC
-LIMIT 10;
-
--- Filter by multiple conditions
-SELECT id, title, score
-FROM (
-  SELECT id, title, embedding <=> '[0.1, 0.2, 0.3]' AS score
-  FROM documents
-  WHERE category IN ('technology', 'science')
-    AND published_date > '2023-01-01'
-) AS subquery
-ORDER BY score ASC
+WHERE tenant_id = $2
+  AND category = $3
+ORDER BY embedding <=> $1::vector
 LIMIT 5;
 ```
 
-**Using the `<=>` operator directly in ORDER BY:**
+A B-tree index can make the metadata predicate cheap:
+
 ```sql
--- Most concise form
-SELECT id, name FROM items
-ORDER BY embedding <=> '[0.1, 0.2, 0.3]' ASC
-LIMIT 5;
+CREATE INDEX documents_tenant_category
+ON documents (tenant_id, category);
 ```
 
-### 5. Index Parameters and Performance Tuning
+Approximate vector indexes and filtering interact. Depending on selectivity and the query plan, a
+filter can leave fewer results than the requested `LIMIT`. Current pgvector versions support
+iterative scans for HNSW and IVFFlat to keep scanning for qualifying rows. Other solutions include
+partitioning by a stable tenant boundary, raising the search candidate setting, or using an exact
+scan after a highly selective filter. Validate recall with representative data.
 
-**HNSW parameters:**
-- **`m`** — controls the width of the graph (default: 16)
-  - Higher = more connections, better accuracy, more memory
-  - Typical range: 4-100
-- **`ef`** (construction) — controls index build time and accuracy (default: 40)
-  - Higher = better accuracy, slower build
-- **`ef_search`** — controls query time and accuracy (default: 40)
-  - Higher = better accuracy, slower queries
+### 5. Compute, memory, and storage
 
-**IVF parameters:**
-- **`lists`** — number of clusters (default: 100)
-  - Higher = faster queries, more memory
-  - Start with 100 and increase based on dataset size
+Flexible server offers three compute tiers:
 
-**Index size estimation:**
-```
-Index size ≈ (number of vectors) × (dimensions) × 4 bytes × (index overhead)
+| Tier | Fit |
+| --- | --- |
+| Burstable | Development and low-concurrency workloads without sustained CPU demand |
+| General Purpose | Most production workloads with balanced compute and memory |
+| Memory Optimized | Workloads whose active indexes and queries benefit from more memory per vCore |
 
--- For 1M vectors with 1536 dimensions:
-1,000,000 × 1536 × 4 = ~6 GB (raw data)
-HNSW index: ~2-4x raw data = 12-24 GB
-IVF index: ~1.5-2x raw data = 9-12 GB
-```
+Built-in high availability is available on General Purpose and Memory Optimized, not Burstable.
+Without high availability the service has a 99.9% uptime SLA; same-zone high availability has a
+99.95% SLA, and zone-redundant high availability has a 99.99% SLA. Choose the availability design
+from the application's recovery requirements rather than assuming that a compute tier alone
+provides a particular SLA.
 
-> **Exam gotcha:** Vector indexes can be **large**. For 1M embeddings at 1536 dimensions, expect **10-30 GB** of index storage. Plan your Azure PostgreSQL tier accordingly.
+There is no universal “100,000 vectors means SKU X” rule. Dimension, data type, index, filters,
+concurrency, recall target, ingestion rate, and cache hit rate all matter. Measure these layers:
 
-### 6. Azure Database for PostgreSQL Tiers
+- **CPU:** distance calculations, parallel queries, and index builds;
+- **memory:** hot table/index pages and HNSW build workspace;
+- **storage capacity:** vector columns, indexes, metadata, WAL, and growth;
+- **IOPS and throughput:** index pages that are not in memory and write-heavy ingestion; and
+- **connections:** each direct PostgreSQL connection consumes a server process and memory.
 
-| Tier | Use Case | vCores | Memory | Storage | IOPS | Features |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Basic** | Dev/Test | 1-2 | 2-4 GB | 100 GB-2 TB | 300-1000 | No HA, 99.9% SLA |
-| **General Purpose** | Production | 2-64 | 8-256 GB | 100 GB-16 TB | Scales with storage | 99.99% SLA, HA, backups |
-| **Memory Optimized** | High-performance | 2-64 | 16-432 GB | 100 GB-16 TB | 3,000-20,000 | 99.99% SLA, fastest |
-| **Hyperscale** | Large scale | 2-128 | 16-576 GB | 100 GB-100 TB | Scales independently | 99.99% SLA, separate compute/storage |
+Use PostgreSQL's `COPY` mechanism rather than one insert-and-commit round trip per row when loading
+a large corpus. Load bulk data before building an ANN index when possible. Increase
+`maintenance_work_mem` only within available memory and monitor the build. Use
+`pg_stat_progress_create_index` for supported index builds. Azure storage can be increased but not
+later shrunk, so size with headroom and cost in mind.
 
-**Choosing a tier for vector workloads:**
-- **Development/testing** → Basic (but limited to 2 vCores, 4 GB RAM)
-- **Small production (up to 100K vectors)** → General Purpose (4+ vCores, 16+ GB RAM)
-- **Medium workloads (100K-1M vectors)** → Memory Optimized (16+ vCores, 64+ GB RAM)
-- **Large workloads (1M+ vectors)** → Memory Optimized with Hyperscale storage or provision larger instances
+### 6. Connection optimization
 
-**Compute sizing for pgvector:**
-- **Memory** — needs to hold the **working set** (frequently accessed vectors + indexes)
-- **CPU** — more vCores = faster index builds and parallel queries
-- **Storage** — fast SSD storage for vector indexes
+Creating a new database connection for every request adds authentication, TLS, and PostgreSQL
+process overhead. Reuse a bounded application connection pool.
 
-**Rule of thumb:** For **1M vectors at 1536 dimensions**, you need approximately:
-- **30-50 GB RAM** for good performance
-- **4+ vCores** for acceptable query latency
-- **100+ GB storage** for the database + indexes
+Flexible server also has optional built-in **PgBouncer** on port `6432` for General Purpose and
+Memory Optimized tiers. Direct PostgreSQL remains on port `5432`. Azure's built-in PgBouncer uses
+transaction pooling by default, so session state is not guaranteed to stay on one server connection
+between transactions. Test features such as temporary tables, session settings, and prepared
+statements against the selected pool mode.
 
-> **Exam gotcha:** pgvector indexes are **memory-mapped**. Having enough RAM to cache the index is critical for performance. The **Memory Optimized** tier is recommended for production vector workloads.
-
-### 7. Connection String and SDKs
-
-**Connection string format:**
-```
-postgresql://username:password@host:port/database?sslmode=require
-```
-
-**Python SDKs:**
-- **`psycopg2`** — most popular, mature, synchronous
-- **`psycopg2-binary`** — pre-built psycopg2, easier to install
-- **`asyncpg`** — asynchronous, fast, modern
-- **`SQLAlchemy`** — ORM support with PostgreSQL dialect
-
-**Connection pooling:**
-- Use **`psycopg2.pool.SimpleConnectionPool`** or **`psycopg2.pool.ThreadedConnectionPool`**
-- Or use **`SQLAlchemy`** with connection pooling built-in
-- Avoid creating a new connection for each query
-
----
+Keep the application and database in nearby Azure regions, use TLS, use bounded exponential retry
+for transient connection failures, and keep transactions short.
 
 ## Setup
 
-> **Two methods available:**
-> - **[CLI](#cli-setup)** — Copy-paste commands below (requires [Azure CLI](https://learn.microsoft.com/cli/azure/))
-> - **[Azure Portal (Web UI)](#portal-setup)** — Point-and-click in your browser
-
-### Set your variables
-
-The CLI commands in **Setup** and **Cleanup** reference these as **shell variables** — set them once for your shell, then run the `az` commands as written.
-
-| Variable | What it is |
-| --- | --- |
-| `RG` | Resource group |
-| `LOCATION` | Azure region |
-| `PGSQL_NAME` | PostgreSQL server name |
-| `ADMIN_USER` | Database administrator username |
-| `ADMIN_PASSWORD` | Database administrator password |
-| `PGSQL_SKU` | Pricing tier (GP_Gen5_2, MO_Gen5_4, etc.) |
-| `PGSQL_STORAGE` | Storage size in GB |
-| `PGSQL_VERSION` | PostgreSQL version (11, 12, 13, 14, 15, 16) |
-
-Copy the block that matches your shell:
-
-```bash
-# bash / zsh — Linux, and macOS (its default shell)
-RG="ai200-rg"
-LOCATION="westeurope"
-PGSQL_NAME="ai200-pgvector"
-ADMIN_USER="ai200admin"
-ADMIN_PASSWORD="YourSecurePassword123!"
-PGSQL_SKU="GP_Gen5_4"  # General Purpose, Gen5, 4 vCores
-PGSQL_STORAGE="100"  # 100 GB storage
-PGSQL_VERSION="16"  # PostgreSQL 16
-```
-
-```fish
-# fish — Linux / macOS
-set RG ai200-rg
-set LOCATION westeurope
-set PGSQL_NAME ai200-pgvector
-set ADMIN_USER ai200admin
-set ADMIN_PASSWORD YourSecurePassword123!
-set PGSQL_SKU GP_Gen5_4
-set PGSQL_STORAGE 100
-set PGSQL_VERSION 16
-```
-
-```powershell
-# PowerShell — Windows (also cross-platform)
-$RG = "ai200-rg"
-$LOCATION = "westeurope"
-$PGSQL_NAME = "ai200-pgvector"
-$ADMIN_USER = "ai200admin"
-$ADMIN_PASSWORD = "YourSecurePassword123!"
-$PGSQL_SKU = "GP_Gen5_4"
-$PGSQL_STORAGE = "100"
-$PGSQL_VERSION = "16"
-```
-
-```bat
-:: Command Prompt (cmd.exe) — Windows
-set RG=ai200-rg
-set LOCATION=westeurope
-set PGSQL_NAME=ai200-pgvector
-set ADMIN_USER=ai200admin
-set ADMIN_PASSWORD=YourSecurePassword123!
-set PGSQL_SKU=GP_Gen5_4
-set PGSQL_STORAGE=100
-set PGSQL_VERSION=16
-```
+These commands use Bash and the current flexible-server CLI. The example creates public access only
+for one supplied client IP. Prefer private networking for a production solution.
 
 ### Prerequisites
 
-1. **Azure CLI installed** and logged in (`az login`)
-2. **pgvector extension** — we'll install it after server creation
-
-### CLI Setup
-
-Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first), after [setting your variables](#set-your-variables) above.
+- Azure CLI signed in with `az login`;
+- permission to create a resource group and flexible server;
+- a globally unique lowercase server name; and
+- your public IPv4 address.
 
 ```bash
-# 1. Create the resource group
+# Replace every angle-bracket placeholder. West Europe is the example Azure region.
+RG="<resource-group>"
+LOCATION="westeurope"
+PG_SERVER="<globally-unique-postgres-server>"
+PG_DATABASE="vector_db"
+PG_ADMIN="ai200admin"
+MY_IP="<public-ip-address>"
+
+# `read -s` accepts the password without echoing it or placing a literal in shell history.
+read -r -s -p "PostgreSQL administrator password: " PG_PASSWORD
+printf '\n'
+
 az group create --name "$RG" --location "$LOCATION"
 
-# 2. Create the PostgreSQL server
-#    GP_Gen5_2 = General Purpose, Gen5, 2 vCores
-#    MO_Gen5_4 = Memory Optimized, Gen5, 4 vCores (recommended for vector workloads)
-#    For vector workloads, consider MO (Memory Optimized) tier
-az postgres server create \
-  --name "$PGSQL_NAME" \
+# Create a flexible server with a current v5 SKU and a supported PostgreSQL major version.
+az postgres flexible-server create \
   --resource-group "$RG" \
+  --name "$PG_SERVER" \
   --location "$LOCATION" \
-  --sku-name "$PGSQL_SKU" \
-  --storage-size "${PGSQL_STORAGE}GB" \
-  --version "$PGSQL_VERSION" \
-  --admin-user "$ADMIN_USER" \
-  --admin-password "$ADMIN_PASSWORD" \
-  --public-network-access Enabled \
-  --ssl-enforcement Enabled
+  --admin-user "$PG_ADMIN" \
+  --admin-password "$PG_PASSWORD" \
+  --version 17 \
+  --tier GeneralPurpose \
+  --sku-name Standard_D4ds_v5 \
+  --storage-size 128 \
+  --public-access "$MY_IP"
 
-# 3. Configure firewall rule to allow connections from your IP
-#    Get your public IP: curl ifconfig.me (Linux/macOS) or visit https://whatismyip.com
-MY_IP=$(curl -s ifconfig.me)
-az postgres server firewall-rule create \
-  --name "AllowMyIP" \
-  --resource-group "$RG" \
-  --server-name "$PGSQL_NAME" \
-  --start-ip-address "$MY_IP" \
-  --end-ip-address "$MY_IP"
+# The password is no longer needed by the provisioning commands in this shell.
+unset PG_PASSWORD
 
-# 4. Create a database for vector operations
-az postgres database create \
-  --name "vector_db" \
+# Azure must allowlist the binary before CREATE EXTENSION vector can run in a database.
+az postgres flexible-server parameter set \
   --resource-group "$RG" \
-  --server-name "$PGSQL_NAME"
+  --server-name "$PG_SERVER" \
+  --name azure.extensions \
+  --value vector
 
-# 5. Get connection information
-PGSQL_HOST=$(az postgres server show \
-  --name "$PGSQL_NAME" \
+# A PostgreSQL server contains multiple databases; install vector separately in each one that uses it.
+az postgres flexible-server db create \
   --resource-group "$RG" \
+  --server-name "$PG_SERVER" \
+  --name "$PG_DATABASE"
+
+# Read the fully qualified host name used by PostgreSQL clients.
+PG_HOST=$(az postgres flexible-server show \
+  --resource-group "$RG" \
+  --name "$PG_SERVER" \
   --query fullyQualifiedDomainName \
   --output tsv)
-
-echo "PostgreSQL host: $PGSQL_HOST"
-echo "PostgreSQL port: 5432"
-echo "Admin user: $ADMIN_USER"
-echo "Database: vector_db"
+echo "PostgreSQL host: $PG_HOST"
 ```
 
-The PostgreSQL server is now ready. Next, you'll [install pgvector and test it](#hands-on-python).
-
-### Portal Setup (Web UI)
-
-Prefer the browser? Create the same resources in the [Azure Portal](https://portal.azure.com):
-
-1. **Sign in** to [https://portal.azure.com](https://portal.azure.com)
-
-2. **Create Resource Group:**
-   - Click **Resource groups** → **+ Create**
-   - Name: `ai200-rg` (or your chosen name)
-   - Region: `West Europe` (or your preference)
-   - Click **Review + create** → **Create**
-
-3. **Create PostgreSQL Server:**
-   - Click **+ Create a resource** → Search for "Azure Database for PostgreSQL" → **Create**
-   - **Deployment option:** Single server
-   - Subscription: your subscription
-   - Resource group: `ai200-rg`
-   - Server name: `ai200-pgvector`
-   - Region: `West Europe`
-   - **Compute + storage:**
-     - For vector workloads: **Memory Optimized** (MO_Gen5_4 or higher)
-     - Or **General Purpose** (GP_Gen5_4) for smaller workloads
-     - Storage: **100 GB** or more
-   - PostgreSQL version: **16** (or latest available)
-   - Admin username: `ai200admin`
-   - Admin password: `YourSecurePassword123!`
-   - **Networking:**
-     - Connectivity method: **Public access**
-     - SSL: **Enabled**
-     - Firewall rules: **Add current client IP address**
-   - Click **Review + create** → **Create**
-
-4. **Create a database:**
-   - Navigate to your PostgreSQL server (`ai200-pgvector`)
-   - Under **Settings → Databases**, click **+ Add**
-   - Database name: `vector_db`
-   - Click **Save**
-
-5. **Get connection information:**
-   - On the **Overview** blade, note the **Server name** (e.g., `ai200-pgvector.postgres.database.azure.com`)
-   - The **Server admin login name** is the username you created
-   - The password is what you set during creation
-
-6. **Configure firewall (if needed):**
-   - Under **Settings → Connection security**, add your client IP address
-
----
-
-## Cleanup
-
-Goal: delete all resources created during setup to avoid unnecessary Azure charges. Run this when you're done experimenting, or whenever you want to start fresh.
-
-> **Two methods available:**
-> - **[CLI](#cli-cleanup)** — Copy-paste commands below
-> - **[Azure Portal (Web UI)](#portal-cleanup)** — Point-and-click in your browser
-
-### CLI Cleanup
-
-Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/). Set `RG` as shown in [Set your variables](#set-your-variables), then:
+To enable built-in PgBouncer on a supported tier:
 
 ```bash
-# Delete the entire resource group and everything in it.
-# This removes: PostgreSQL server, database, firewall rules, and any other resources in the group.
-# The '--yes' flag skips the confirmation prompt. Use '--no-wait' to not wait for completion.
-az group delete --name "$RG" --yes --no-wait
-
-# Optional: verify the resource group is gone
-az group list --output table
+# PgBouncer is a server parameter; clients then use the same host with port 6432.
+az postgres flexible-server parameter set \
+  --resource-group "$RG" \
+  --server-name "$PG_SERVER" \
+  --name pgbouncer.enabled \
+  --value true
 ```
-
-> **Important:** Deleting a resource group is **permanent and immediate**. All resources in that group (PostgreSQL server, database, etc.) will be deleted and cannot be recovered. Back up your data first if needed.
-
-### Portal Cleanup (Web UI)
-
-Prefer the browser? Delete resources in the [Azure Portal](https://portal.azure.com):
-
-1. **Sign in** to [https://portal.azure.com](https://portal.azure.com)
-
-2. **Delete the Resource Group (recommended):**
-   - Click **Resource groups** in the left menu
-   - Find and click on your resource group (`ai200-rg` or your chosen name)
-   - Click **Delete resource group** at the top
-   - In the confirmation blade, type the resource group name to confirm
-   - Click **Delete**
-
-   This deletes **all resources** in the group in one operation.
-
----
 
 ## Hands-on (Python)
 
-Let's use the **`psycopg2`** library to interact with Azure Database for PostgreSQL + pgvector. We'll demonstrate:
-1. Connecting to PostgreSQL
-2. Installing and enabling the pgvector extension
-3. Creating tables with vector columns
-4. Inserting embeddings
-5. Performing similarity search (KNN)
-6. Implementing RAG with metadata filtering
-7. Using connection pooling
-
-> **Remember:** Run all commands below from this folder (`02-data-services/postgresql-pgvector/`).
-
-### Project Structure
-
-```
-postgresql-pgvector/
-├── pgvector_demo.py              # Main demonstration script
-├── rag_demo.py                   # RAG implementation with metadata filtering
-├── connection_pooling_demo.py    # Connection pooling best practices
-└── requirements.txt              # Python dependencies
-```
-
-### Setup Python Environment
+The current Psycopg package is imported as `psycopg` (Psycopg 3), not `psycopg2`.
 
 ```bash
-# Create a virtual environment
-python -m venv venv
+# Create and activate an isolated environment for the sample packages.
+python -m venv .venv
+source .venv/bin/activate
 
-# Activate it
-# --- bash/zsh (macOS/Linux) ---
-source venv/bin/activate
+# binary installs a prebuilt local driver; pool adds Psycopg's connection-pool package.
+python -m pip install "psycopg[binary,pool]"
 
-# --- fish (macOS/Linux) ---
-source venv/bin/activate.fish
+# Set connection data without placing it in the Python source file.
+export PGHOST="<server>.postgres.database.azure.com"
+export PGPORT="5432"
+export PGDATABASE="vector_db"
+export PGUSER="ai200admin"
 
-# --- Windows PowerShell ---
-.\venv\Scripts\Activate.ps1
-
-# --- Windows cmd ---
-venv\Scripts\activate.bat
-
-# Install dependencies
-pip install psycopg2-binary==2.9.9 numpy==1.26.0 python-dotenv==1.0.0
+# Export only while running this learning sample, so Python can read the value from its environment.
+read -r -s -p "PostgreSQL administrator password: " PGPASSWORD
+printf '\n'
+export PGPASSWORD
 ```
 
-**requirements.txt:**
-```
-psycopg2-binary==2.9.9
-numpy==1.26.0
-python-dotenv==1.0.0
-```
-
-### 1. Basic pgvector Operations
-
-**pgvector_demo.py:**
+### Create, store, filter, and search
 
 ```python
-"""
-Azure Database for PostgreSQL + pgvector - Basic Operations Demo
-
-This script demonstrates:
-- Connecting to Azure Database for PostgreSQL
-- Installing and enabling the pgvector extension
-- Creating tables with vector columns
-- Inserting and querying vector embeddings
-- Performing similarity search (KNN)
-"""
+"""Store toy embeddings and run a tenant-filtered pgvector cosine search."""
 
 import os
-import psycopg2
-from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+import psycopg
 
-# Configuration
-PGSQL_HOST = os.environ.get("PGSQL_HOST")
-PGSQL_PORT = int(os.environ.get("PGSQL_PORT", 5432))
-PGSQL_DATABASE = os.environ.get("PGSQL_DATABASE", "vector_db")
-PGSQL_USER = os.environ.get("PGSQL_USER")
-PGSQL_PASSWORD = os.environ.get("PGSQL_PASSWORD")
-PGSQL_SSL_MODE = os.environ.get("PGSQL_SSL_MODE", "require")
 
-print("=" * 60)
-print("CONNECTING TO POSTGRESQL")
-print("=" * 60)
+def vector_text(values: list[float]) -> str:
+    """Convert a Python list to pgvector's text input form without building SQL text."""
+    # str(value) formats each float; join combines them with the commas pgvector expects.
+    return "[" + ",".join(str(value) for value in values) + "]"
 
-try:
-    conn = psycopg2.connect(
-        host=PGSQL_HOST,
-        port=PGSQL_PORT,
-        database=PGSQL_DATABASE,
-        user=PGSQL_USER,
-        password=PGSQL_PASSWORD,
-        sslmode=PGSQL_SSL_MODE,
-    )
-    cursor = conn.cursor()
-    print(f"Connected to PostgreSQL at {PGSQL_HOST}")
-    cursor.execute("SELECT version();")
-    print(f"PostgreSQL version: {cursor.fetchone()[0]}")
-except Exception as e:
-    print(f"Connection failed: {e}")
-    exit(1)
 
-# ============================================================================
-# 1. Install pgvector Extension
-# ============================================================================
-print("\n" + "=" * 60)
-print("INSTALLING PGVECTOR EXTENSION")
-print("=" * 60)
+# Keyword arguments keep each setting separate, so special characters in a password are not parsed
+# as connection-string syntax. The values still come from environment variables, not source code.
+connection_settings = {
+    "host": os.environ["PGHOST"],
+    "port": os.environ.get("PGPORT", "5432"),
+    "dbname": os.environ["PGDATABASE"],
+    "user": os.environ["PGUSER"],
+    "password": os.environ["PGPASSWORD"],
+    "sslmode": "require",
+}
 
-cursor.execute("SELECT * FROM pg_extension WHERE extname = 'vector';")
-if not cursor.fetchone():
-    try:
-        cursor.execute("CREATE EXTENSION vector;")
-        conn.commit()
-        print("pgvector extension installed")
-    except Exception as e:
-        print(f"Note: {e}")
-        print("Ensure pgvector is available for your PostgreSQL version")
-else:
-    print("pgvector extension already installed")
+# with closes the connection and commits on success; an exception causes the transaction to roll back.
+with psycopg.connect(**connection_settings) as connection:
+    # A cursor sends SQL to PostgreSQL and exposes returned rows to Python.
+    with connection.cursor() as cursor:
+        # Azure first allowlists the extension at server level; SQL installs it in this database.
+        cursor.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
-# ============================================================================
-# 2. Create Table with Vector Column
-# ============================================================================
-print("\n" + "=" * 60)
-print("CREATING TABLE WITH VECTOR COLUMN")
-print("=" * 60)
+        # The toy vector has three dimensions. A real column must match the embedding model's output.
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ai200_documents (
+                id text PRIMARY KEY,
+                tenant_id text NOT NULL,
+                category text NOT NULL,
+                content text NOT NULL,
+                embedding vector(3) NOT NULL
+            )
+            """
+        )
 
-cursor.execute("DROP TABLE IF EXISTS items;")
-cursor.execute("""
-    CREATE TABLE items (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255),
-        description TEXT,
-        embedding vector(3)
-    );
-""")
-conn.commit()
-print("Created items table with vector(3) column")
+        documents = [
+            ("doc-1", "contoso", "azure", "Cache data with a bounded TTL.", [0.90, 0.10, 0.05]),
+            ("doc-2", "contoso", "azure", "Use vectors for semantic retrieval.", [0.82, 0.18, 0.08]),
+            ("doc-3", "fabrikam", "hr", "Submit travel expenses monthly.", [0.05, 0.10, 0.95]),
+        ]
 
-# ============================================================================
-# 3. Insert Sample Data
-# ============================================================================
-print("\n" + "=" * 60)
-print("INSERTING SAMPLE DATA")
-print("=" * 60)
+        for document_id, tenant_id, category, content, embedding in documents:
+            # %s placeholders keep values separate from SQL and prevent SQL-injection quoting bugs.
+            cursor.execute(
+                """
+                INSERT INTO ai200_documents (id, tenant_id, category, content, embedding)
+                VALUES (%s, %s, %s, %s, %s::vector)
+                ON CONFLICT (id) DO UPDATE
+                SET tenant_id = EXCLUDED.tenant_id,
+                    category = EXCLUDED.category,
+                    content = EXCLUDED.content,
+                    embedding = EXCLUDED.embedding
+                """,
+                (document_id, tenant_id, category, content, vector_text(embedding)),
+            )
 
-items = [
-    ("Laptop", "Portable computer", [0.8, 0.2, 0.1]),
-    ("Phone", "Mobile device", [0.7, 0.3, 0.2]),
-    ("Tablet", "Touchscreen device", [0.75, 0.25, 0.15]),
-    ("Monitor", "Display screen", [0.9, 0.1, 0.05]),
-    ("Mouse", "Pointing device", [0.3, 0.6, 0.5]),
-]
+        # The relational index supports the tenant/category predicate used by retrieval queries.
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS ai200_documents_tenant_category
+            ON ai200_documents (tenant_id, category)
+            """
+        )
 
-for name, desc, embedding in items:
-    cursor.execute(
-        "INSERT INTO items (name, description, embedding) VALUES (%s, %s, %s);",
-        (name, desc, embedding)
-    )
-conn.commit()
-print(f"Inserted {len(items)} items")
+        # ef_construction is the valid HNSW build option; "ef" is not a pgvector index option.
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS ai200_documents_embedding_hnsw
+            ON ai200_documents
+            USING hnsw (embedding vector_cosine_ops)
+            WITH (m = 16, ef_construction = 64)
+            """
+        )
 
-# ============================================================================
-# 4. Create Vector Index
-# ============================================================================
-print("\n" + "=" * 60)
-print("CREATING VECTOR INDEX")
-print("=" * 60)
+        query_vector = vector_text([0.88, 0.12, 0.06])
 
-cursor.execute("""
-    CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops)
-    WITH (m = 16, ef = 64);
-""")
-conn.commit()
-print("Created HNSW index with cosine distance")
+        # The WHERE clause enforces the tenant boundary before returning RAG context.
+        cursor.execute(
+            """
+            SELECT id, content, embedding <=> %s::vector AS cosine_distance
+            FROM ai200_documents
+            WHERE tenant_id = %s AND category = %s
+            ORDER BY embedding <=> %s::vector
+            LIMIT 2
+            """,
+            (query_vector, "contoso", "azure", query_vector),
+        )
 
-# ============================================================================
-# 5. Vector Similarity Search
-# ============================================================================
-print("\n" + "=" * 60)
-print("VECTOR SIMILARITY SEARCH")
-print("=" * 60)
-
-query_vector = [0.78, 0.22, 0.12]
-cursor.execute("""
-    SELECT id, name, embedding <=> %s AS distance
-    FROM items
-    ORDER BY distance ASC
-    LIMIT 5;
-""", (query_vector,))
-
-print(f"\nQuery vector: {query_vector}")
-print("\nTop matches:")
-for i, row in enumerate(cursor.fetchall()):
-    print(f"  {i+1}. {row[1]} (distance: {row[2]:.4f})")
-
-# ============================================================================
-# 6. Cleanup
-# ============================================================================
-cursor.close()
-conn.close()
-print("\nConnection closed. Demo complete!")
+        for document_id, content, distance in cursor.fetchall():
+            print(document_id, round(distance, 4), content)
 ```
 
-### 2. RAG Implementation with Metadata Filtering
+`sslmode=require` matches the simple Microsoft quickstart and encrypts the connection. For stronger
+server identity validation, deploy the appropriate trusted root certificate and use
+`sslmode=verify-full`.
 
-**rag_demo.py:**
+### Reuse connections with a pool
 
 ```python
-"""
-Azure Database for PostgreSQL + pgvector - RAG Implementation
-
-This script demonstrates:
-- Creating a documents table with metadata
-- Performing similarity search with metadata filtering
-- Implementing Retrieval-Augmented Generation (RAG) pattern
-"""
+"""Borrow and return PostgreSQL connections from a bounded Psycopg pool."""
 
 import os
-import psycopg2
-from dotenv import load_dotenv
 
-load_dotenv()
+from psycopg_pool import ConnectionPool
 
-PGSQL_HOST = os.environ.get("PGSQL_HOST")
-PGSQL_DATABASE = os.environ.get("PGSQL_DATABASE", "vector_db")
-PGSQL_USER = os.environ.get("PGSQL_USER")
-PGSQL_PASSWORD = os.environ.get("PGSQL_PASSWORD")
-PGSQL_SSL_MODE = os.environ.get("PGSQL_SSL_MODE", "require")
+# The pool opens only a bounded number of expensive server connections and reuses them.
+# Keep connection values separate so passwords containing spaces or punctuation remain valid.
+connection_settings = {
+    "host": os.environ["PGHOST"],
+    "port": os.environ.get("PGPORT", "5432"),
+    "dbname": os.environ["PGDATABASE"],
+    "user": os.environ["PGUSER"],
+    "password": os.environ["PGPASSWORD"],
+    "sslmode": "require",
+}
 
-conn = psycopg2.connect(
-    host=PGSQL_HOST, database=PGSQL_DATABASE,
-    user=PGSQL_USER, password=PGSQL_PASSWORD, sslmode=PGSQL_SSL_MODE
-)
-cursor = conn.cursor()
-
-# Create documents table
-cursor.execute("DROP TABLE IF EXISTS documents;")
-cursor.execute("""
-    CREATE TABLE documents (
-        id SERIAL PRIMARY KEY,
-        title VARCHAR(500),
-        content TEXT,
-        category VARCHAR(100),
-        embedding vector(3)
-    );
-""")
-conn.commit()
-
-# Insert sample documents
-docs = [
-    ("AI in Healthcare", "AI is transforming healthcare...", "healthcare", [0.85, 0.1, 0.05]),
-    ("AI in Finance", "Financial institutions use AI...", "finance", [0.82, 0.12, 0.06]),
-    ("AI in Education", "Education sector adopts AI...", "education", [0.8, 0.15, 0.08]),
-    ("Python Programming", "Python is popular for...", "programming", [0.15, 0.8, 0.1]),
-    ("JavaScript Guide", "JavaScript is essential for...", "programming", [0.18, 0.75, 0.07]),
-]
-
-for title, content, category, embedding in docs:
-    cursor.execute(
-        "INSERT INTO documents (title, content, category, embedding) VALUES (%s, %s, %s, %s);",
-        (title, content, category, embedding)
-    )
-conn.commit()
-
-# Create index
-cursor.execute("""
-    CREATE INDEX ON documents USING hnsw (embedding vector_cosine_ops)
-    WITH (m = 16, ef = 64);
-""")
-conn.commit()
-
-# RAG: Find similar documents in specific category
-query_vector = [0.83, 0.11, 0.06]
-category = "healthcare"
-
-print("=" * 60)
-print("RAG DEMO: Similarity Search with Metadata Filtering")
-print("=" * 60)
-print(f"\nQuery vector: {query_vector}")
-print(f"Category filter: {category}\n")
-
-cursor.execute("""
-    SELECT id, title, category, embedding <=> %s AS score
-    FROM documents
-    WHERE category = %s
-    ORDER BY score ASC
-    LIMIT 3;
-""", (query_vector, category))
-
-print("Retrieved documents (context for LLM):")
-for i, row in enumerate(cursor.fetchall()):
-    print(f"  {i+1}. {row[1]} (category: {row[2]}, score: {row[3]:.4f})")
-
-cursor.close()
-conn.close()
+# The outer context starts the pool and closes every pooled connection when the app shuts down.
+with ConnectionPool(kwargs=connection_settings, min_size=1, max_size=10) as pool:
+    # pool.connection returns a connection for this block and automatically returns it afterward.
+    with pool.connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT current_database(), current_user")
+            print(cursor.fetchone())
 ```
 
-### 3. Connection Pooling
-
-**connection_pooling_demo.py:**
-
-```python
-"""
-Connection Pooling Best Practices for PostgreSQL
-"""
-
-import os
-import psycopg2
-from psycopg2 import pool
-from dotenv import load_dotenv
-
-load_dotenv()
-
-PGSQL_HOST = os.environ.get("PGSQL_HOST")
-PGSQL_DATABASE = os.environ.get("PGSQL_DATABASE", "vector_db")
-PGSQL_USER = os.environ.get("PGSQL_USER")
-PGSQL_PASSWORD = os.environ.get("PGSQL_PASSWORD")
-
-# Create connection pool
-connection_pool = pool.ThreadedConnectionPool(
-    minconn=2, maxconn=10,
-    host=PGSQL_HOST, database=PGSQL_DATABASE,
-    user=PGSQL_USER, password=PGSQL_PASSWORD, sslmode="require"
-)
-
-print("Connection pool created with 2-10 connections")
-
-# Use connection from pool
-conn = connection_pool.getconn()
-cursor = conn.cursor()
-cursor.execute("SELECT version();")
-print(f"PostgreSQL version: {cursor.fetchone()[0]}")
-cursor.close()
-connection_pool.putconn(conn)
-
-# Always return connections to pool
-print("Connection returned to pool. Pool is ready for production use.")
-
-# Close pool when done
-# connection_pool.closeall()
-```
-
-### Run the Demos
+When you finish running the samples, remove the password from the shell and from child-process
+environments:
 
 ```bash
-# Set environment variables (create .env file or export)
-export PGSQL_HOST="your-host.postgres.database.azure.com"
-export PGSQL_DATABASE="vector_db"
-export PGSQL_USER="ai200admin"
-export PGSQL_PASSWORD="your-password"
-
-# Or create .env file:
-echo "PGSQL_HOST=your-host.postgres.database.azure.com" > .env
-echo "PGSQL_DATABASE=vector_db" >> .env
-echo "PGSQL_USER=ai200admin" >> .env
-echo "PGSQL_PASSWORD=your-password" >> .env
-echo "PGSQL_SSL_MODE=require" >> .env
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run demos
-python pgvector_demo.py
-python rag_demo.py
-python connection_pooling_demo.py
+unset PGPASSWORD
 ```
 
----
+For a real long-running service, create one pool during application startup, share it, and close it
+during shutdown. Do not create a new pool inside every request. Avoid long-lived password
+environment variables in production: use Microsoft Entra authentication/managed identity where it
+fits the workload, or retrieve an approved secret from Key Vault at startup.
 
 ## Exam gotchas
 
-- **pgvector requires PostgreSQL 11+** — Azure Database for PostgreSQL supports this, but verify your version
-- **Vector index operator must match query operator** — `vector_l2_ops` with `<->`, `vector_cosine_ops` with `<=>`
-- **Memory Optimized tier recommended** — vector indexes are memory-mapped; sufficient RAM is critical
-- **HNSW is the recommended index type** — good balance of speed and accuracy for most use cases
-- **Cosine distance for semantic similarity** — use `<=>` operator and `vector_cosine_ops` index
-- **Connection pooling is essential** — creating a new connection for each query adds significant overhead
-- **SSL is required for Azure Database for PostgreSQL** — always use `sslmode=require`
-- **Storage requirements** — vector indexes can be 2-4x the size of the raw vector data
-- **Index build time** — building indexes on large datasets can take significant time and resources
-- **Batch inserts** — use `executemany()` or `COPY` for bulk inserts to improve performance
+- Use `az postgres flexible-server`, not retired Single Server commands.
+- Allowlist `vector` at server level, then run `CREATE EXTENSION vector` in every database that
+  needs pgvector.
+- A query vector must match the column dimension and embedding model.
+- A `vector` column indexed by pgvector HNSW or IVFFlat is limited to 2,000 dimensions; merely being
+  able to store a larger vector does not make it indexable by those access methods.
+- `<->` pairs with `vector_l2_ops`; `<=>` pairs with `vector_cosine_ops`; `<#>` pairs with
+  `vector_ip_ops`.
+- Exact scan has perfect recall. HNSW and IVFFlat are approximate and require recall/latency tuning.
+- HNSW uses `ef_construction` at build time and `hnsw.ef_search` at query time; `ef` is not a valid
+  HNSW index option.
+- Build IVFFlat after loading representative data. HNSW has no training step.
+- DiskANN is a separate Azure `pg_diskann` extension, not a pgvector `ivfhnsw` index.
+- Put common metadata filters in typed columns and index them. Always enforce tenant/access filters
+  in retrieval queries.
+- Size from measurements. Memory Optimized can help a large hot index, but it is not mandatory for
+  every production vector workload.
+- Burstable does not support built-in high availability. Availability SLAs depend on whether the
+  server uses no HA, same-zone HA, or zone-redundant HA—not just on its compute tier.
+- Direct PostgreSQL uses port `5432`; built-in PgBouncer uses `6432` and transaction pooling by
+  default.
+- Reuse a bounded pool, keep transactions short, and retry only transient failures with backoff.
 
----
+## Cleanup
+
+Delete only the dedicated practice resource group after checking its contents:
+
+```bash
+# This irreversible operation deletes the flexible server and every other resource in the group.
+az group delete --name "$RG" --yes --no-wait
+```
 
 ## Quiz yourself
 
-Take the **postgresql-pgvector** quiz in the [quiz app](../../quiz/) (bank: [`quiz/src/questions/02-data-services/postgresql-pgvector.json`](../../quiz/src/questions/02-data-services/postgresql-pgvector.json)).
-
----
+Take the **postgresql-pgvector** quiz in the [quiz app](../../quiz/) (bank:
+[`postgresql-pgvector.json`](../../quiz/src/questions/02-data-services/postgresql-pgvector.json)).
 
 ## Further reading
 
-- Azure Database for PostgreSQL documentation: <https://learn.microsoft.com/azure/postgresql/>
-- pgvector extension: <https://github.com/pgvector/pgvector>
-- pgvector documentation: <https://github.com/pgvector/pgvector#readme>
-- PostgreSQL documentation: <https://www.postgresql.org/docs/>
-- psycopg2 documentation: <https://www.psycopg.org/docs/>
-- RAG implementation guide: <https://learn.microsoft.com/azure/architecture/ai-ml/guide/rag>
-- Embedding models (Azure OpenAI): <https://learn.microsoft.com/azure/ai-services/openai/concepts/models>
-- Vector database comparison: <https://learn.microsoft.com/azure/architecture/ai-ml/guide/technology-choices/vector-databases>
+- [Azure Database for PostgreSQL flexible server overview](https://learn.microsoft.com/azure/postgresql/flexible-server/overview)
+- [Create a flexible server](https://learn.microsoft.com/azure/postgresql/configure-maintain/quickstart-create-server)
+- [Enable and use pgvector](https://learn.microsoft.com/azure/postgresql/extensions/how-to-use-pgvector)
+- [Optimize pgvector performance](https://learn.microsoft.com/azure/postgresql/extensions/how-to-optimize-performance-pgvector)
+- [Enable and use the Azure DiskANN extension](https://learn.microsoft.com/azure/postgresql/extensions/how-to-use-pgdiskann)
+- [Allowlist PostgreSQL extensions](https://learn.microsoft.com/azure/postgresql/extensions/how-to-allow-extensions)
+- [Compute options](https://learn.microsoft.com/azure/postgresql/compute-storage/concepts-compute)
+- [Built-in PgBouncer](https://learn.microsoft.com/azure/postgresql/connectivity/concepts-pgbouncer)
+- [Python connection quickstart](https://learn.microsoft.com/azure/postgresql/connectivity/connect-python)
+- [pgvector project documentation](https://github.com/pgvector/pgvector)

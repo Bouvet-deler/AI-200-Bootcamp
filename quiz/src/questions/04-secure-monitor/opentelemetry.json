@@ -205,7 +205,7 @@
       "To remove personally identifiable information"
     ],
     "answer": [1],
-    "explanation": "Sampling keeps a representative fraction of traces (e.g. 5%) to control telemetry volume and cost. The Azure distro supports fixed-rate sampling.",
+    "explanation": "Sampling controls telemetry volume and ingestion cost. The Azure distro supports both its current rate-limited default and explicitly configured fixed-percentage sampling.",
     "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
   },
   {
@@ -213,15 +213,15 @@
     "domain": "04-secure-monitor",
     "topic": "opentelemetry",
     "type": "single",
-    "question": "Why does sampling never produce an orphan child span whose parent was dropped?",
+    "question": "In the normal parent-aware setup, what keeps a sampling decision consistent across child spans?",
     "choices": [
       "Because child spans are always kept",
-      "Because sampling is trace-consistent: the decision is made once at the root and propagated, so a trace is kept or dropped as a whole",
+      "The decision is carried in the trace context and child spans honour their parent's decision",
       "Because the exporter re-creates missing parents",
       "Because KQL fills in the gaps"
     ],
     "answer": [1],
-    "explanation": "Sampling is trace-consistent. The keep/drop decision is made once at the root and propagated to all child spans, so an entire trace is kept or dropped together — you never get a child whose parent was sampled out.",
+    "explanation": "The sampled flag travels with the W3C trace context, and a parent-aware sampler honours it for child spans. This normally keeps a trace coherent, but broken propagation, different service settings, or a custom sampler can still create incomplete traces.",
     "reference": "../../04-secure-monitor/opentelemetry/README.md#core-concepts"
   },
   {
@@ -400,5 +400,85 @@
     "answer": [0, 1, 2],
     "explanation": "configure_azure_monitor() sets up all three signals — traces, metrics, and logs — and exports them to Application Insights. It does not manage KQL saved queries or Azure RBAC roles.",
     "reference": "../../04-secure-monitor/opentelemetry/README.md#hands-on-python"
+  },
+  {
+    "id": "otel-026",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "A Python developer creates a manual span without specifying its SpanKind. Where does Azure Monitor normally map that span?",
+    "choices": [
+      "To `requests`, because every root span is a request",
+      "To `dependencies` with type `InProc`, because the default kind is INTERNAL",
+      "To `traces`, because all OpenTelemetry spans are log records",
+      "To `customEvents`, because the span was created manually"
+    ],
+    "answer": [1],
+    "explanation": "A manually created span defaults to SpanKind.INTERNAL. Azure Monitor maps INTERNAL spans to dependencies with the InProc type. Use SpanKind.SERVER for incoming request handling or a deliberately request-like top-level background operation, not merely to relabel arbitrary internal work.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#exam-gotchas"
+  },
+  {
+    "id": "otel-027",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "With a current Azure Monitor OpenTelemetry Python distro and no sampling options, which sampler behaviour should you expect?",
+    "choices": [
+      "Every trace is exported without sampling",
+      "A rate-limited sampler targeting five traces per second",
+      "Exactly 5% of traces are exported",
+      "Only failed traces are exported"
+    ],
+    "answer": [1],
+    "explanation": "Current versions of the Python distro default to a rate-limited sampler that targets five traces per second when no sampling configuration is supplied. A fixed percentage requires an explicit sampling_ratio.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#sampling"
+  },
+  {
+    "id": "otel-028",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "single",
+    "question": "You must keep approximately 10% of traces rather than use the distro's default rate limit. Which configuration is appropriate?",
+    "choices": [
+      "`configure_azure_monitor(sampling_ratio=0.10)`",
+      "`configure_azure_monitor(traces_per_second=0.10)`",
+      "Set the KQL query to `take 10 percent`",
+      "Set the logger level to 10"
+    ],
+    "answer": [0],
+    "explanation": "The sampling_ratio argument selects fixed-percentage sampling; 0.10 means approximately 10%. Query limits and logging levels do not reduce trace ingestion.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#sampling"
+  },
+  {
+    "id": "otel-029",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "build-list",
+    "question": "Put the distributed trace propagation steps in order when Service A calls Service B over instrumented HTTP:",
+    "choices": [
+      {"id": "client", "text": "Service A creates an outbound client span"},
+      {"id": "inject", "text": "Service A injects the W3C trace context into the HTTP headers"},
+      {"id": "extract", "text": "Service B extracts the trace context from the incoming request"},
+      {"id": "server", "text": "Service B creates a server span that continues the same trace"}
+    ],
+    "answer": ["client", "inject", "extract", "server"],
+    "explanation": "The caller creates a client span and injects its trace context. The receiver extracts that context before creating its server span, so both services share one trace ID while each span keeps its own span ID.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#context-propagation-how-distributed-tracing-actually-works"
+  },
+  {
+    "id": "otel-030",
+    "domain": "04-secure-monitor",
+    "topic": "opentelemetry",
+    "type": "multi",
+    "question": "Your code catches an exception inside a span. Which actions provide complete trace diagnostics? (Select all that apply)",
+    "choices": [
+      "Call `span.record_exception(error)` to attach the exception details",
+      "Set the span status to ERROR to mark the operation as failed",
+      "Change the span's trace ID after recording the exception",
+      "Delete the parent span so the exception becomes a root operation"
+    ],
+    "answer": [0, 1],
+    "explanation": "Recording the exception captures its details, while setting an ERROR status represents the failed outcome. record_exception does not itself change the span status, and trace identifiers must remain stable for correlation.",
+    "reference": "../../04-secure-monitor/opentelemetry/README.md#auto-instrumentation-vs-manual-instrumentation"
   }
 ]

@@ -1,0 +1,57 @@
+# This tracked template has variable references only. The guide renders an ignored local copy with
+# envsubst after it obtains the resource IDs and storage connection string.
+type: Microsoft.App/containerApps
+name: ai200-demo
+location: "${LOCATION}"
+identity:
+  type: SystemAssigned
+properties:
+  # This is the managed environment resource ID, not the old containerAppsEnvironments path.
+  managedEnvironmentId: "${ENVIRONMENT_ID}"
+  configuration:
+    # Single mode is appropriate while the app uses a non-HTTP event scale rule.
+    activeRevisionsMode: single
+    registries:
+      - server: "${ACR_LOGIN_SERVER}"
+        identity: system
+    # For production, replace this connection-string secret with a Key Vault-backed secret.
+    secrets:
+      - name: storage-queue-connection
+        value: "${STORAGE_CONNECTION_STRING}"
+    ingress:
+      external: true
+      targetPort: 8000
+      transport: auto
+      traffic:
+        - latestRevision: true
+          weight: 100
+  template:
+    containers:
+      - name: web-api
+        image: "${ACR_LOGIN_SERVER}/ai200-container-apps-demo:v1.0"
+        resources:
+          cpu: 0.25
+          memory: 0.5Gi
+        env:
+          - name: PORT
+            value: "8000"
+          - name: QUEUE_CONNECTION_STRING
+            secretRef: storage-queue-connection
+          - name: QUEUE_NAME
+            value: orders
+    scale:
+      minReplicas: 0
+      maxReplicas: 5
+      rules:
+        # Explicit HTTP and queue rules replace the default HTTP rule.
+        - name: http-scaler
+          http:
+            metadata:
+              concurrentRequests: "50"
+        - name: queue-scaler
+          azureQueue:
+            queueName: orders
+            queueLength: 5
+            auth:
+              - secretRef: storage-queue-connection
+                triggerParameter: connection

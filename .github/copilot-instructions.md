@@ -28,6 +28,9 @@ The reader is a .NET developer who is **new to Python and Azure**. Write for tha
 - Question banks: JSON at `quiz/src/questions/<domain>/<topic>.json`, **auto-discovered** via
   `import.meta.glob` — do not hand-register banks.
 - Conform to the `Question` type in `quiz/src/types.ts`: `type` is `single | multi |
-  build-list`; `answer` is always an array of choice indices; always add an `explanation` and
-  a `reference` to the topic guide when it exists.
+  build-list`; `single` and `multi` answers contain zero-based choice indices, while
+  `build-list` choices use `id`/`text` objects and answers contain ordered choice IDs. Always
+  add an `explanation` and a `reference` to the topic guide when it exists.
 - Full-exam weights live in `quiz/src/lib/examWeights.ts` (mirror official domain %).
+
+Do not commit changes unless the user explicitly asks for a commit.

@@ -17,8 +17,9 @@ The sender and the worker do not need to be online at the same moment or run at 
 Service Bus has two main delivery shapes:
 
 - A **queue** distributes each message to **one** receiver. If several workers compete for the
-  queue, only one gets a particular message. Use it for a command or job that must be handled
-  once, such as *"create this invoice."*
+  queue, only one gets a particular delivery. Use it for a command or job such as *"create this
+  invoice."* Peek-Lock redelivery is possible, so the worker must be idempotent rather than assume
+  exactly-once processing.
 - A **topic** publishes a copy of a message to every matching **subscription**. A subscription
   is a durable, virtual queue under the topic, so each independent consumer gets its own copy.
   Use it for *"an order was placed"* when billing, shipping, and analytics should all react.
@@ -97,7 +98,7 @@ Service Bus namespace
 
 | Concept | Delivery pattern | What receives a message | Typical example |
 | --- | --- | --- | --- |
-| **Queue** | Point-to-point / competing consumers | Exactly one queue receiver | Send a background worker one invoice to create |
+| **Queue** | Point-to-point / competing consumers | One receiver per delivery; a retry can redeliver it | Send a background worker one invoice to create |
 | **Topic** | Publish/subscribe | Nothing reads from the topic directly | Publish that an order was placed |
 | **Subscription** | Durable copy of a topic's messages | One or more receivers of that subscription | Let shipping and billing independently process the order |
 
@@ -184,8 +185,9 @@ Messages reach a DLQ when:
   expired locks (default: 10).
 - They expire **and** the entity is configured to dead-letter expired messages.
 - Your receiver explicitly calls the dead-letter operation with a reason and description.
-- A subscription rule evaluation fails because of an error. A message that simply does **not**
-  match a rule is not a failure and is not dead-lettered; it is just not copied to that
+- A subscription rule evaluation fails because of an error **and** the subscription's
+  dead-letter-on-filter-evaluation-exceptions option is enabled. A message that simply does
+  **not** match a rule is not a failure and is not dead-lettered; it is just not copied to that
   subscription.
 
 The DLQ has no automatic cleanup and does not observe normal message TTL. Messages stay there
@@ -214,7 +216,8 @@ These Service Bus features make a brokered workflow more controlled:
   Premium. It protects a sender retry; it does **not** remove the need for idempotent receivers.
 - **Transactions** group supported Service Bus operations so they either all commit or all roll
   back. A common pattern is to complete an input message and send its next-step message as one
-  all-or-nothing broker operation. It is not an end-to-end transaction with your database.
+  all-or-nothing broker operation. It is not an end-to-end transaction with your database, and
+  transaction APIs vary by client library; the Python walkthrough below does not demonstrate one.
 
 ### 7. Choosing the messaging service
 
@@ -232,11 +235,14 @@ These Service Bus features make a brokered workflow more controlled:
 Goal: create a **Standard** Service Bus namespace, a queue configured for dead-lettering, and a
 topic with both an all-orders and a high-priority subscription.
 
-**Prerequisites:** an Azure subscription, permission to create resources, the
+**Prerequisites:** an Azure subscription, permission to create resources and role assignments, the
 [Azure CLI](https://learn.microsoft.com/cli/azure/) installed, and `az login` completed.
 
 **Region:** this walkthrough uses `westeurope`. Use a region that is appropriate for your
 workload and supports the chosen Service Bus tier.
+
+**Shell:** the CLI blocks use **bash** syntax. Azure Cloud Shell's Bash mode is the simplest
+copy-paste environment.
 
 > **Two methods available:**
 >
@@ -247,64 +253,21 @@ workload and supports the chosen Service Bus tier.
 
 - `RG` — resource group
 - `LOCATION` — Azure region
-- `NAMESPACE` — Service Bus namespace name. Change the numeric suffix before running it; the
-  resulting `<namespace>.servicebus.windows.net` hostname must be globally unique.
+- `NAMESPACE` — globally unique Service Bus namespace name; the timestamp supplies a likely-unique
+  suffix
 - `QUEUE` — queue used by the Python sample
 - `TOPIC` — topic used to show fan-out and filtering
-- `SAS_POLICY` — a learning-only shared access policy with Send and Listen rights
 
 ```bash
-# bash / zsh — Linux and macOS
+# bash / zsh, including Azure Cloud Shell in Bash mode
 RG="ai200-servicebus-rg"
 LOCATION="westeurope"
-NAMESPACE="ai200-sb-12345" # Change 12345 to a globally unique suffix.
+NAMESPACE="ai200-sb-$(date +%s)"
 QUEUE="orders"
 TOPIC="order-events"
 ALL_SUBSCRIPTION="all-orders"
 PRIORITY_SUBSCRIPTION="high-priority-orders"
-SAS_POLICY="demo-send-listen"
 ```
-
-```fish
-# fish — Linux / macOS
-set RG ai200-servicebus-rg
-set LOCATION westeurope
-set NAMESPACE ai200-sb-12345 # Change 12345 to a globally unique suffix.
-set QUEUE orders
-set TOPIC order-events
-set ALL_SUBSCRIPTION all-orders
-set PRIORITY_SUBSCRIPTION high-priority-orders
-set SAS_POLICY demo-send-listen
-```
-
-```powershell
-# PowerShell — Windows, macOS, or Linux
-$RG = "ai200-servicebus-rg"
-$LOCATION = "westeurope"
-$NAMESPACE = "ai200-sb-12345" # Change 12345 to a globally unique suffix.
-$QUEUE = "orders"
-$TOPIC = "order-events"
-$ALL_SUBSCRIPTION = "all-orders"
-$PRIORITY_SUBSCRIPTION = "high-priority-orders"
-$SAS_POLICY = "demo-send-listen"
-```
-
-```bat
-:: Command Prompt (cmd.exe) — Windows
-set RG=ai200-servicebus-rg
-set LOCATION=westeurope
-set NAMESPACE=ai200-sb-12345
-set QUEUE=orders
-set TOPIC=order-events
-set ALL_SUBSCRIPTION=all-orders
-set PRIORITY_SUBSCRIPTION=high-priority-orders
-set SAS_POLICY=demo-send-listen
-```
-
-> **Shell note:** the Azure CLI examples below use bash-style `"$NAME"` variables. The same
-> notation works in fish and PowerShell. In cmd.exe, use `%NAME%` instead. For a multi-line
-> command, replace the trailing bash `\` with a PowerShell backtick, cmd.exe `^`, or put the
-> command on one line.
 
 ### CLI Setup
 
@@ -357,8 +320,7 @@ az servicebus topic subscription create \
   --name "$PRIORITY_SUBSCRIPTION" \
   --enable-dead-lettering-on-message-expiration true
 
-# bash / zsh, fish, and PowerShell: single quotes stop $Default being treated as a variable.
-# In cmd.exe, use --name "$Default" instead.
+# Single quotes stop bash from expanding $Default as a shell variable.
 az servicebus topic subscription rule delete \
   --resource-group "$RG" \
   --namespace-name "$NAMESPACE" \
@@ -374,13 +336,33 @@ az servicebus topic subscription rule create \
   --name "high-priority-only" \
   --filter-sql-expression "priority = 'high'"
 
-# 6. Create a shared-access policy just for this demo. It can send and receive but cannot
-#    manage the namespace. Microsoft Entra ID / managed identity is preferable in production.
-az servicebus namespace authorization-rule create \
+# 6. Authorize the signed-in Microsoft Entra user for only the data operations this script needs.
+#    The sample touches several entities, so these two roles are scoped to the lab namespace. A
+#    production sender-only or receiver-only app should receive only its role at entity scope.
+SIGNED_IN_USER_ID=$(az ad signed-in-user show --query id --output tsv)
+NAMESPACE_ID=$(az servicebus namespace show \
   --resource-group "$RG" \
-  --namespace-name "$NAMESPACE" \
-  --name "$SAS_POLICY" \
-  --rights Send Listen
+  --name "$NAMESPACE" \
+  --query id \
+  --output tsv)
+
+az role assignment create \
+  --assignee-object-id "$SIGNED_IN_USER_ID" \
+  --assignee-principal-type User \
+  --role "69a216fc-b8fb-44d8-bc22-1f3c2cd27a39" \
+  --scope "$NAMESPACE_ID"
+
+az role assignment create \
+  --assignee-object-id "$SIGNED_IN_USER_ID" \
+  --assignee-principal-type User \
+  --role "4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0" \
+  --scope "$NAMESPACE_ID"
+
+# Require Microsoft Entra ID by disabling Shared Access Signature (local) authentication.
+az servicebus namespace update \
+  --resource-group "$RG" \
+  --name "$NAMESPACE" \
+  --disable-local-auth true
 ```
 
 > The `$Default` deletion matters. If it remains alongside `high-priority-only`, the default
@@ -409,22 +391,20 @@ Prefer the browser? Create the same resources in the
    - Add a filter named `high-priority-only` with **SQL filter**:
      `priority = 'high'`.
    - Leave `all-orders` with its `$Default` rule.
-6. Under **Settings** → **Shared access policies**, create `demo-send-listen` with **Send** and
-   **Listen** selected. Open that policy and copy its **Primary Connection String** for the
-   Python walkthrough. Treat it like a password.
-
-> **Production authentication:** this lab uses a SAS connection string so the first Python run
-> has minimal setup. Microsoft recommends Microsoft Entra ID with an Azure managed identity or
-> service principal in deployed applications. Grant only the needed built-in role, such as
-> **Azure Service Bus Data Sender** or **Azure Service Bus Data Receiver**.
+6. Open **Access control (IAM)** and assign your signed-in developer account both **Azure Service
+   Bus Data Sender** and **Azure Service Bus Data Receiver** for this lab namespace. Role
+   assignments can take several minutes to become effective.
+7. On the namespace **Overview** page, select the current **Local Authentication** value, choose
+   **Disabled**, and confirm. The Python walkthrough uses Microsoft Entra ID, not a connection
+   string. In a deployed application, assign these same narrowly scoped roles to its managed
+   identity instead of a developer account.
 
 ---
 
 ## Cleanup
 
 ```bash
-# Delete the whole resource group, including the namespace, its queues, topics,
-# subscriptions, messages, and SAS policy.
+# Delete the whole resource group, including the namespace, its entities, and messages.
 az group delete --name "$RG" --yes --no-wait
 ```
 
@@ -474,68 +454,34 @@ pip install -r requirements.txt
 
 ### 3. Configure the environment
 
-The script deliberately reads its connection string and entity names from environment variables
-instead of source code. That keeps the secret out of the Python file and makes the same script
-usable against a different namespace.
+The script reads the namespace host and entity names from environment variables. Authentication is
+passwordless: `DefaultAzureCredential` reuses the developer identity from `az login` locally and
+can use a managed identity when the same code runs in Azure.
 
 ```bash
-# bash / zsh — fetch the connection string for the least-privileged demo SAS policy created
-# above. The outer quotes preserve the complete result as one shell value.
-export SERVICEBUS_CONNECTION_STRING="$(az servicebus namespace authorization-rule keys list \
-  --resource-group "$RG" \
-  --namespace-name "$NAMESPACE" \
-  --name "$SAS_POLICY" \
-  --query primaryConnectionString \
-  --output tsv)"
+# DefaultAzureCredential can reuse this Azure CLI developer login.
+az login
+export SERVICEBUS_FULLY_QUALIFIED_NAMESPACE="${NAMESPACE}.servicebus.windows.net"
 export SERVICEBUS_QUEUE_NAME="$QUEUE"
 export SERVICEBUS_TOPIC_NAME="$TOPIC"
 export SERVICEBUS_ALL_SUBSCRIPTION_NAME="$ALL_SUBSCRIPTION"
 export SERVICEBUS_PRIORITY_SUBSCRIPTION_NAME="$PRIORITY_SUBSCRIPTION"
 ```
 
-```fish
-# fish
-set -x SERVICEBUS_CONNECTION_STRING (az servicebus namespace authorization-rule keys list --resource-group $RG --namespace-name $NAMESPACE --name $SAS_POLICY --query primaryConnectionString --output tsv)
-set -x SERVICEBUS_QUEUE_NAME $QUEUE
-set -x SERVICEBUS_TOPIC_NAME $TOPIC
-set -x SERVICEBUS_ALL_SUBSCRIPTION_NAME $ALL_SUBSCRIPTION
-set -x SERVICEBUS_PRIORITY_SUBSCRIPTION_NAME $PRIORITY_SUBSCRIPTION
-```
-
-```powershell
-# PowerShell
-$env:SERVICEBUS_CONNECTION_STRING = az servicebus namespace authorization-rule keys list --resource-group $RG --namespace-name $NAMESPACE --name $SAS_POLICY --query primaryConnectionString --output tsv
-$env:SERVICEBUS_QUEUE_NAME = $QUEUE
-$env:SERVICEBUS_TOPIC_NAME = $TOPIC
-$env:SERVICEBUS_ALL_SUBSCRIPTION_NAME = $ALL_SUBSCRIPTION
-$env:SERVICEBUS_PRIORITY_SUBSCRIPTION_NAME = $PRIORITY_SUBSCRIPTION
-```
-
-```bat
-:: cmd.exe
-for /f "delims=" %%i in ('az servicebus namespace authorization-rule keys list --resource-group %RG% --namespace-name %NAMESPACE% --name %SAS_POLICY% --query primaryConnectionString --output tsv') do set SERVICEBUS_CONNECTION_STRING=%%i
-set SERVICEBUS_QUEUE_NAME=%QUEUE%
-set SERVICEBUS_TOPIC_NAME=%TOPIC%
-set SERVICEBUS_ALL_SUBSCRIPTION_NAME=%ALL_SUBSCRIPTION%
-set SERVICEBUS_PRIORITY_SUBSCRIPTION_NAME=%PRIORITY_SUBSCRIPTION%
-```
-
-If you followed the portal path, use the copied connection string and the names you chose:
+If you followed the portal path, use the namespace hostname shown on **Overview** and the entity
+names you chose:
 
 ```bash
-# bash / zsh: replace the entire quoted placeholder with the value copied from the portal.
-# Do not use the namespace endpoint or "Primary key"; copy "Primary Connection String".
-# Do not commit a real connection string to source control.
-export SERVICEBUS_CONNECTION_STRING="<paste the complete Primary Connection String here>"
+az login
+export SERVICEBUS_FULLY_QUALIFIED_NAMESPACE="<namespace>.servicebus.windows.net"
 export SERVICEBUS_QUEUE_NAME="orders"
 export SERVICEBUS_TOPIC_NAME="order-events"
 export SERVICEBUS_ALL_SUBSCRIPTION_NAME="all-orders"
 export SERVICEBUS_PRIORITY_SUBSCRIPTION_NAME="high-priority-orders"
 ```
 
-> Replace the entire placeholder before running the script. A valid value starts with
-> `Endpoint=sb://` and contains both `SharedAccessKeyName=` and `SharedAccessKey=`. It is a
-> secret; do not print it with `echo` or paste it into chat.
+Replace `<namespace>` with the namespace name. Do not include `sb://` or a path. The signed-in
+identity must have both data roles from setup; Contributor alone does not grant data-plane access.
 
 ### 4. Run it
 
@@ -589,8 +535,10 @@ message read from `high-priority-orders`.
 - **Service Bus vs. Event Grid:** choose Service Bus for reliable, durable work that needs an
   explicit completion; choose Event Grid to push a small notification that something happened.
 
-- **Prefer Microsoft Entra ID in production.** A SAS connection string is a secret; scope it to
-  the smallest entity and rights possible if you must use it.
+- **Prefer Microsoft Entra ID and managed identity.** Grant a sender only **Azure Service Bus Data
+  Sender** and a receiver only **Azure Service Bus Data Receiver**, scoped to the smallest entity.
+  Management-plane Contributor does not grant send/receive permission. Disable local/SAS
+  authentication after clients are migrated.
 
 ---
 
@@ -611,4 +559,5 @@ Take the **Azure Service Bus** quiz in the [quiz app](../../quiz/) (bank:
 - [Duplicate detection](https://learn.microsoft.com/azure/service-bus-messaging/duplicate-detection)
 - [Topic filters and rules](https://learn.microsoft.com/azure/service-bus-messaging/topic-filters)
 - [Service Bus authentication and authorization](https://learn.microsoft.com/azure/service-bus-messaging/service-bus-authentication-and-authorization)
+- [Disable local authentication](https://learn.microsoft.com/azure/service-bus-messaging/disable-local-authentication)
 - [Azure Service Bus client library for Python](https://learn.microsoft.com/python/api/overview/azure/servicebus-readme)

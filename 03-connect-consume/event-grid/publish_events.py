@@ -12,15 +12,14 @@
 #
 # Run:  python publish_events.py
 
-# `import os` gives access to environment variables — how the topic endpoint and key reach
-# this script, instead of hardcoding secrets in source.
+# `import os` gives access to environment variables — how the topic endpoint reaches this script
+# without being hardcoded in source.
 import os
 
-# AzureKeyCredential wraps a plain access key (like a connection string) so SDK clients can
-# authenticate with it. The alternative — azure.identity.DefaultAzureCredential — uses Microsoft
-# Entra ID / managed identity instead of a key; production code should generally prefer that,
-# but a raw key keeps this sample's setup to two environment variables.
-from azure.core.credentials import AzureKeyCredential
+# DefaultAzureCredential obtains a short-lived Microsoft Entra token without placing an access key
+# in this file or an environment variable. Locally it can use the identity from `az login`; in an
+# Azure host it can use the resource's managed identity.
+from azure.identity import DefaultAzureCredential
 
 # CloudEvent is Azure's Python type for the CloudEvents v1.0 schema (see README Core concepts
 # §2). EventGridPublisherClient accepts this type when publishing to a CloudEvents topic, so you
@@ -38,11 +37,6 @@ def main():
     # KeyError if the variable is missing — better than a confusing failure deep inside the
     # SDK call below. Use .get() instead when a default is acceptable; here it isn't.
     topic_endpoint = os.environ["EVENTGRID_TOPIC_ENDPOINT"]
-    topic_key = os.environ["EVENTGRID_TOPIC_KEY"]
-
-    # Construct the client once. `credential=` accepts anything implementing Azure's
-    # credential protocol — here an AzureKeyCredential wrapping the topic's access key.
-    client = EventGridPublisherClient(topic_endpoint, AzureKeyCredential(topic_key))
 
     # A Python list literal — CloudEvent objects, one per event we want to publish.
     # CloudEvent fields, and what they map to conceptually:
@@ -79,10 +73,16 @@ def main():
         ),
     ]
 
-    # `client.send(...)` accepts a single CloudEvent or a list — sending the list in one call
-    # is one HTTP request instead of three, which is both faster and how you'd batch in
-    # production. Event Grid fans each event out independently to every matching subscription.
-    client.send(events)
+    # The outer `with` creates and then closes the credential. DefaultAzureCredential tries its
+    # supported identity sources in order; the README uses the Azure CLI login for local work.
+    with DefaultAzureCredential() as credential:
+        # The publisher client accepts a TokenCredential, obtains an Entra token through it, and
+        # closes its network transport automatically when this inner `with` block ends.
+        with EventGridPublisherClient(topic_endpoint, credential) as client:
+            # `client.send(...)` accepts a single CloudEvent or a list. Sending this list uses one
+            # HTTP request; Event Grid still routes each event independently to matching
+            # subscriptions. The signed-in identity needs EventGrid Data Sender on the topic.
+            client.send(events)
 
     # f-strings (formatted string literals) interpolate expressions inside {}. len(events)
     # counts how many CloudEvent objects are in the list.

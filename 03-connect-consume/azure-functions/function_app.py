@@ -1,8 +1,9 @@
 # Azure Functions — Python v2 programming model
 # This file is: function_app.py  (the name matters — the host looks for exactly this file)
 #
-# The v2 model puts EVERY function of the app in ONE file, registered on ONE `app`
-# object using decorators. There are no per-function folders and no function.json files.
+# The v2 model exposes one `app` entry point and registers functions with decorators. Small
+# apps can keep the functions in this file; larger apps can register blueprints from other
+# Python modules. You don't author per-function function.json files in this model.
 #
 # The three functions below form a small chain, so you can see triggers and bindings
 # working together:
@@ -13,13 +14,13 @@
 # Run locally:  func start
 # Deploy:       func azure functionapp publish <your-function-app-name>
 
-# `import x as y` gives the module a shorter local alias — Python's equivalent of a
-# C# `using Alias = Namespace;`. Everything from the Functions SDK hangs off `func`.
+# `import x as y` gives the module a shorter local alias. Everything used here from the
+# Functions library is then addressed through `func`, such as `func.HttpRequest`.
 import azure.functions as func
 
-# `logging` is Python's built-in logging module (roughly ILogger in .NET). The Functions
-# host captures anything you log here and forwards it to the console (locally) and to
-# Application Insights (when deployed).
+# `logging` is Python's built-in structured logging module. The Functions host captures
+# these records and forwards them to the local console and, when configured, Application
+# Insights in Azure.
 import logging
 
 # `os` gives access to environment variables — how application settings reach your code.
@@ -36,18 +37,20 @@ from datetime import datetime, timezone
 # this file, finds this object, and reads the decorators below to discover your functions.
 #
 # http_auth_level sets the DEFAULT authorization level for every HTTP function in the app:
-#   ANONYMOUS — no key required (fine for learning; wide open in production)
+#   ANONYMOUS — no key required (public unless another authentication layer protects it)
 #   FUNCTION  — caller must pass a function key (?code=... or the x-functions-key header)
 #   ADMIN     — caller must pass the master key
-app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+# FUNCTION is a safer learning default than publishing an anonymous endpoint. Function keys
+# are shared secrets, not user identity; production APIs commonly add Microsoft Entra auth.
+app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
 
 # ---------------------------------------------------------------------------
 # 1. HTTP trigger + Queue OUTPUT binding
 # ---------------------------------------------------------------------------
 # A "decorator" is Python's `@something` syntax written directly above a function. It is
-# a function that wraps your function — the closest .NET analogy is an attribute, except
-# it actually executes. Here each decorator registers metadata with `app`.
+# a callable that wraps or registers the function below it. Here, each decorator adds
+# trigger or binding metadata to `app` while Python imports this module.
 #
 # Decorators are applied bottom-up, but for Functions the order between them does not
 # matter; what matters is that they sit directly above the `def`.
@@ -60,23 +63,23 @@ app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 #                       the function name does NOT appear in the URL)
 #   methods=[...]     → which HTTP verbs are accepted
 #   auth_level        → overrides the app-wide default set on FunctionApp above
-@app.route(route="hello", methods=["GET", "POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@app.route(route="hello", methods=["GET", "POST"], auth_level=func.AuthLevel.FUNCTION)
 # @app.queue_output — an OUTPUT BINDING. Anything you write to the `outputQueue`
 # parameter is sent to the queue by the host after the function returns. You never
-# create a QueueClient or handle a connection string yourself.
+# create a QueueClient or handle a connection yourself.
 #   arg_name="outputQueue" → must match the parameter name in the `def` line below
 #   queue_name="demo-queue" → the queue the message lands in (auto-created if missing)
-#   connection="StorageConnection" → the NAME of an app setting holding the connection
-#                       string — not the connection string itself. Set it in
-#                       local.settings.json locally, and in the Function App's
-#                       Environment variables when deployed.
+#   connection="StorageConnection" → the NAME or PREFIX of connection settings — not a
+#                       connection value itself. Locally this sample uses one connection-string
+#                       setting in local.settings.json. In Azure, the README configures a
+#                       double-underscore setting collection for managed identity.
 @app.queue_output(arg_name="outputQueue", queue_name="demo-queue", connection="StorageConnection")
 def http_hello(req: func.HttpRequest, outputQueue: func.Out[str]) -> func.HttpResponse:
     """
     HTTP-triggered function that greets the caller and drops a message on a queue.
 
     The triple-quoted block above is a docstring — Python's built-in documentation
-    comment, equivalent to an XML doc comment in C#.
+    string. Tools can display it as the function's built-in documentation.
 
     Args:
         req: the incoming request. This is the TRIGGER BINDING — the host parses the
@@ -94,8 +97,8 @@ def http_hello(req: func.HttpRequest, outputQueue: func.Out[str]) -> func.HttpRe
     """
     logging.info("HttpHello: processing an HTTP request.")
 
-    # `req.params.get("name")` returns None instead of raising when the key is absent —
-    # this is dict.get(), Python's equivalent of TryGetValue with a null default.
+    # `req.params.get("name")` returns None instead of raising when the key is absent.
+    # That makes `dict.get` convenient for optional query-string values.
     name = req.params.get("name")
 
     # In Python, `if not x:` is true for None AND for an empty string — one check covers
@@ -113,8 +116,8 @@ def http_hello(req: func.HttpRequest, outputQueue: func.Out[str]) -> func.HttpRe
     # "name, or 'Azure Functions' if name is empty".
     name = name or "Azure Functions"
 
-    # An f-string ("formatted string literal") interpolates expressions inside {} —
-    # the same idea as C#'s $"Hello, {name}".
+    # An f-string ("formatted string literal") replaces an expression inside `{}` with
+    # its value when Python constructs the string.
     message = f"Hello, {name}! This HTTP-triggered function executed successfully."
 
     # Write to the output binding. The host sends this to "demo-queue" AFTER the
@@ -145,8 +148,8 @@ def queue_processor(msg: func.QueueMessage) -> None:
     """
     Queue-triggered function.
 
-    `-> None` is a type hint meaning "returns nothing" (like `void`). Python does not
-    enforce hints at runtime — they document intent and help editors.
+    `-> None` is a type hint meaning "this function doesn't return a value." Python does
+    not enforce hints at runtime; they document intent and help editors.
 
     Args:
         msg: the dequeued message. Useful members:
@@ -158,16 +161,17 @@ def queue_processor(msg: func.QueueMessage) -> None:
     """
     logging.info("QueueProcessor: processing a queue message.")
 
-    # Queue messages are bytes on the wire. .decode("utf-8") turns bytes into a str —
-    # Python keeps the two types strictly separate, unlike C# where string is the default.
+    # Queue messages are bytes on the wire. `.decode("utf-8")` converts those bytes into
+    # Python text (`str`) using the same character encoding used by the sender.
     message_body = msg.get_body().decode("utf-8")
 
     logging.info(f"QueueProcessor: id={msg.id} dequeue_count={msg.dequeue_count}")
     logging.info(f"QueueProcessor: body={message_body}")
 
-    # dequeue_count > 1 means a previous attempt failed and the host redelivered the
-    # message. After maxDequeueCount attempts (5 by default, set in host.json) the
-    # message is moved to the poison queue "demo-queue-poison".
+    # dequeue_count > 1 means Storage Queue delivered this message before. That can follow a
+    # function exception OR a visibility timeout/host interruption before successful deletion.
+    # After maxDequeueCount deliveries (5 by default; optionally set in host.json), the Functions
+    # host moves the message to the poison queue "demo-queue-poison".
     if msg.dequeue_count > 1:
         logging.warning(f"QueueProcessor: retry number {msg.dequeue_count} for this message.")
 
@@ -183,14 +187,16 @@ def queue_processor(msg: func.QueueMessage) -> None:
 # ---------------------------------------------------------------------------
 @app.function_name(name="TimerCleanup")
 # @app.timer_trigger — fires on a schedule, with no external caller involved.
-#   schedule uses a SIX-field NCRONTAB expression:
+#   The sample deliberately uses a SIX-field NCRONTAB expression:
 #       {second} {minute} {hour} {day} {month} {day-of-week}
 #   "0 */5 * * * *" = at second 0, every 5th minute, every hour, every day  → every 5 min.
-#   Note the leading seconds field: standard Linux cron has five fields, Azure has six.
+#   NCRONTAB also accepts a five-field expression without seconds; "*/5 * * * *" is therefore
+#   another way to schedule every five minutes. This sample shows the explicit-seconds form.
 #   More examples:  "0 0 * * * *"   every hour on the hour
 #                   "0 30 9 * * *"  every day at 09:30
 #                   "0 0 9 * * 1"   every Monday at 09:00
-#   Schedules run in UTC unless the WEBSITE_TIME_ZONE app setting says otherwise.
+#   Schedules run in UTC by default. Python runs on Linux, where WEBSITE_TIME_ZONE is supported
+#   on Premium/Dedicated but not on Flex Consumption or legacy Consumption.
 #   run_on_startup=True would also fire the function every time the host starts — handy
 #   while developing, but avoid it in production (it fires on every scale-out too).
 @app.timer_trigger(arg_name="timer", schedule="0 */5 * * * *", run_on_startup=False)

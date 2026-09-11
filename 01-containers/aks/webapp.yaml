@@ -1,8 +1,9 @@
-# A complete manifest for a tiny web app, split into 5 objects with '---' separators.
+# A complete manifest for a tiny web app, split into 4 objects with '---' separators.
 # '---' is YAML's "document separator": one file can hold many Kubernetes objects.
 #
 # It matches the workload app.py later inspects (namespace 'demo', deployment 'webapp',
-# container port 8080).
+# container port 8080). It deliberately contains no Secret: never commit real credentials
+# to a manifest. Use workload identity and Key Vault when the application needs a secret.
 #
 # Replace <acr-login-server> with your registry's login server (e.g. ai200acr123.azurecr.io)
 # and push an image named 'webapp:v1' to it, OR swap the 'image:' line for a public image such
@@ -26,17 +27,7 @@ metadata:
 data:
   GREETING: "Hello from AKS"        # plain text; safe to see
 ---
-# --- 3) A Secret: sensitive settings, base64-encoded (NOT strong encryption) -
-apiVersion: v1
-kind: Secret
-metadata:
-  name: webapp-secret
-  namespace: demo
-type: Opaque
-stringData:                          # 'stringData' lets you write PLAINTEXT; k8s base64-encodes it
-  API_KEY: "super-secret-value"
----
-# --- 4) The Deployment: desired state = 3 replicas of our image --------------
+# --- 3) The Deployment: desired state = 3 replicas of our image --------------
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -60,13 +51,11 @@ spec:
           envFrom:
             - configMapRef:
                 name: webapp-config  # inject every ConfigMap key as an env var
-            - secretRef:
-                name: webapp-secret  # inject every Secret key as an env var
           resources:
             requests:                # guaranteed amount (used to SCHEDULE the pod)
               cpu: "100m"            # 100 millicores = 0.1 CPU
               memory: "128Mi"
-            limits:                  # hard cap (exceed memory -> pod is OOMKilled)
+            limits:                  # hard cap (exceed memory -> container can be OOMKilled)
               cpu: "250m"
               memory: "256Mi"
           readinessProbe:            # gate TRAFFIC: only in the Service once this passes
@@ -82,7 +71,7 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 20
 ---
-# --- 5) A LoadBalancer Service: stable name + PUBLIC external IP --------------
+# --- 4) A LoadBalancer Service: stable name + PUBLIC external IP --------------
 apiVersion: v1
 kind: Service
 metadata:

@@ -76,7 +76,7 @@
       "A snapshot that toggles keys on and off"
     ],
     "answer": [1],
-    "explanation": "A feature flag is just an ordinary key with the reserved prefix `.appconfig.featureflag/` and a feature-flag content type. Its value is JSON describing an on/off toggle you can flip without redeploying.",
+    "explanation": "A feature flag is an ordinary key with the reserved prefix `.appconfig.featureflag/` and a feature-flag content type. Its value is structured JSON; the application observes a changed flag after its provider reloads or refreshes, without a code deployment.",
     "reference": "../../04-secure-monitor/app-configuration/README.md#core-concepts"
   },
   {
@@ -148,7 +148,7 @@
     "domain": "04-secure-monitor",
     "topic": "app-configuration",
     "type": "single",
-    "question": "Which is the recommended, most-tested way for a production app to authenticate to App Configuration?",
+    "question": "Which is the recommended way for a production app to authenticate to App Configuration?",
     "choices": [
       "A connection string stored in an environment variable",
       "Entra ID with a managed identity and a data-plane RBAC role (passwordless)",
@@ -164,7 +164,7 @@
     "domain": "04-secure-monitor",
     "topic": "app-configuration",
     "type": "single",
-    "question": "You deleted an App Configuration store and immediately try to recreate one with the same name, but it fails. Why?",
+    "question": "You deleted a Standard-tier App Configuration store and immediately try to recreate one with the same name, but it fails. Why?",
     "choices": [
       "Store names can never be reused",
       "Soft-delete reserves the name until the retention window elapses or you purge it",
@@ -172,7 +172,7 @@
       "The Free tier only allows one store ever"
     ],
     "answer": [1],
-    "explanation": "Soft-delete retains a deleted store (and reserves its name) for a recovery window. To reuse the name immediately, purge the deleted store.",
+    "explanation": "Standard and Premium stores have automatic soft delete, which retains the deleted store and reserves its name. Purge it to request early removal when purge protection permits, then allow for asynchronous cleanup before recreating it. Free and Developer stores do not have soft delete.",
     "reference": "../../04-secure-monitor/app-configuration/README.md#cleanup"
   },
   {
@@ -244,7 +244,7 @@
     "domain": "04-secure-monitor",
     "topic": "app-configuration",
     "type": "single",
-    "question": "Which library loads App Configuration settings into a dict-like object in one call and auto-resolves Key Vault references — the pattern Azure recommends for apps?",
+    "question": "Which library loads selected App Configuration settings into a dict-like object and supports refresh and Key Vault reference resolution?",
     "choices": [
       "azure-appconfiguration (the raw SDK)",
       "azure-appconfiguration-provider",
@@ -252,7 +252,7 @@
       "azure-keyvault-secrets"
     ],
     "answer": [1],
-    "explanation": "The `azure-appconfiguration-provider` library's `load(...)` reads settings into a dict-like object, auto-resolves Key Vault references, and integrates feature management. The raw `azure-appconfiguration` SDK requires explicit get/set calls.",
+    "explanation": "The `azure-appconfiguration-provider` library's `load(...)` returns a dict-like provider with refresh and feature-management integration. Key Vault references are resolved when you also supply a Key Vault credential, per-vault client configuration, or resolver. The raw SDK exposes explicit get/set operations.",
     "reference": "../../04-secure-monitor/app-configuration/README.md#core-concepts"
   },
   {
@@ -300,7 +300,7 @@
       "Store the password in a snapshot for immutability"
     ],
     "answer": [1],
-    "explanation": "Secrets belong in Key Vault. Keep the password in Key Vault and store a Key Vault reference in App Configuration, so the app still reads one store but the secret value stays protected in Key Vault.",
+    "explanation": "Secrets belong in Key Vault. Store only the Key Vault secret URI in App Configuration. A configured provider can present one merged configuration view to the app, but it resolves the value by calling Key Vault with the application's authorized identity.",
     "reference": "../../04-secure-monitor/app-configuration/README.md#exam-gotchas"
   },
   {
@@ -340,15 +340,15 @@
     "domain": "04-secure-monitor",
     "topic": "app-configuration",
     "type": "single",
-    "question": "What is the main benefit of using a feature flag instead of a regular config value to turn a feature on or off?",
+    "question": "What does a feature flag add beyond storing a plain Boolean-like configuration value?",
     "choices": [
       "It encrypts the feature's code",
-      "You can toggle the feature without redeploying the application",
+      "A standard feature-management schema and library evaluation, including conditional rollout filters",
       "It automatically scales the feature across regions",
       "It stores the feature's source code in Azure"
     ],
     "answer": [1],
-    "explanation": "Feature flags let you enable/disable a feature at runtime with no redeploy — flip the flag in App Configuration and the app picks up the change.",
+    "explanation": "Any App Configuration setting can change independently of an application deployment. A feature flag adds a standard schema and feature-management tooling, including conditions such as targeting and time windows that the application library evaluates.",
     "reference": "../../04-secure-monitor/app-configuration/README.md#core-concepts"
   },
   {
@@ -382,5 +382,85 @@
     "answer": [1],
     "explanation": "`list_configuration_settings(key_filter='App:*')` streams every matching setting (the `*` is a wildcard). `get_configuration_setting` reads exactly one key.",
     "reference": "../../04-secure-monitor/app-configuration/README.md#worked-examples"
+  },
+  {
+    "id": "app-config-025",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "A Python app calls the App Configuration provider's `load(...)` with no selectors. Which label does it load by default?",
+    "choices": [
+      "Every label",
+      "Only key-values with no label",
+      "Only the `prod` label",
+      "The label matching the Azure region"
+    ],
+    "answer": [1],
+    "explanation": "The Python provider loads key-values with no label by default. Use ordered `SettingSelector` entries when you need a base set plus labeled overrides; later selectors win for duplicate keys.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#provider-loading-and-refresh"
+  },
+  {
+    "id": "app-config-026",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "You enable provider refresh, but settings never change while the application is idle. Why?",
+    "choices": [
+      "App Configuration can refresh only after redeployment",
+      "The Python provider checks for changes when the application calls `refresh()`; it does not run a background refresh loop",
+      "Refresh requires a Premium store",
+      "Labels prevent all refresh operations"
+    ],
+    "answer": [1],
+    "explanation": "Enabling refresh configures the provider's refresh behavior and interval, but the application must trigger `refresh()`, commonly when processing activity. This avoids background requests while the app is idle.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#provider-loading-and-refresh"
+  },
+  {
+    "id": "app-config-027",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "multi",
+    "question": "A provider loads a Key Vault reference from App Configuration. What is required to resolve it to the secret value? (Select all that apply)",
+    "choices": [
+      "A Key Vault credential, per-vault client configuration, or secret resolver configured on the provider",
+      "The application's identity must be authorized to read the Key Vault secret when a credential is used",
+      "The App Configuration Data Reader role automatically grants Key Vault access",
+      "The secret value must first be copied into App Configuration"
+    ],
+    "answer": [0, 1],
+    "explanation": "The reference stores a URI, not the value. Configure the provider's Key Vault resolution path and grant the chosen identity Key Vault data-plane access. App Configuration permission does not imply Key Vault permission.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#provider-loading-and-refresh"
+  },
+  {
+    "id": "app-config-028",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "single",
+    "question": "Development and production settings require different access permissions. Should labels be the only isolation boundary?",
+    "choices": [
+      "Yes; every label has its own independent RBAC scope",
+      "No; use separate stores when environments require security isolation, and labels when shared store permissions are acceptable",
+      "Yes; labels automatically create separate encryption keys",
+      "No; App Configuration supports only one environment per subscription"
+    ],
+    "answer": [1],
+    "explanation": "Labels distinguish values inside one store, but access control is primarily per store. Microsoft recommends separate stores for environments that require different permissions; labels are suitable when that security isolation is unnecessary.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#core-concepts"
+  },
+  {
+    "id": "app-config-029",
+    "domain": "04-secure-monitor",
+    "topic": "app-configuration",
+    "type": "build-list",
+    "question": "Put these provider steps in order to load no-label defaults and then override them with `prod` values:",
+    "choices": [
+      {"id": "credential", "text": "Create `DefaultAzureCredential`"},
+      {"id": "selectors", "text": "Create selectors for no-label values first and `prod` values second"},
+      {"id": "load", "text": "Call `load(endpoint=..., credential=..., selects=selectors)`"},
+      {"id": "read", "text": "Read the merged value from the returned provider"}
+    ],
+    "answer": ["credential", "selectors", "load", "read"],
+    "explanation": "Authenticate, define ordered selectors, load, then consume the merged provider. When selectors return the same key, the later selector wins, so `prod` must follow the no-label defaults.",
+    "reference": "../../04-secure-monitor/app-configuration/README.md#provider-loading-and-refresh"
   }
 ]

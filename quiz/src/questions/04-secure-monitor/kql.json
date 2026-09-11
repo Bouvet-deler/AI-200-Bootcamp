@@ -38,10 +38,10 @@
     "type": "single",
     "question": "Which operator would you use to count the number of failed requests in the last hour?",
     "choices": [
-      "`count`",
-      "`summarize count() by success`",
-      "`where success == false | count`",
-      "`summarize failures = count() where success == false`"
+      "`requests | count`",
+      "`requests | summarize count() by success`",
+      "`requests | where timestamp > ago(1h) and success == false | count`",
+      "`requests | summarize failures = count() where success == false`"
     ],
     "answer": [2],
     "explanation": "To count failed requests: `requests | where timestamp > ago(1h) | where success == false | count`. The `count` operator counts all rows in the pipeline. You must filter first, then count.",
@@ -119,13 +119,13 @@
     "type": "single",
     "question": "What does `bin(timestamp, 5m)` do?",
     "choices": [
-      "Groups rows into 5-minute intervals",
+      "Counts all rows in each 5-minute interval by itself",
       "Creates a timestamp exactly 5 minutes in the future",
       "Filters to only timestamps exactly on 5-minute boundaries",
-      "Converts timestamp to a 5-minute precision value"
+      "Rounds each timestamp down to a 5-minute boundary"
     ],
-    "answer": [0],
-    "explanation": "`bin(timestamp, 5m)` buckets/group rows into 5-minute intervals. This is essential for creating time charts that show trends over time.",
+    "answer": [3],
+    "explanation": "`bin(timestamp, 5m)` rounds each value down to its 5-minute boundary. It becomes a grouping key only when used in an expression such as `summarize count() by bin(timestamp, 5m)`.",
     "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
   },
   {
@@ -222,7 +222,7 @@
       "`endofweek()`"
     ],
     "answer": [0, 1, 2, 3, 4],
-    "explanation": "All of these are valid. `ago()` returns a timespan before now, `now()` returns current UTC time, and `startofday()`/`endofweek()` are datetime truncation functions. Note that `between` is an operator (`x between (a .. b)`), not a function — the others are functions.",
+    "explanation": "All are valid when supplied with their required arguments. `ago(timespan)` returns the UTC datetime that far before now, `now()` returns the current UTC time, and `startofday()`/`endofweek()` align datetimes to boundaries. `between` is an operator (`x between (a .. b)`), not a function.",
     "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
   },
   {
@@ -326,16 +326,16 @@
     "domain": "04-secure-monitor",
     "topic": "kql",
     "type": "multi",
-    "question": "Which operators can be used to filter data in KQL? (Select all that apply)",
+    "question": "Which two KQL tabular operators are aliases that filter rows by a predicate? (Select all that apply)",
     "choices": [
       "`where`",
       "`filter`",
-      "`has`",
-      "`contains`",
-      "`matches regex`"
+      "`project`",
+      "`summarize`",
+      "`extend`"
     ],
-    "answer": [0, 1, 2, 3, 4],
-    "explanation": "`where` is the primary filter operator, and `filter` is an exact alias for it (per the KQL docs, `where` and `filter` are equivalent). `has` checks for whole-word matches (case-insensitive), `contains` checks for substring (case-insensitive), and `matches regex` uses regex patterns.",
+    "answer": [0, 1],
+    "explanation": "`where` and `filter` are aliases and keep rows whose predicate evaluates to true. String operators such as `has` can be used inside that predicate, but they are not standalone tabular operators.",
     "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
   },
   {
@@ -361,14 +361,14 @@
     "type": "single",
     "question": "Which query will find all requests that took longer than 1 second?",
     "choices": [
-      "`requests | where duration > 1000`",
+      "`requests | where duration > 1s`",
       "`requests | where duration > 1`",
-      "`requests | where duration > timespan(1s)`",
-      "`requests | where duration > 1000ms`"
+      "`requests | where DurationMs > 1000`",
+      "`requests | where duration > '1s'`"
     ],
     "answer": [0],
-    "explanation": "In Application Insights, duration is stored in milliseconds. So `duration > 1000` means longer than 1 second (1000ms). The other options either use wrong units or syntax.",
-    "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
+    "explanation": "In Application Insights resource scope, `duration` is a timespan, so compare it with the `1s` timespan literal. In Log Analytics workspace scope the corresponding numeric column is `DurationMs`, where `DurationMs > 1000` is appropriate.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
   },
   {
     "id": "kql-024",
@@ -421,6 +421,23 @@
     "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
   },
   {
+    "id": "kql-027",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "multi",
+    "question": "Which KQL elements are case-sensitive? (Select all that apply)",
+    "choices": [
+      "Table names",
+      "Column names",
+      "Operators and functions",
+      "String equality with `==`",
+      "Nothing in KQL is case-sensitive"
+    ],
+    "answer": [0, 1, 2, 3],
+    "explanation": "KQL is case-sensitive for identifiers, operators, and functions. `==` is case-sensitive string equality; use an explicitly case-insensitive operator such as `=~` when that is the intended comparison.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
     "id": "kql-028",
     "domain": "04-secure-monitor",
     "topic": "kql",
@@ -460,7 +477,7 @@
     "question": "Which query correctly counts distinct users?",
     "choices": [
       "`requests | count distinct user_Id`",
-      "`requests | distinct user_Id | count`",
+      "`requests | summarize count() by user_Id`",
       "`requests | summarize count() by distinct user_Id`",
       "`requests | count user_Id`"
     ],
@@ -473,7 +490,7 @@
     "domain": "04-secure-monitor",
     "topic": "kql",
     "type": "multi",
-    "question": "Which tables can contain custom application logs? (Select all that apply)",
+    "question": "Where do standard application log records and explicitly tracked custom named events appear? (Select all that apply)",
     "choices": [
       "`traces`",
       "`customEvents`",
@@ -482,7 +499,7 @@
       "`dependencies`"
     ],
     "answer": [0, 1],
-    "explanation": "Custom application logs go into `traces` (via logging framework) and `customEvents` (for custom named events). The other tables are for specific telemetry types.",
+    "explanation": "Standard logging records appear in `traces`; explicitly tracked named events appear in `customEvents`. Requests, exceptions, and dependencies represent different telemetry types rather than generic log/event records.",
     "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
   },
   {
@@ -575,11 +592,11 @@
     "choices": [
       "`has` is case-sensitive, `contains` is case-insensitive",
       "`has` matches whole words, `contains` matches substrings",
-      "`has` is faster than `contains`",
+      "`has` interprets its right-hand value as a regular expression",
       "There is no difference"
     ],
     "answer": [1],
-    "explanation": "`has` checks for whole-word matches (case-insensitive) while `contains` checks for substring matches (also case-insensitive). `has` is more efficient than `contains`.",
+    "explanation": "`has` searches for an indexed term (case-insensitive), while `contains` searches for a substring (also case-insensitive). `has` is normally faster when term matching expresses the requirement.",
     "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
   },
   {
@@ -589,13 +606,13 @@
     "type": "single",
     "question": "Which query finds all WARNING level traces from the last hour?",
     "choices": [
-      "`traces | where severityLevel == 2`",
-      "`traces | where severityLevel == 'WARNING'`",
-      "`traces | where severityLevel == 1`",
-      "`traces | where message contains 'WARNING'`"
+      "`traces | where timestamp > ago(1h) and severityLevel == 2`",
+      "`traces | where timestamp > ago(1h) and severityLevel == 'WARNING'`",
+      "`traces | where timestamp > ago(1h) and severityLevel == 1`",
+      "`traces | where timestamp > ago(1h) and message contains 'WARNING'`"
     ],
     "answer": [0],
-    "explanation": "Severity levels are numeric: 0=Verbose, 1=Information, 2=Warning, 3=Error, 4=Critical. So WARNING is level 2. The comparison must be numeric, not string.",
+    "explanation": "Filter the timestamp to the requested hour and compare the numeric severity. Application Insights uses 0=Verbose, 1=Information, 2=Warning, 3=Error, and 4=Critical.",
     "reference": "../../04-secure-monitor/kql/README.md#test-yourself"
   },
   {
@@ -619,15 +636,95 @@
     "domain": "04-secure-monitor",
     "topic": "kql",
     "type": "single",
-    "question": "Which operator would you use to rename a column in the result?",
+    "question": "Which operator renames a column while retaining the other columns?",
     "choices": [
-      "`rename`",
+      "`project-rename`",
       "`project`",
       "`extend`",
       "`set`"
     ],
+    "answer": [0],
+    "explanation": "`project-rename NewName = OldName` renames columns while retaining the remaining schema. Plain `project` can also alias a selected column, but it keeps only the columns explicitly projected.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-041",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "You open Logs from the Log Analytics workspace rather than from the Application Insights resource. Which table contains incoming request telemetry?",
+    "choices": [
+      "`requests`",
+      "`AppRequests`",
+      "`AzureRequests`",
+      "`RequestLogs`"
+    ],
     "answer": [1],
-    "explanation": "Use `project` with the syntax `project newName = oldName` or `project oldName as newName`. There is no dedicated `rename` operator in KQL.",
+    "explanation": "Workspace scope uses the Log Analytics schema (`AppRequests`, `TimeGenerated`, `OperationId`, and `DurationMs`). Application Insights resource scope exposes the backward-compatible `requests` schema.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-042",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Which workspace-scoped query finds failed requests from the last hour?",
+    "choices": [
+      "`AppRequests | where TimeGenerated > ago(1h) and Success == false`",
+      "`requests | where TimeGenerated > ago(1h) and success == false`",
+      "`AppRequests | where timestamp > ago(1h) and Success == false`",
+      "`AppTraces | where TimeGenerated > ago(1h) and Success == false`"
+    ],
+    "answer": [0],
+    "explanation": "The workspace schema uses `AppRequests`, `TimeGenerated`, and `Success`. The other options mix the application and workspace schemas or select the log-record table.",
+    "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
+  },
+  {
+    "id": "kql-043",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "A query scans 30 days of telemetry but only needs the last hour. Which change usually reduces the amount of data processed?",
+    "choices": [
+      "Place the timestamp `where` filter as early as practical in the pipeline",
+      "Add `render timechart` before filtering",
+      "Convert every column to a string",
+      "Move the timestamp filter after every `join` and `summarize`"
+    ],
+    "answer": [0],
+    "explanation": "Filter on time and other selective predicates early so later operators process fewer rows. This is both clearer and generally more efficient than joining or aggregating the full range first.",
+    "reference": "../../04-secure-monitor/kql/README.md#exam-gotchas"
+  },
+  {
+    "id": "kql-044",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "build-list",
+    "question": "Put these application-scoped query fragments in order to chart average request duration per 15-minute interval:",
+    "choices": [
+      {"id": "table", "text": "requests"},
+      {"id": "time", "text": "where timestamp > ago(6h)"},
+      {"id": "aggregate", "text": "summarize AverageDuration = avg(duration) by bin(timestamp, 15m)"},
+      {"id": "chart", "text": "render timechart"}
+    ],
+    "answer": ["table", "time", "aggregate", "chart"],
+    "explanation": "Choose the table, restrict the time range, aggregate by a binned timestamp, and render the resulting time series. `bin` supplies the interval key; `summarize` performs the grouping.",
+    "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
+  },
+  {
+    "id": "kql-045",
+    "domain": "04-secure-monitor",
+    "topic": "kql",
+    "type": "single",
+    "question": "Why can a query written with `requests | where timestamp > ago(1h)` fail when pasted into a Log Analytics workspace query?",
+    "choices": [
+      "KQL is unavailable in Log Analytics",
+      "The query uses Application Insights resource-scope table and column names instead of workspace names",
+      "`ago()` works only in Azure Data Explorer",
+      "Workspace queries require SQL syntax"
+    ],
+    "answer": [1],
+    "explanation": "The same telemetry has different table and field names by query scope. In workspace scope, the equivalent starts with `AppRequests | where TimeGenerated > ago(1h)`.",
     "reference": "../../04-secure-monitor/kql/README.md#core-concepts"
   }
 ]

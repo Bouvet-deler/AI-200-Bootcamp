@@ -1,924 +1,483 @@
-# Azure Managed Redis (Azure Cache for Redis)
+# Azure Managed Redis
 
 **Domain:** 02 — Develop AI solutions by using Azure data management services (25–30%)
 **Maps to skill:** *Implement Azure Managed Redis data operations, including caching,
 expiration, and invalidation* · *Implement vector indexing to enable similarity search*
 
----
-
 ## What it is
 
-**Azure Cache for Redis** (often called Azure Managed Redis) is a **fully managed, in-memory data store**
-based on the popular open-source **Redis**. It provides **microsecond-latency** access to data, making
-it ideal for **caching** expensive or frequently accessed data.
+**Azure Managed Redis** is Microsoft's current managed Redis service. It runs the Redis
+Enterprise software and is compatible with normal Redis clients and commands. Because Redis keeps
+its working data in memory, it is useful when an application needs low-latency access to cached
+results, sessions, counters, rate-limit state, or vector embeddings.
 
-Think of it as a **high-speed key/value database** that sits between your application and slower data
-sources (like databases). When your app needs data, it first checks the cache — if found (a "cache hit"),
-it returns instantly. If not (a "cache miss"), it fetches from the slower source, stores it in the cache,
-and returns it.
+Azure Managed Redis is **not another name for Azure Cache for Redis**. They are separate Azure
+services:
+
+- **Azure Managed Redis** is the current service and the one named in the AI-200 skills.
+- **Azure Cache for Redis** is the older service. Its Enterprise tiers retire on March 31, 2027,
+  and its Basic, Standard, and Premium tiers retire on September 30, 2028. Do not design a new
+  exam solution around those old tiers.
 
 > Mental model:
 >
-> ```
->   User Request
->        │
->        ▼
->   ┌─────────────────┐
->   │  Application     │ ◄────────────┐
->   └────────┬────────┘              │
->             │                        │
->             ▼                        │
->   ┌─────────────────┐              │
->   │  Azure Redis     │              │
->   │  (Cache)         │              │
->   └────────┬────────┘              │
->             │                        │
->             ▼                        │
->   ┌─────────────────┐              │
->   │  Primary Data    │ ◄─────────────┘
->   │  Store (DB, API)  │   (on cache miss)
->   └─────────────────┘
+> ```text
+> request → application → Azure Managed Redis
+>                         │ hit: return cached value
+>                         └ miss: read source → cache result with a TTL → return it
 > ```
 
-**Key capabilities:**
-- **Caching** — store frequently accessed data for fast retrieval
-- **Expiration (TTL)** — automatically remove data after a set time
-- **Invalidation** — manually remove stale or changed data
-- **Vector indexing** — store and search vector embeddings for similarity search (AI/ML)
-- **Persistence** — optionally save data to disk for durability
-- **High availability** — replicate data across multiple nodes
-
----
+Redis is normally a **derived-data store**, not the system of record. A cache entry can disappear
+because it expired, was evicted under memory pressure, or was explicitly invalidated. The
+application must still be able to obtain the authoritative value from its primary store.
 
 ## Why it's on the exam
 
-The AI-200 exam tests these core competencies for Azure Managed Redis:
+Expect scenario questions that ask you to:
 
-- **Caching patterns** — read-through, write-through, cache-aside
-- **Data operations** — get, set, delete, increment, expiration (TTL)
-- **Cache invalidation** — when and how to remove stale data
-- **Vector indexing** — storing embeddings and performing similarity searches
-- **Redis data types** — strings, hashes, lists, sets, sorted sets, vectors
-- **Performance tuning** — choosing the right tier, memory allocation
+- implement cache-aside reads with `GET`, `SET`, and an expiration;
+- invalidate an entry after the underlying data changes;
+- choose a Redis data structure for a key-value, object, counter, or ordered collection;
+- distinguish expiration from eviction;
+- provision RediSearch correctly before creating a vector index;
+- choose `FLAT` for exact search or `HNSW` for approximate, lower-latency search; and
+- make the vector field's type, dimensions, and distance metric match the embedding model.
 
-Expect scenario questions like:
-- "How do you ensure cached data doesn't become stale?" → **TTL + invalidation**
-- "Which data type is best for storing embeddings?" → **Vectors (RediSearch module)**
-- "What's the difference between cache-aside and read-through?" → **Who writes to cache**
-
----
+The exam objective is about using Redis correctly in an AI solution. Memorizing retired Azure
+Cache for Redis tier sizes or a particular embedding model's default dimensions is not useful.
 
 ## Core concepts
 
-### 1. Redis Data Types
+### 1. Data structures and atomic commands
 
-Redis is a **key/value store**, but the values can be different data types:
+Redis maps a string key to a value. The value can use several structures:
 
-| Data Type | Description | Use Cases |
+| Structure | Typical commands | Good fit |
 | --- | --- | --- |
-| **String** | Simple key-value pairs | Caching JSON, text, numbers |
-| **Hash** | Field-value maps (like a dictionary) | Storing objects with multiple fields |
-| **List** | Ordered collection of strings | Message queues, activity feeds |
-| **Set** | Unordered collection of unique strings | Tracking unique visitors, tags |
-| **Sorted Set** | Ordered collection with scores | Leaderboards, rate limiting |
-| **JSON** | Native JSON support | Storing complex objects |
-| **Vector** | Vector embeddings for AI | Similarity search, semantic search |
+| String | `GET`, `SET`, `INCR` | Serialized response, token, counter |
+| Hash | `HSET`, `HGET`, `HGETALL` | Object with independently addressable fields |
+| List | `LPUSH`, `RPUSH`, `LPOP`, `RPOP` | Ordered work or activity items |
+| Set | `SADD`, `SISMEMBER` | Unique members and membership tests |
+| Sorted set | `ZADD`, `ZRANGE` | Scores, rankings, and time-ordered members |
 
-> **Exam gotcha:** For AI/ML scenarios with embeddings, use the **Vector** data type (requires
-> the RediSearch module). This is a key exam topic.
+Commands such as `INCR` and `HINCRBY` are atomic on the Redis server. Two clients therefore do not
+need a read-modify-write sequence merely to increment a counter.
 
-### 2. Caching Patterns
+RedisJSON and RediSearch are **modules**, not core scalar data types. RediSearch indexes fields in
+Redis hashes or JSON documents, including vector fields.
 
-| Pattern | How it works | When to use |
+### 2. Cache-aside, expiration, and invalidation
+
+In **cache-aside**, the application owns the cache workflow:
+
+1. Read the cache.
+2. On a miss, read the authoritative data store.
+3. Cache the result with a bounded lifetime.
+4. Return the result.
+
+```python
+def get_product(product_id: str) -> str:
+    # Prefixes make the key's purpose clear and reduce accidental name collisions.
+    cache_key = f"product:{product_id}"
+
+    # redis-py returns None when GET does not find the key; that condition is a cache miss.
+    cached_json = redis_client.get(cache_key)
+    if cached_json is not None:
+        return cached_json
+
+    # The database remains authoritative, so a miss is recoverable.
+    product_json = read_product_from_database(product_id)
+
+    # ex is a TTL in seconds. SET and the expiration are applied as one Redis command.
+    redis_client.set(cache_key, product_json, ex=300)
+    return product_json
+```
+
+**TTL** means time to live. It is a countdown until a key expires. Reading a key does not refresh
+its TTL. Use `EXPIRE` when the expiry must be changed, or write the key again with `SET ... EX`.
+`TTL` returns:
+
+- a non-negative number for the remaining seconds;
+- `-1` when the key exists but has no expiry; and
+- `-2` when the key does not exist.
+
+Expiration is not the same as **eviction**. Expiration follows the TTL you set. Eviction is the
+cache's response to memory pressure and depends on the configured eviction policy.
+
+When source data changes, delete or update the related cache entry. A common safe ordering is:
+
+1. commit the database update;
+2. delete the cached value; and
+3. let the next read repopulate it.
+
+A TTL limits how long a missed invalidation can serve stale data, but it does not make invalidation
+unnecessary for freshness-sensitive data. To prevent a cache stampede after a popular key expires,
+consider jittered TTLs, request coalescing, or a short-lived lock.
+
+Related caching patterns differ in who owns each read or write:
+
+- **Read-through** uses a cache library or integration that loads a missing value from the source.
+  The Redis server does not automatically know how to query an arbitrary application database.
+- **Write-through** synchronously updates the cache and authoritative store on the write path. The
+  two writes are not automatically one atomic transaction, so partial failures still need handling.
+- **Write-behind** acknowledges a cache write before asynchronously persisting it to the source. It
+  can reduce write latency, but data can be lost if the pending write is not durably queued and the
+  cache fails before persistence completes.
+
+### 3. Pipelines and transactions
+
+A redis-py **pipeline** batches commands so that fewer network round trips are needed. With the
+non-cluster `redis.Redis` client used in this guide, `pipeline()` defaults to executing the queued
+commands as a `MULTI`/`EXEC` transaction. Set `transaction=False` when batching is wanted without
+transactional execution. Do not transfer that assumption to every Redis Cluster pipeline: cluster
+clients must route commands to shards and cannot provide one transaction across hash slots.
+
+Do not assume that every multi-key command works across shards. With an OSS cluster policy, keys in
+a multi-key operation generally need the same hash slot. A shared hash tag such as
+`order:{42}:header` and `order:{42}:lines` makes the text inside braces determine their slot.
+
+### 4. Vector indexing
+
+Azure Managed Redis uses the **RediSearch** module for vector search. Provisioning has four
+important constraints:
+
+- enable RediSearch when the instance is created; modules cannot be added later;
+- use an in-memory tier: Memory Optimized, Balanced, or Compute Optimized;
+- use the **Enterprise** clustering policy; and
+- use the **NoEviction** eviction policy.
+
+Flash Optimized does not support RediSearch.
+
+A vector is stored as a field in a Redis hash or JSON document. `FT.CREATE` defines the secondary
+index. `FT.SEARCH` or `FT.AGGREGATE` executes vector queries; there is no RediSearch
+`FT.VECTORADD` or `FT.VECTORSEARCH` command.
+
+| Index | Result quality | Main trade-off |
 | --- | --- | --- |
-| **Cache-Aside (Lazy Loading)** | App checks cache → miss → fetches from DB → writes to cache → returns | Most common; app controls cache |
-| **Read-Through** | Cache sits between app and DB → cache checks DB automatically on miss | When you want cache to manage data loading |
-| **Write-Through** | App writes to both cache and DB simultaneously | Critical data that must be consistent |
-| **Write-Behind** | App writes to cache → cache writes to DB later | High-write scenarios; risk of data loss |
+| `FLAT` | Exact k-nearest neighbours | Scans more candidates; suitable for smaller sets or exact recall |
+| `HNSW` | Approximate nearest neighbours | Faster at scale, with recall/memory tuning trade-offs |
 
-**Cache-Aside in code:**
-```python
-# Pseudocode for cache-aside
-def get_data(key):
-    data = cache.get(key)
-    if data is None:  # cache miss
-        data = database.query(key)
-        cache.set(key, data, ttl=3600)  # cache for 1 hour
-    return data
-```
+The schema must match the embeddings:
 
-### 3. Expiration (TTL - Time To Live)
+- `TYPE` is commonly `FLOAT32`;
+- `DIM` must equal the vector length; and
+- `DISTANCE_METRIC` can be `COSINE`, `L2`, or `IP` and should match how the model is evaluated.
 
-Every Redis key can have a **TTL** — a countdown timer after which the key is automatically deleted.
+Cosine is common for text embeddings, but it is not universally correct. Keep the same embedding
+model and preprocessing for indexed and query vectors.
 
-```python
-# Set a key with 60-second expiration
-cache.set("user:123", "data", px=60000)  # px = milliseconds
+Hybrid retrieval combines a metadata filter with KNN search. For example, a RAG application can
+first restrict results to the current tenant and documents the caller may read, then rank the
+remaining documents by vector distance.
 
-# Or with EX (seconds)
-cache.set("user:123", "data", ex=60)  # ex = seconds
+### 5. Tiers, clustering, and security
 
-# Check remaining TTL
-ttl = cache.ttl("user:123")  # Returns seconds until expiration, or -1 if no TTL
-```
+Azure Managed Redis has four performance families:
 
-> **Exam gotcha:** TTL is **not** automatically refreshed on access. Once set, the countdown
-> continues regardless of how many times the key is read.
-
-### 4. Cache Invalidation
-
-When data changes in the primary store, you need to **invalidate** (remove or update) the cached copy.
-
-**Strategies:**
-- **Time-based** — rely on TTL to expire old data
-- **Event-based** — invalidate when source data changes
-- **Write-through** — update cache and DB together
-
-```python
-# Invalidate on update
-def update_user(user_id, new_data):
-    database.update(user_id, new_data)
-    cache.delete(f"user:{user_id}")  # Remove from cache
-    # Or update in cache:
-    cache.set(f"user:{user_id}", new_data, px=3600000)
-```
-
-> **Exam gotcha:** Stale cache data is a common problem. Always implement invalidation
-> for data that can change.
-
-### 5. Vector Indexing for AI
-
-Azure Cache for Redis supports **vector similarity search** through the **RediSearch module**.
-This is critical for AI/ML applications working with embeddings.
-
-**How it works:**
-1. Store vector embeddings (arrays of floats) in Redis
-2. Create a vector index with dimensions matching your embeddings
-3. Query the index with a vector to find similar items
-
-```python
-# Store a vector embedding (e.g., 1536-dimensional from text-embedding-ada-002)
-vector = [0.1, 0.5, ..., 0.3]  # 1536 floats
-# FT.VECTORADD <index_name> <document_id> <vector>
-cache.execute_command("FT.VECTORADD", "idx:products", "product:123", vector)
-
-# Search for similar vectors (k=5 nearest neighbors)
-# FT.VECTORSEARCH <index_name> <query_pattern> <query_vector> KNN <k>
-results = cache.execute_command(
-    "FT.VECTORSEARCH", "idx:products", "*", vector, "KNN", 5
-)
-```
-
-**Vector index creation:**
-```bash
-# via redis-cli
-# FT.CREATE <index> ON <data_type> PREFIX <count> <prefix> SCHEMA <field> <type> <index_type> <params>...
-FT.CREATE idx:products ON JSON PREFIX 1 "product:" SCHEMA vector VECTOR FLAT 6 
-  DIM 1536 DISTANCE_METRIC COSINE
-```
-
-> **Exam gotcha:** For vector search, you need:
-> - The **RediSearch module** enabled
-> - A **vector index** created with the correct dimensions
-> - **COSINE** distance for semantic similarity, **EUCLIDEAN** or **L2** for geometric
-
-### 6. Tiers and Performance
-
-| Tier | Use Case | Features |
+| Tier | Resource balance | Typical reason to choose it |
 | --- | --- | --- |
-| **Basic** | Development/testing | Single node, no SLA |
-| **Standard** | Production | 2-12 nodes, 99.9% SLA |
-| **Premium** | Enterprise | Up to 120 nodes, 99.95% SLA, VNet, persistence |
-| **Enterprise** | Large scale | Multi-region replication, active geo-replication |
+| Memory Optimized | More memory per vCPU | Large cache with modest throughput needs |
+| Balanced | Balanced memory and compute | General-purpose starting point |
+| Compute Optimized | More vCPUs per GB | Throughput-intensive workload |
+| Flash Optimized | RAM plus NVMe flash | Large, read-heavy set where lower cost outweighs latency |
 
-** Choosing a tier:**
-- **Development/testing** → Basic
-- **Production with HA** → Standard (2+ nodes)
-- **Enterprise with isolation** → Premium
-- **Global scale** → Enterprise
+All tiers have an SLA when high availability is enabled. High availability is enabled by default;
+disabling it removes replication and affects the SLA. Select a tier and size from measured memory,
+throughput, connection, and latency requirements rather than a fixed “production tier” rule.
 
-> **Exam gotcha:** The **Basic** tier has **no SLA**. Always use Standard or higher for production.
+Azure Managed Redis supports three client-facing clustering policies:
 
-### 7. Pricing Model
+- **OSS cluster** usually gives the best throughput, but the client must support Redis Cluster.
+- **Enterprise cluster** exposes one endpoint through a proxy and is required by RediSearch.
+- **Non-clustered** is available only for smaller instances and is mainly a compatibility choice.
 
-You pay for:
-- **Memory** — GB/month (the main cost driver)
-- **Throughput** — operations per second
-- **Bandwidth** — data transfer in/out
-- **Replication** — additional cost for HA nodes
-
-> **Cost optimization:** Use appropriate TTLs to avoid storing unnecessary data. Monitor
-> memory usage and scale as needed.
-
----
+Use TLS. Azure Managed Redis uses port `10000`, not the `6380` port associated with Azure Cache for
+Redis. Microsoft Entra authentication is the default and preferred approach. A Redis client using
+Entra must refresh its token before expiry; the `redis-entraid` provider handles that renewal for
+redis-py. Do not disable certificate validation: Azure Managed Redis uses publicly trusted
+certificates, not self-signed certificates.
 
 ## Setup
 
-> **Two methods available:**
-> - **[CLI](#cli-setup)** — Copy-paste commands below (requires [Azure CLI](https://learn.microsoft.com/cli/azure/))
-> - **[Azure Portal (Web UI)](#portal-setup)** — Point-and-click in your browser
-
-### Set your variables
-
-The CLI commands in **Setup** and **Cleanup** reference these as **shell variables** — set them once
-for your shell, then run the `az` commands as written.
-
-| Variable | What it is |
-| --- | --- |
-| `RG` | Resource group |
-| `LOCATION` | Azure region |
-| `REDIS_NAME` | Redis cache name |
-| `SKU` | Pricing tier (Basic, Standard, Premium) |
-| `SIZE` | Cache size in GB (e.g., C0=256MB, C1=1GB, C2=2.5GB, C3=6GB, C4=13GB, C5=50GB) |
-| `FAMILY` | Cache family (C=Basic/Standard, P=Premium) |
-| `ENABLE_NON_SSL` | Allow non-SSL connections (false recommended) |
-
-Copy the block that matches your shell:
-
-```bash
-# bash / zsh — Linux, and macOS (its default shell)
-RG="ai200-rg"
-LOCATION="westeurope"
-REDIS_NAME="ai200-redis"
-SKU="Standard"
-SIZE="C1"  # 1GB
-FAMILY="C"
-ENABLE_NON_SSL="false"
-```
-
-```fish
-# fish — Linux / macOS
-set RG ai200-rg
-set LOCATION westeurope
-set REDIS_NAME ai200-redis
-set SKU Standard
-set SIZE C1
-set FAMILY C
-set ENABLE_NON_SSL false
-```
-
-```powershell
-# PowerShell — Windows (also cross-platform)
-$RG = "ai200-rg"
-$LOCATION = "westeurope"
-$REDIS_NAME = "ai200-redis"
-$SKU = "Standard"
-$SIZE = "C1"
-$FAMILY = "C"
-$ENABLE_NON_SSL = "false"
-```
-
-```bat
-:: Command Prompt (cmd.exe) — Windows
-set RG=ai200-rg
-set LOCATION=westeurope
-set REDIS_NAME=ai200-redis
-set SKU=Standard
-set SIZE=C1
-set FAMILY=C
-set ENABLE_NON_SSL=false
-```
+The following Bash commands target Azure Cloud Shell or Bash with Azure CLI 2.75 or later. Azure
+Managed Redis is not available in every Azure region, so confirm that the chosen SKU is available in
+the region. This example uses West Europe and a small Balanced instance.
 
 ### Prerequisites
 
-1. **Azure CLI installed** and logged in (`az login`)
-
-### CLI Setup
-
-Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first), after
-[setting your variables](#set-your-variables) above.
+- an Azure subscription and permission to create resources;
+- Azure CLI signed in with `az login`; and
+- permission to read your signed-in user's object ID and create a Redis access assignment.
 
 ```bash
-# 1. Create the resource group
+# Replace the placeholders before running the block.
+RG="<resource-group>"
+LOCATION="westeurope"
+REDIS_NAME="<regionally-unique-redis-name>"
+
+# Create the resource group in the same region as the consuming application when practical.
 az group create --name "$RG" --location "$LOCATION"
 
-# 2. Create the Redis cache
-#    For Basic/Standard: --family C --sku-name $SKU --vm-size $SIZE
-#    For Premium: --family P --sku-name Premium --vm-size P1 (6GB minimum)
-az redis create \
-  --name "$REDIS_NAME" \
+# Create Azure Managed Redis, not the retiring Azure Cache for Redis service.
+# RediSearch requires EnterpriseCluster and NoEviction, and modules are fixed at creation time.
+az redisenterprise create \
+  --cluster-name "$REDIS_NAME" \
   --resource-group "$RG" \
   --location "$LOCATION" \
-  --family "$FAMILY" \
-  --sku "$SKU" \
-  --vm-size "$SIZE" \
-  --enable-non-ssl-port "$ENABLE_NON_SSL"
+  --sku Balanced_B1 \
+  --clustering-policy EnterpriseCluster \
+  --eviction-policy NoEviction \
+  --modules name=RediSearch \
+  --access-keys-authentication Disabled \
+  --public-network-access Enabled \
+  --minimum-tls-version 1.2
 
-# 3. Enable the RediSearch module (required for vector indexing)
-#    This is only available on Premium tier with clustering enabled
-#    For Basic/Standard, use a separate Redis Stack instance
-az redis update \
-  --name "$REDIS_NAME" \
+# Grant the signed-in developer the default Redis data access policy.
+# For an Azure-hosted app, assign its managed identity object ID instead.
+PRINCIPAL_ID=$(az ad signed-in-user show --query id --output tsv)
+az redisenterprise database access-policy-assignment create \
   --resource-group "$RG" \
-  --enable-redis-search true
+  --cluster-name "$REDIS_NAME" \
+  --database-name default \
+  --access-policy-assignment-name "ai200-developer" \
+  --access-policy-name default \
+  --object-id "$PRINCIPAL_ID"
 
-# 4. Get the connection string (host, port, primary key)
-HOST=$(az redis show \
-  --name "$REDIS_NAME" \
+# Read the generated endpoint. Every Azure Managed Redis instance uses port 10000.
+REDIS_HOST=$(az redisenterprise show \
+  --cluster-name "$REDIS_NAME" \
   --resource-group "$RG" \
   --query hostName \
   --output tsv)
+echo "Redis host: $REDIS_HOST"
+echo "Redis TLS port: 10000"
 
-PRIMARY_KEY=$(az redis list-keys \
+# Test end-to-end connectivity with the identity established by az login.
+az redisenterprise test-connection \
   --name "$REDIS_NAME" \
   --resource-group "$RG" \
-  --query primaryKey \
-  --output tsv)
-
-echo "Redis host: $HOST"
-echo "Redis port: 6380 (TLS) or 6379 (non-TLS)"
-echo "Primary key: $PRIMARY_KEY"
-
-# 5. Test connection with redis-cli
-#    Install redis-cli: apt-get install redis-tools (Linux) or brew install redis (macOS)
-#    Then connect: redis-cli -h $HOST -p 6380 -a $PRIMARY_KEY --tls
+  --auth entra
 ```
 
-The Redis cache is now ready. Next, you'll [test it](#hands-on-python).
-
-### Portal Setup (Web UI)
-
-Prefer the browser? Create the same resources in the [Azure Portal](https://portal.azure.com):
-
-1. **Sign in** to [https://portal.azure.com](https://portal.azure.com)
-
-2. **Create Resource Group:**
-   - Click **Resource groups** → **+ Create**
-   - Name: `ai200-rg` (or your chosen name)
-   - Region: `West Europe` (or your preference)
-   - Click **Review + create** → **Create**
-
-3. **Create Redis Cache:**
-   - Click **+ Create a resource** → Search for "Azure Cache for Redis" → **Create**
-   - Subscription: your subscription
-   - Resource group: `ai200-rg`
-   - Cache name: `ai200-redis`
-   - Region: `West Europe`
-   - Pricing tier: **Standard** (for production) or **Basic** (for testing)
-   - Cache size: **C1 (1 GB)**
-   - For vector indexing: Check **Enable Redis modules** and select **RediSearch**
-   - Click **Review + create** → **Create**
-
-4. **Get connection information:**
-   - Navigate to your Redis cache (`ai200-redis`)
-   - On the **Overview** blade, note the **Hostname** and **SSL Port** (6380)
-   - Under **Settings → Access keys**, copy the **Primary access key**
-
-5. **Configure firewall (if needed):**
-   - Under **Settings → Networking**, add your client IP address to the firewall rules
-   - Or select **Public network access** → **Enabled** and **All networks** (for testing only)
-
----
-
-## Cleanup
-
-Goal: delete all resources created during setup to avoid unnecessary Azure charges.
-Run this when you're done experimenting, or whenever you want to start fresh.
-
-> **Two methods available:**
-> - **[CLI](#cli-cleanup)** — Copy-paste commands below
-> - **[Azure Portal (Web UI)](#portal-cleanup)** — Point-and-click in your browser
-
-### CLI Cleanup
-
-Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/). Set `RG` as shown in
-[Set your variables](#set-your-variables), then:
-
-```bash
-# Delete the entire resource group and everything in it.
-# This removes: Redis cache and any other resources in the group.
-# The '--yes' flag skips the confirmation prompt. Use '--no-wait' to not wait for completion.
-az group delete --name "$RG" --yes --no-wait
-
-# Optional: verify the resource group is gone
-az group list --output table
-```
-
-> **Important:** Deleting a resource group is **permanent and immediate**. All resources in that
-group (Redis cache, etc.) will be deleted and cannot be recovered.
-
-### Portal Cleanup (Web UI)
-
-Prefer the browser? Delete resources in the [Azure Portal](https://portal.azure.com):
-
-1. **Sign in** to [https://portal.azure.com](https://portal.azure.com)
-
-2. **Delete the Resource Group (recommended):**
-   - Click **Resource groups** in the left menu
-   - Find and click on your resource group (`ai200-rg` or your chosen name)
-   - Click **Delete resource group** at the top
-   - In the confirmation blade, type the resource group name to confirm
-   - Click **Delete**
-
-   This deletes **all resources** in the group in one operation.
-
----
+The access-policy-assignment CLI group is currently marked preview even though Entra data access is
+the normal service authentication path. You can make the same assignment under **Authentication →
+Microsoft Entra Authentication** in the portal.
 
 ## Hands-on (Python)
 
-Let's use the **`redis-py`** library to interact with Azure Cache for Redis. We'll demonstrate:
-1. Basic cache operations (get, set, delete)
-2. TTL expiration
-3. Hash operations
-4. Vector similarity search (if RediSearch module is enabled)
-
-> **Remember:** Run all commands below from this folder (`02-data-services/azure-managed-redis/`).
-
-### Project Structure
-
-```
-ai200-redis/
-├── redis_demo.py              # Main demonstration script
-├── vector_demo.py             # Vector similarity search demo
-└── requirements.txt           # Python dependencies
-```
-
-### Setup Python Environment
+Create a virtual environment and install the current clients:
 
 ```bash
-# Create a virtual environment
-python -m venv venv
+# A virtual environment isolates this sample's packages from the system Python installation.
+python -m venv .venv
+source .venv/bin/activate
 
-# Activate it
-# --- bash/zsh (macOS/Linux) ---
-source venv/bin/activate
+# redis-entraid depends on redis-py and renews Entra tokens for long-lived connections.
+python -m pip install redis-entraid azure-identity
 
-# --- fish (macOS/Linux) ---
-source venv/bin/activate.fish
-
-# --- Windows PowerShell ---
-.\venv\Scripts\Activate.ps1
-
-# --- Windows cmd ---
-venv\Scripts\activate.bat
-
-# Install dependencies
-pip install redis==5.0.0 numpy==1.26.0
+# DefaultAzureCredential can use the identity established by Azure CLI during local development.
+export REDIS_HOST="<name>.<region>.redis.azure.net"
 ```
 
-### 1. Basic Cache Operations
-
-**requirements.txt:**
-```
-redis==5.0.0
-numpy==1.26.0
-```
-
-**redis_demo.py:**
+### Cache operations
 
 ```python
-"""
-Azure Cache for Redis - Basic Operations Demo
+"""Run basic Azure Managed Redis cache operations with Microsoft Entra authentication."""
 
-This script demonstrates:
-- Connecting to Azure Managed Redis
-- Basic GET/SET/DELETE operations
-- TTL (expiration)
-- Hash operations
-- List operations
-- Increment operations
-"""
-
-import os
-import redis
-import time
 import json
+import os
 
-# Configuration - set these from environment variables or replace with your values
-REDIS_HOST = os.environ.get("REDIS_HOST", "your-redis-host.azurecache.windows.net")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6380))  # 6380 for TLS, 6379 for non-TLS
-REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD", "your-primary-key")
-REDIS_TLS = os.environ.get("REDIS_TLS", "true").lower() == "true"
+import redis
+from redis_entraid.cred_provider import create_from_default_azure_credential
 
-# Connect to Redis
-# For Azure Managed Redis, SSL/TLS is required for the default port (6380)
-if REDIS_TLS:
-    connection_pool = redis.ConnectionPool(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        password=REDIS_PASSWORD,
-        ssl=True,
-        ssl_cert_reqs=None,  # Azure uses self-signed certs
-    )
-else:
-    connection_pool = redis.ConnectionPool(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        password=REDIS_PASSWORD,
-    )
+# The provider obtains and renews tokens for the Azure Redis resource scope.
+credential_provider = create_from_default_azure_credential(
+    ("https://redis.azure.com/.default",),
+)
 
-r = redis.Redis(connection_pool=connection_pool)
+# decode_responses converts Redis byte strings to Python str values for this text-only sample.
+client = redis.Redis(
+    host=os.environ["REDIS_HOST"],
+    port=10000,
+    ssl=True,
+    decode_responses=True,
+    credential_provider=credential_provider,
+    socket_connect_timeout=10,
+)
 
-# Test the connection
-try:
-    pong = r.ping()
-    print(f"✓ Connected to Redis! PING returned: {pong}")
-except Exception as e:
-    print(f"✗ Connection failed: {e}")
-    print("\nTroubleshooting:")
-    print(f"  Host: {REDIS_HOST}")
-    print(f"  Port: {REDIS_PORT}")
-    print(f"  TLS: {REDIS_TLS}")
-    exit(1)
+# PING confirms that DNS, networking, TLS, authentication, and Redis are all working.
+print("PING:", client.ping())
 
-# ============================================================================
-# 1. Basic String Operations
-# ============================================================================
-print("\n" + "=" * 60)
-print("1. BASIC STRING OPERATIONS")
-print("=" * 60)
+product = {"id": "42", "name": "Vector handbook", "price": 24.0}
 
-# Set a key-value pair
-r.set("greeting", "Hello, Azure Redis!")
-print(f"SET greeting = 'Hello, Azure Redis!'")
+# json.dumps serializes the Python dictionary to text; ex sets a 300-second TTL atomically.
+client.set("product:42", json.dumps(product), ex=300)
 
-# Get the value
-value = r.get("greeting")
-print(f"GET greeting = {value.decode('utf-8')}")
+# json.loads converts the cached JSON string back to a Python dictionary.
+cached_product = json.loads(client.get("product:42"))
+print("Cached product:", cached_product)
+print("Remaining TTL:", client.ttl("product:42"))
 
-# Set with expiration (10 seconds)
-r.setex("temp_greeting", 10, "This will expire in 10 seconds")
-print(f"SETEX temp_greeting (10s TTL) = 'This will expire in 10 seconds'")
+# HSET mapping writes all hash fields with one command; HINCRBY updates a field atomically.
+client.hset("usage:contoso", mapping={"requests": 0, "tokens": 0})
+client.hincrby("usage:contoso", "requests", 1)
 
-# Check TTL
-ttl = r.ttl("temp_greeting")
-print(f"TTL for temp_greeting: {ttl} seconds")
+# DELETE explicitly invalidates the cached product after its source record changes.
+client.delete("product:42")
 
-# Wait and check if it expires
-time.sleep(11)
-value = r.get("temp_greeting")
-print(f"After 11 seconds, GET temp_greeting = {value}")  # Should be None
-
-# ============================================================================
-# 2. Hash Operations (for storing objects)
-# ============================================================================
-print("\n" + "=" * 60)
-print("2. HASH OPERATIONS")
-print("=" * 60)
-
-# Store a user object as a hash
-user = {
-    "name": "Alice",
-    "email": "alice@example.com",
-    "age": "30",
-    "city": "Seattle"
-}
-
-# Set hash fields
-for field, value in user.items():
-    r.hset("user:123", field, value)
-print("HSET user:123 with fields: name, email, age, city")
-
-# Get all fields
-user_data = r.hgetall("user:123")
-print(f"HGETALL user:123 = {user_data}")
-
-# Get a specific field
-name = r.hget("user:123", "name")
-print(f"HGET user:123 name = {name.decode('utf-8')}")
-
-# Increment a numeric field
-r.hincrby("user:123", "age", 1)
-age = r.hget("user:123", "age")
-print(f"HINCRBY user:123 age +1 = {age.decode('utf-8')}")
-
-# ============================================================================
-# 3. List Operations (FIFO queue)
-# ============================================================================
-print("\n" + "=" * 60)
-print("3. LIST OPERATIONS")
-print("=" * 60)
-
-# Push items to a list (LPUSH = left push, RPUSH = right push)
-r.lpush("tasks", "Task 3")
-r.lpush("tasks", "Task 2")
-r.lpush("tasks", "Task 1")
-print("LPUSH tasks: Task 3, Task 2, Task 1")
-
-# Get list length
-length = r.llen("tasks")
-print(f"LLEN tasks = {length}")
-
-# Pop items (LPOP = left pop, RPOP = right pop)
-task1 = r.lpop("tasks")
-task2 = r.lpop("tasks")
-task3 = r.lpop("tasks")
-print(f"LPOP tasks = {task1.decode('utf-8')}, {task2.decode('utf-8')}, {task3.decode('utf-8')}")
-
-# ============================================================================
-# 4. Set Operations (unique values)
-# ============================================================================
-print("\n" + "=" * 60)
-print("4. SET OPERATIONS")
-print("=" * 60)
-
-# Add unique values to a set
-r.sadd("users:online", "alice", "bob", "carol")
-print("SADD users:online: alice, bob, carol")
-
-# Check if a value exists
-is_online = r.sismember("users:online", "bob")
-print(f"SISMEMBER users:online bob = {is_online}")
-
-# Get all members
-members = r.smembers("users:online")
-print(f"SMEMBERS users:online = {sorted([m.decode('utf-8') for m in members])}")
-
-# Add a duplicate (will be ignored)
-r.sadd("users:online", "alice")
-members = r.smembers("users:online")
-print(f"After adding duplicate alice: {sorted([m.decode('utf-8') for m in members])}")
-
-# ============================================================================
-# 5. Counter Operations
-# ============================================================================
-print("\n" + "=" * 60)
-print("5. COUNTER OPERATIONS")
-print("=" * 60)
-
-# Increment a counter
-r.set("page:views", 0)
-r.incr("page:views")  # +1
-r.incr("page:views")  # +1
-r.incrby("page:views", 10)  # +10
-views = r.get("page:views")
-print(f"INCR/INCRBY page:views = {views.decode('utf-8')}")
-
-# Decrement
-r.decr("page:views")  # -1
-r.decrby("page:views", 5)  # -5
-views = r.get("page:views")
-print(f"DECR/DECRBY page:views = {views.decode('utf-8')}")
-
-# ============================================================================
-# 6. Expiration and Invalidation
-# ============================================================================
-print("\n" + "=" * 60)
-print("6. EXPIRATION AND INVALIDATION")
-print("=" * 60)
-
-# Set a key with TTL
-r.set("session:abc123", "user_data", ex=30)  # Expires in 30 seconds
-print("SET session:abc123 with TTL=30 seconds")
-
-# Check remaining TTL
-ttl = r.ttl("session:abc123")
-print(f"TTL for session:abc123: {ttl} seconds")
-
-# Manually delete (invalidate)
-r.delete("session:abc123")
-value = r.get("session:abc123")
-print(f"After DELETE, GET session:abc123 = {value}")
-
-# ============================================================================
-# 7. Cache Statistics
-# ============================================================================
-print("\n" + "=" * 60)
-print("7. CACHE STATISTICS")
-print("=" * 60)
-
-# Get info about the Redis server
-info = r.info()
-print(f"Redis version: {info.get('redis_version')}")
-print(f"Connected clients: {info.get('connected_clients')}")
-print(f"Used memory: {info.get('used_memory_human')}")
-
-# Count keys
-key_count = len(r.keys("*"))
-print(f"Total keys in cache: {key_count}")
-
-print("\n" + "=" * 60)
-print("Demo complete!")
-print("=" * 60)
+# Close returns sockets held by the client/pool when this short-lived script is finished.
+client.close()
 ```
 
-### 2. Vector Similarity Search (RediSearch Module)
+### Vector index and KNN query
 
-**vector_demo.py:**
+This deliberately uses three-dimensional toy vectors so the storage format is visible. Real
+embeddings must use the dimensions produced by the selected model.
 
 ```python
-"""
-Azure Cache for Redis - Vector Similarity Search Demo
-
-This script demonstrates:
-- Creating a vector index
-- Storing vector embeddings
-- Performing similarity search (KNN)
-- Using cosine similarity for semantic search
-
-Requires: RediSearch module enabled on Premium tier
-"""
+"""Create a RediSearch HNSW index over Redis hashes and execute a filtered KNN query."""
 
 import os
+import struct
+
 import redis
-import numpy as np
+from redis_entraid.cred_provider import create_from_default_azure_credential
 
-# Configuration
-REDIS_HOST = os.environ.get("REDIS_HOST", "your-redis-host.azurecache.windows.net")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6380))
-REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD", "your-primary-key")
 
-# Connect to Redis with SSL
-connection_pool = redis.ConnectionPool(
-    host=REDIS_HOST,
-    port=REDIS_PORT,
-    password=REDIS_PASSWORD,
+def float32_bytes(values: list[float]) -> bytes:
+    """Encode Python floats as the FLOAT32 byte layout declared in the index schema."""
+    # Redis expects little-endian 32-bit floats. The '<' prefix makes byte order explicit on every CPU.
+    return struct.pack(f"<{len(values)}f", *values)
+
+
+# The credential provider refreshes Entra tokens instead of keeping a static password in code.
+credential_provider = create_from_default_azure_credential(
+    ("https://redis.azure.com/.default",),
+)
+
+# Keep binary responses enabled because vector fields contain arbitrary bytes, not UTF-8 text.
+client = redis.Redis(
+    host=os.environ["REDIS_HOST"],
+    port=10000,
     ssl=True,
-    ssl_cert_reqs=None,
+    credential_provider=credential_provider,
 )
-r = redis.Redis(connection_pool=connection_pool)
 
-# Check if RediSearch module is available
+# FT.CREATE builds a secondary index over hashes whose keys begin with "doc:".
+# HNSW provides approximate nearest-neighbour search; the attribute count is six name/value tokens.
 try:
-    # MODULE LIST - returns list of loaded modules
-    module_list = r.execute_command("MODULE LIST")
-    print("Redis modules:", module_list)
-    has_redisearch = any(b"RediSearch" in str(m) for m in module_list)
-    if not has_redisearch:
-        print("ERROR: RediSearch module is not enabled!")
-        print("For vector indexing, you need:")
-        print("  - Premium tier")
-        print("  - RediSearch module enabled")
-        print("  - Or use Redis Stack (separate instance)")
-        exit(1)
-except Exception as e:
-    print(f"Error checking modules: {e}")
-    exit(1)
+    client.execute_command(
+        "FT.CREATE",
+        "idx:documents",
+        "ON",
+        "HASH",
+        "PREFIX",
+        1,
+        "doc:",
+        "SCHEMA",
+        "title",
+        "TEXT",
+        "category",
+        "TAG",
+        "embedding",
+        "VECTOR",
+        "HNSW",
+        6,
+        "TYPE",
+        "FLOAT32",
+        "DIM",
+        3,
+        "DISTANCE_METRIC",
+        "COSINE",
+    )
+except redis.ResponseError as error:
+    # Re-running the sample is safe only when the existing index has the same intended schema.
+    if "Index already exists" not in str(error):
+        raise
 
-# ============================================================================
-# Vector Similarity Search Demo
-# ============================================================================
-print("\n" + "=" * 60)
-print("VECTOR SIMILARITY SEARCH DEMO")
-print("=" * 60)
+documents = [
+    ("doc:1", "Caching guide", "ai", [0.90, 0.10, 0.05]),
+    ("doc:2", "Vector retrieval", "ai", [0.82, 0.18, 0.08]),
+    ("doc:3", "Travel policy", "hr", [0.05, 0.10, 0.95]),
+]
 
-# Sample product embeddings (3-dimensional for demo, real embeddings are 1536+ dim)
-# In production, use embeddings from models like text-embedding-ada-002 (1536 dim)
-embeddings = {
-    "laptop": [0.8, 0.2, 0.1],
-    "phone": [0.7, 0.3, 0.2],
-    "tablet": [0.75, 0.25, 0.15],
-    "monitor": [0.9, 0.1, 0.05],
-    "mouse": [0.3, 0.6, 0.5],
-}
+for key, title, category, embedding in documents:
+    # HSET stores searchable metadata and the binary vector together under one Redis key.
+    client.hset(
+        key,
+        mapping={
+            "title": title,
+            "category": category,
+            "embedding": float32_bytes(embedding),
+        },
+    )
 
-# Create a vector index
-# FT.CREATE <index_name> ON JSON PREFIX 1 "product:" SCHEMA vector VECTOR FLAT 6 DIM 3 DISTANCE_METRIC COSINE
-# - FLAT: Index type (exact search)
-# - 6: Number of initial vectors (can grow)
-# - DIM 3: Dimension of vectors
-# - COSINE: Distance metric for similarity
-print("\nCreating vector index...")
-index_name = "idx:products"
-try:
-    # Delete index if it already exists
-    # FT.DROPINDEX <index_name> DD (DD = delete data)
-    r.execute_command("FT.DROPINDEX", index_name, "DD")
-except:
-    pass
+query_blob = float32_bytes([0.88, 0.12, 0.06])
 
-# Create the index
-# FT.CREATE <index> ON <data_type> PREFIX <count> <prefix> SCHEMA <field> <type> <index_type> <params>...
-result = r.execute_command(
-    "FT.CREATE", index_name,
-    "ON", "JSON",  # Store vectors in JSON documents
-    "PREFIX", "1", "product:",  # Keys with prefix "product:"
-    "SCHEMA",
-    "vector", "VECTOR", "FLAT", "10",  # FLAT index, initial 10 vectors
-    "DIM", "3",  # 3 dimensions (use 1536 for real embeddings)
-    "DISTANCE_METRIC", "COSINE"  # Cosine similarity for semantic search
-)
-print(f"Index created: {result}")
-
-# Store vectors as JSON documents with vector fields
-print("\nStoring product vectors...")
-for product_id, vector in embeddings.items():
-    # Store as JSON with a vector field
-    # Format: product:<id> with fields: name, vector
-    doc = {
-        "name": product_id,
-        "vector": vector
-    }
-    # Use JSON.SET to store the document
-    # JSON.SET <key> <path> <json_string>
-    r.execute_command("JSON.SET", f"product:{product_id}", "$", json.dumps(doc))
-    print(f"  Stored: product:{product_id}")
-
-# Verify documents
-print("\nVerifying stored documents:")
-for product_id in embeddings.keys():
-    # JSON.GET <key> [<path>] - returns JSON at key
-    doc = r.execute_command("JSON.GET", f"product:{product_id}")
-    print(f"  product:{product_id}: {doc}")
-
-# Perform a similarity search
-print("\n" + "=" * 60)
-print("SIMILARITY SEARCH")
-print("=" * 60)
-
-# Query vector (similar to "laptop")
-query_vector = [0.78, 0.22, 0.12]
-
-# Search for top 3 similar products
-# FT.VECTORSEARCH <index> <query_pattern> <vector> KNN <k> DIALECT <ver> RETURN <n> <field>...
-results = r.execute_command(
-    "FT.VECTORSEARCH",
-    index_name,
-    "*",  # Search all documents in index
-    query_vector,
-    "KNN", "3",  # Top 3 results
-    "DIALECT", "2",  # Use dialect 2 for vector search
-    "RETURN", "2", "name", "vector"  # Return 2 fields: name and vector
+# The TAG filter limits candidates to category "ai" before KNN ranking.
+# DIALECT 2 is required for this RediSearch vector-query syntax.
+result = client.execute_command(
+    "FT.SEARCH",
+    "idx:documents",
+    "(@category:{ai})=>[KNN 2 @embedding $query AS distance]",
+    "PARAMS",
+    2,
+    "query",
+    query_blob,
+    "SORTBY",
+    "distance",
+    "RETURN",
+    2,
+    "title",
+    "distance",
+    "DIALECT",
+    2,
 )
 
-print(f"\nQuery vector: {query_vector}")
-print(f"\nTop 3 similar products:")
-for i, item in enumerate(results[1:]):  # Skip the first item (count)
-    if isinstance(item, list):
-        name = item[1][1].decode('utf-8') if len(item) > 1 else "unknown"
-        score = item[0]  # Similarity score (lower = more similar for COSINE)
-        print(f"  {i+1}. {name} (score: {score:.4f})")
-
-# Test with different query (similar to "mouse")
-print("\n" + "-" * 60)
-query_vector = [0.32, 0.58, 0.48]
-# FT.VECTORSEARCH <index> <query_pattern> <vector> KNN <k> DIALECT <ver> RETURN <n> <field>...
-results = r.execute_command(
-    "FT.VECTORSEARCH",
-    index_name,
-    "*",
-    query_vector,
-    "KNN", "3",
-    "DIALECT", "2",
-    "RETURN", "2", "name", "vector"
-)
-
-print(f"\nQuery vector: {query_vector}")
-print(f"\nTop 3 similar products:")
-for i, item in enumerate(results[1:]):
-    if isinstance(item, list):
-        name = item[1][1].decode('utf-8') if len(item) > 1 else "unknown"
-        score = item[0]
-        print(f"  {i+1}. {name} (score: {score:.4f})")
-
-print("\n" + "=" * 60)
-print("Vector search demo complete!")
-print("=" * 60)
+print(result)
+client.close()
 ```
-
-### Run the Demos
-
-```bash
-# Set environment variables with your Redis connection info
-export REDIS_HOST="your-redis-host.azurecache.windows.net"
-export REDIS_PORT=6380
-export REDIS_PASSWORD="your-primary-key"
-export REDIS_TLS=true
-
-# Run basic cache operations demo
-python redis_demo.py
-
-# Run vector search demo (requires RediSearch module)
-# Note: RediSearch is only available on Premium tier with clustering
-python vector_demo.py
-```
-
----
 
 ## Exam gotchas
 
-- **Basic tier has no SLA** — always use Standard or Premium for production workloads
-- **TTL is not refreshed on access** — once set, the countdown continues regardless of reads
-- **SSL/TLS is required** — port 6380 (TLS) is default; port 6379 is non-TLS (not recommended)
-- **Stale cache is a real problem** — always implement TTL or invalidation for changing data
-- **Vector indexing requires RediSearch module** — available on Premium tier or separate Redis Stack
-- **COSINE vs L2 distance** — COSINE for semantic similarity (AI), L2 (EUCLIDEAN) for geometric distance
-- **Memory is the main cost driver** — monitor memory usage; scale up/down as needed
-- **RediSearch index must match embedding dimensions** — 1536 for text-embedding-ada-002, 3072 for text-embedding-3-large
-- **JSON module required for vector storage** — vectors are stored as JSON documents with vector fields
-- **Premium tier minimum is 6GB** — P1 is the smallest Premium size
-- **Connection strings use password, not key** — the "primary access key" is used as the password
-- **Non-TLS connections are insecure** — only use for testing; never in production
-- **Keys are case-sensitive** — "User:123" and "user:123" are different keys
-- **Maximum value size is 512MB** — per key (strings, hashes, etc.)
-- **Pipeline for batch operations** — use `r.pipeline()` to reduce round-trips for multiple commands
+- Azure Managed Redis and Azure Cache for Redis are different services; use `az redisenterprise`
+  for Azure Managed Redis.
+- Azure Managed Redis uses TLS port `10000`.
+- Microsoft Entra authentication is the default; an identity still needs a Redis data access policy.
+- A TTL does not refresh on `GET`, and expiration is different from memory-pressure eviction.
+- Pipelines reduce round trips; they do not automatically solve cross-slot restrictions.
+- Enable modules at creation. RediSearch cannot be added later.
+- RediSearch requires Enterprise clustering, `NoEviction`, and a supported in-memory tier.
+- Vectors are fields in hashes or JSON documents. RediSearch indexes them; “Vector” is not a
+  normal core Redis value type.
+- Use `FT.CREATE` plus `FT.SEARCH`; `FT.VECTORADD` and `FT.VECTORSEARCH` are not RediSearch commands.
+- `DIM`, numeric type, distance metric, and the query vector must agree with the indexed embeddings.
+- `FLAT` is exact; `HNSW` trades a small amount of recall and more memory for faster ANN search.
+- Keep certificate verification enabled. `ssl_cert_reqs=None` weakens TLS and is unnecessary for
+  Azure Managed Redis.
 
----
+## Cleanup
+
+Delete only the practice resource group after confirming it contains no resources you need:
+
+```bash
+# Resource-group deletion is irreversible and deletes every resource inside the named group.
+az group delete --name "$RG" --yes --no-wait
+```
 
 ## Quiz yourself
 
-Take the **azure-managed-redis** quiz in the [quiz app](../../quiz/)
-(bank: [`quiz/src/questions/02-data-services/azure-managed-redis.json`](../../quiz/src/questions/02-data-services/azure-managed-redis.json)).
-
----
+Take the **azure-managed-redis** quiz in the [quiz app](../../quiz/) (bank:
+[`azure-managed-redis.json`](../../quiz/src/questions/02-data-services/azure-managed-redis.json)).
 
 ## Further reading
 
-- Azure Cache for Redis documentation: <https://learn.microsoft.com/azure/azure-cache-for-redis/>
-- Redis documentation: <https://redis.io/docs/>
-- Redis commands reference: <https://redis.io/commands/>
-- RediSearch module: <https://redis.io/docs/stack/search/>
-- Vector similarity search with Redis: <https://redis.io/docs/stack/search/vectors/>
-- Azure Cache for Redis pricing: <https://azure.microsoft.com/pricing/details/cache/redis/>
-- Redis Python client (redis-py): <https://redis-py.readthedocs.io/>
-- Vector indexing tutorial: <https://learn.microsoft.com/azure/architecture/ai-ml/guide/technology-choices/vector-databases>
+- [Azure Managed Redis overview](https://learn.microsoft.com/azure/redis/overview)
+- [Create an Azure Managed Redis instance](https://learn.microsoft.com/azure/redis/quickstart-create-managed-redis)
+- [Connect from Python with Microsoft Entra ID](https://learn.microsoft.com/azure/redis/python-get-started)
+- [Azure Managed Redis architecture and cluster policies](https://learn.microsoft.com/azure/redis/architecture)
+- [Microsoft Entra authentication](https://learn.microsoft.com/azure/redis/entra-for-authentication)
+- [Redis modules in Azure Managed Redis](https://learn.microsoft.com/azure/redis/redis-modules)
+- [Vector search in Azure Managed Redis](https://learn.microsoft.com/azure/redis/overview-vector-similarity)
+- [Redis vector search syntax](https://redis.io/docs/latest/develop/ai/search-and-query/vectors/)
+- [Azure Cache for Redis retirement FAQ](https://learn.microsoft.com/azure/azure-cache-for-redis/retirement-faq)

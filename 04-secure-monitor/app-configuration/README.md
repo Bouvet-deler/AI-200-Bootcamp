@@ -95,8 +95,23 @@ into something usable:
 - **`azure-appconfiguration`** — the raw SDK. You call `get_configuration_setting(...)` /
   `set_configuration_setting(...)` explicitly. This topic's `app.py` uses it.
 - **`azure-appconfiguration-provider`** — a higher-level *provider* that **loads settings into a
-  dict-like object** in one call (`load(...)`), auto-resolves Key Vault references, and
-  integrates feature management. This is the pattern Azure recommends for real apps.
+  dict-like object** in one call (`load(...)`), supports refresh, and integrates feature
+  management. It resolves Key Vault references when you also configure a Key Vault credential,
+  client, or resolver. This is the pattern Azure recommends for application consumption.
+
+### Provider loading and refresh
+
+The Python provider loads settings with **no label** by default. Use ordered
+`SettingSelector` entries to load a base set and then an environment override; when two selectors
+return the same key, the later selector wins. Labels organize values, but they are not separate
+security boundaries. Use separate stores when development and production require different access
+permissions.
+
+Refresh is activity-driven. Setting `refresh_enabled=True` allows the provider to check for
+changes, but your application still calls `config.refresh()` (for example, before handling a web
+request). The provider does not run a background refresh loop while the app is idle. Key Vault
+secret refresh is configured independently because the reference URI can remain unchanged when
+the underlying secret gains a new version.
 
 ### Feature flags in depth
 
@@ -123,16 +138,17 @@ JSON** that a **feature-management library** knows how to evaluate:
 }
 ```
 
-The three filters you should know:
+The two built-in filters in the current Python `featuremanagement` package are:
 
-- **Percentage** (`Microsoft.Percentage`) — on for a share of *evaluations*. Effectively a coin
-  flip each call, so the *same user may get different answers on different requests*. Good for
-  "send 10% of traffic down the new path"; **not** for "these users always see it."
-- **Targeting** (`Microsoft.Targeting`) — on for a **stable** share of *users*, plus explicit
-  include/exclude lists for specific users or groups. This is the one you want for a real
-  gradual rollout (details below).
-- **Time window** (`Microsoft.TimeWindow`) — on only between a start and end time (scheduled
-  launches, a weekend sale).
+- **Targeting** (`Microsoft.Targeting`) — on for a **stable** share of users, plus explicit
+  include/exclude lists for users or groups. This is the filter for a gradual rollout (details
+  below).
+- **Time window** (`Microsoft.TimeWindow`) — on between configured start and end times, with
+  recurrence support for scheduled releases.
+
+The service can also store custom filter definitions. Your application must register code that
+implements a custom filter before evaluating a flag that uses it. Do not assume that a filter
+available in another language's feature-management package is built into the Python package.
 
 #### Where does the rollout logic actually run?
 
@@ -160,9 +176,9 @@ user is; the library decides whether that user falls in the 10%.
 You might expect it to keep a counter ("have I let in 10% yet?") — it doesn't. That would need
 shared state and wouldn't be stable. Instead it's **deterministic hashing**:
 
-1. For the current user, the library computes a hash of `featureName + "\n" + userId` and maps
-   it to a bucket **0–99** (an even spread).
-2. If that bucket number **< the rollout percentage**, the feature is **on** for this user.
+1. For the current user, the Python library computes a SHA-256 hash of
+   `userId + "\n" + featureName` and maps part of that hash to a percentage from 0 to 100.
+2. If that value is **below the rollout percentage**, the feature is **on** for this user.
 
 Because the hash is deterministic, the properties you want fall out for free:
 
@@ -173,28 +189,33 @@ Because the hash is deterministic, the properties you want fall out for free:
   the next slice; nobody who had the feature loses it. (The feature name is part of the hash, so
   two different features at 10% enable *different* 10% slices, not the same users.)
 
-You never write this hashing yourself — you just set the percentage in the flag and pass the
-**user identity** (a "targeting context") into the check. Minimal shape in Python (using the
-provider + the `featuremanagement` library; treat the exact call signatures as illustrative —
-confirm against the package docs):
+You never write this hashing yourself — set the percentage in the flag and pass the **user
+identity** in a `TargetingContext`. This minimal Python shape uses the provider plus the
+`featuremanagement` library:
 
 ```python
 # pip install azure-appconfiguration-provider featuremanagement
-from azure.appconfiguration.provider import load        # loads config + feature flags
-from featuremanagement import FeatureManager             # evaluates the filters
+import os  # Read the App Configuration connection string from an environment variable.
+
+# The provider loads settings and feature flags into a dictionary-like object.
+from azure.appconfiguration.provider import load
+
+# FeatureManager evaluates flags; TargetingContext supplies the current user's identity.
+from featuremanagement import FeatureManager, TargetingContext
 
 # 1. Load config incl. feature flags from the store (connection string or Entra ID).
-config = load(connection_string=conn, feature_flag_enabled=True)
+config = load(
+    connection_string=os.environ["APPCONFIG_CONNECTION_STRING"],
+    feature_flag_enabled=True,
+)
 
 # 2. Hand the loaded flags to the feature manager (this is what runs the rollout math).
 manager = FeatureManager(config)
 
-# 3. At the point of use, ask — passing WHO the current user is so Targeting can hash them.
-#    Without a user, Targeting can only use the default rollout percentage.
-if manager.is_enabled("BetaCheckout", user="alice@example.com"):
-    show_new_checkout()     # alice is in the enabled slice
-else:
-    show_old_checkout()     # alice isn't (yet)
+# 3. Pass a targeting context so the library can make a stable decision for this user.
+context = TargetingContext(user_id="alice@example.com", groups=[])
+beta_enabled = manager.is_enabled("BetaCheckout", context)
+print(f"Beta checkout enabled: {beta_enabled}")
 ```
 
 **Bottom line:** reach for a feature flag when you want to *turn a capability on/off —
@@ -212,7 +233,7 @@ snapshots, RBAC, managed identity, and availability-zone redundancy. The tiers d
 
 | | **Free** | **Developer** | **Standard** | **Premium** |
 | --- | --- | --- | --- | --- |
-| Stores per subscription | 1 per region | Unlimited | Unlimited | Unlimited |
+| Stores per subscription | 3 per region | Unlimited | Unlimited | Unlimited |
 | Storage (regular + snapshot) | 10 MB + 10 MB | 500 MB + 500 MB | 1 GB + 1 GB | 4 GB + 4 GB |
 | **Requests quota** | **1,000 / day** then 429 until midnight UTC | 6,000 / hour | 30,000 / hour | No request limit |
 | Guaranteed throughput | None | None | 300 RPS read / 60 RPS write | 450 RPS read / 100 RPS write |
@@ -238,7 +259,7 @@ Things worth committing to memory:
 
 > Exact figures change over time — the [App Configuration pricing page](https://azure.microsoft.com/pricing/details/app-configuration/)
 > and [FAQ](https://learn.microsoft.com/azure/azure-app-configuration/faq) are the source of
-> truth. (Verified against the FAQ, last updated 2026-02.)
+> truth. (Verified against the FAQ on 2026-08-31.)
 
 ---
 
@@ -249,7 +270,7 @@ Goal: create an App Configuration store and seed a few keys, so you have somethi
 
 > **Two methods available:**
 > - **[CLI](#cli-setup)** — Copy-paste commands below (requires [Azure CLI](https://learn.microsoft.com/cli/azure/))
-> - **[Azure Portal (Web UI)](#portal-setup)** — Point-and-click in your browser
+> - **[Azure Portal (Web UI)](#portal-setup-web-ui)** — Point-and-click in your browser
 
 ### Set your variables
 
@@ -317,7 +338,7 @@ az provider show --namespace Microsoft.AppConfiguration --query registrationStat
 #    ^ wait until this shows 'Registered' (usually ~1-2 min) before the next step.
 
 # 3. Create the App Configuration store.
-#    --sku Free is enough for study (1 store/subscription, no replicas/SLA).
+#    --sku Free is enough for study (tight store/request limits, no replicas/SLA).
 #    Use --sku Standard for replicas, geo-replication, higher limits, and an SLA.
 az appconfig create \
   --name "$APPCONFIG" \
@@ -407,7 +428,7 @@ Prefer the browser? Create the same store in the [Azure Portal](https://portal.a
    - Key: `App:DbPassword`, pick your vault + secret → **Apply**
 
 7. **Get the connection string:**
-   - **Access settings** (left menu) → copy the **Primary** connection string.
+   - **Settings → Access keys** (left menu) → copy the **Primary** connection string.
    - Or, under **Access control (IAM)**, assign yourself **App Configuration Data Reader** to
      use the passwordless path instead.
 
@@ -420,7 +441,7 @@ name.
 
 > **Two methods available:**
 > - **[CLI](#cli-cleanup)** — Copy-paste commands below
-> - **[Azure Portal (Web UI)](#portal-cleanup)** — Point-and-click
+> - **[Azure Portal (Web UI)](#portal-cleanup-web-ui)** — Point-and-click
 
 ### CLI Cleanup
 
@@ -469,9 +490,9 @@ in one run.
 > alternatives worth knowing (both shown/noted in `app.py`):
 > - **Entra ID (passwordless):** swap the connection string for `DefaultAzureCredential()` + the
 >   store's `endpoint` and a **Data Reader/Owner** role. Recommended for production.
-> - **Provider library:** `azure-appconfiguration-provider`'s `load(...)` reads everything into a
->   dict-like object in one call and auto-resolves Key Vault references — the pattern Azure
->   recommends for apps.
+> - **Provider library:** `azure-appconfiguration-provider`'s `load(...)` reads selected settings
+>   into a dict-like object and supports refresh. Configure `keyvault_credential` (or a client /
+>   resolver) when the provider must resolve Key Vault references.
 
 > **Remember:** Run all commands below from this folder (`04-secure-monitor/app-configuration/`).
 
@@ -511,6 +532,9 @@ pip install azure-appconfiguration
 
 ```bash
 export APPCONFIG_CONNECTION_STRING="<paste the connectionString from CLI setup step 8>"
+
+# Optional: set this only if you created the Key Vault reference from setup step 7.
+export KEY_VAULT_SECRET_URI="https://<your-vault>.vault.azure.net/secrets/db-password"
 ```
 
 ### Run the sample
@@ -606,16 +630,16 @@ Two gotchas:
 - **Labels are the per-environment mechanism.** One key, different value per label
   (`dev`/`prod`). Don't invent separate keys per environment.
 - **Feature flags are just keys** with the reserved prefix `.appconfig.featureflag/`. But "no
-  redeploy" isn't what makes them special (every key changes without redeploy) — it's **feature
-  filters** (percentage / targeting / time-window) that let a flag be *conditionally* on. The
-  rollout logic runs in the app's **feature-management library**, not in App Configuration.
+  redeploy" isn't what makes them special (every setting can change independently of a deploy) —
+  it is the feature-management convention and **filters** such as targeting and time window that
+  let a flag be conditionally on. Evaluation runs in the app's library, not in the store.
 - **Data-plane roles vs Contributor.** **App Configuration Data Reader** (read) and **Data
   Owner** (read/write) grant access to the *key-values*. **Contributor** manages the *resource*
   and does **not** let you read/write data.
 - **Connection string vs Entra ID.** Both work; **Entra ID + managed identity** (no stored
   secret) is the recommended, most-tested pattern.
 - **Tiers gate scale *and* features.** Four tiers (Free · Developer · Standard · Premium). Free
-  = 1 store/region, **10 MB**, **1,000 requests/day** (then HTTP **429**), no replicas/SLA.
+  = 3 stores/region, **10 MB**, **1,000 requests/day** (then HTTP **429**), no replicas/SLA.
   Standard adds geo-replication, an SLA, customer-managed keys, soft-delete, and a far higher
   request/storage ceiling. "Higher limits" means **both storage and transactions** — see the
   [Pricing tiers](#pricing-tiers) table.
@@ -638,6 +662,6 @@ Take the **App Configuration** quiz in the [quiz app](../../quiz/)
 - Python quickstart: <https://learn.microsoft.com/azure/azure-app-configuration/quickstart-python-provider>
 - `azure-appconfiguration` SDK: <https://learn.microsoft.com/python/api/overview/azure/appconfiguration-readme>
 - Feature management: <https://learn.microsoft.com/azure/azure-app-configuration/concept-feature-management>
-- Key Vault references: <https://learn.microsoft.com/azure/azure-app-configuration/use-key-vault-references-dotnet-core>
+- Key Vault references with the Python provider: <https://learn.microsoft.com/azure/azure-app-configuration/use-key-vault-references-python-provider>
 - RBAC / data-plane roles: <https://learn.microsoft.com/azure/azure-app-configuration/concept-enable-rbac>
 - Labels & point-in-time snapshots: <https://learn.microsoft.com/azure/azure-app-configuration/concept-point-time-snapshot>

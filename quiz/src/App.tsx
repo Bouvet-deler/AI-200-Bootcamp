@@ -28,22 +28,43 @@ function shuffleArray<T>(array: T[]): T[] {
   return result;
 }
 
+// Turn fractional domain weights into whole question counts without losing or inventing a
+// question. The largest-remainder method floors every quota, then awards leftover slots to the
+// domains with the largest fractional remainder (using the domain name as a stable tie-breaker).
+function allocateQuestionsPerDomain(totalQuestions: number): Record<string, number> {
+  const quotas = Object.entries(EXAM_WEIGHTS).map(([domain, weight]) => {
+    const exactCount = totalQuestions * weight;
+    const wholeCount = Math.floor(exactCount);
+    return { domain, wholeCount, remainder: exactCount - wholeCount };
+  });
+
+  const allocation = Object.fromEntries(
+    quotas.map(({ domain, wholeCount }) => [domain, wholeCount]),
+  ) as Record<string, number>;
+  const allocatedCount = quotas.reduce((sum, quota) => sum + quota.wholeCount, 0);
+  const rankedRemainders = [...quotas].sort(
+    (left, right) => right.remainder - left.remainder || left.domain.localeCompare(right.domain),
+  );
+
+  for (let slot = 0; slot < totalQuestions - allocatedCount; slot += 1) {
+    allocation[rankedRemainders[slot].domain] += 1;
+  }
+
+  return allocation;
+}
+
 // Generate a full exam with weighted sampling.
 // `requestedCount` is how many questions the user asked for (100 = "All").
 function generateFullExam(requestedCount: number): Question[] {
 
   const exam: Question[] = [];
-  const questionsPerDomain: Record<string, number> = {};
-
-  // Calculate how many questions per domain based on weights.
+  // Calculate how many questions per domain based on the normalized representative weights.
   // "All" (100) means every question we have; otherwise honour the request,
   // never exceeding the number of questions that actually exist.
   const totalQuestions = requestedCount === 100
     ? allQuestions.length
     : Math.min(allQuestions.length, requestedCount);
-  Object.entries(EXAM_WEIGHTS).forEach(([domain, weight]) => {
-    questionsPerDomain[domain] = Math.round(totalQuestions * weight);
-  });
+  const questionsPerDomain = allocateQuestionsPerDomain(totalQuestions);
 
   // Sample questions from each domain
   for (const [domain, count] of Object.entries(questionsPerDomain)) {
@@ -82,7 +103,12 @@ function App() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [score, setScore] = useState(0);
   const [answeredCorrectly, setAnsweredCorrectly] = useState<Set<number>>(new Set());
-  const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [answerResults, setAnswerResults] = useState<Record<number, boolean>>({});
+  // Read the persisted theme during the first render. This agrees with index.html's early theme
+  // script and avoids briefly switching back to light mode while the component mounts.
+  const [darkMode, setDarkMode] = useState<boolean>(
+    () => localStorage.getItem('quiz-theme') === 'dark',
+  );
 
   // Generate questions based on mode
   const questions = useMemo(() => {
@@ -157,35 +183,26 @@ function App() {
     });
   };
 
-  // Helper to get choice ID - handles both string[] and BuildListChoice[]
+  // A build-list choice always has a stable string ID; that ID is stored instead of its current
+  // array index so reordering the visible list cannot change what an answer means.
   const getChoiceId = (index: number): string => {
     if (!currentQuestion) return index.toString();
-    const choice = currentQuestion.choices[index];
-    // If choice is an object with id property, use it
-    if (typeof choice === 'object' && choice !== null && 'id' in choice) {
-      return (choice as any).id;
+    if (currentQuestion.type === 'build-list') {
+      return currentQuestion.choices[index]?.id ?? index.toString();
     }
-    // Otherwise use the index as the ID
     return index.toString();
   };
 
-  // Helper to get choice text
+  // Resolve either an available-choice index or a previously stored choice ID to display text.
   const getChoiceText = (indexOrId: number | string): string => {
     if (!currentQuestion) return '';
-    if (typeof indexOrId === 'number') {
-      const choice = currentQuestion.choices[indexOrId];
-      if (typeof choice === 'object' && choice !== null && 'text' in choice) {
-        return (choice as any).text;
-      }
-      return choice as string;
+    if (currentQuestion.type === 'build-list') {
+      const choice = typeof indexOrId === 'number'
+        ? currentQuestion.choices[indexOrId]
+        : currentQuestion.choices.find(candidate => candidate.id === indexOrId);
+      return choice?.text ?? String(indexOrId);
     }
-    // If it's an ID string, find the choice with that ID
-    for (const choice of currentQuestion.choices) {
-      if (typeof choice === 'object' && choice !== null && 'id' in choice && (choice as any).id === indexOrId) {
-        return (choice as any).text;
-      }
-    }
-    return indexOrId;
+    return typeof indexOrId === 'number' ? currentQuestion.choices[indexOrId] ?? '' : indexOrId;
   };
 
   const handleSubmit = () => {
@@ -224,6 +241,7 @@ function App() {
         return newSet;
       });
     }
+    setAnswerResults(prev => ({ ...prev, [currentQuestionIndex]: isCorrect }));
     setShowAnswer(true);
   };
 
@@ -238,6 +256,7 @@ function App() {
       setScore(0);
       setSelectedAnswers([]);
       setAnsweredCorrectly(new Set());
+      setAnswerResults({});
     }
   };
 
@@ -259,20 +278,13 @@ function App() {
     setSelectedAnswers([]);
     setShowAnswer(false);
     setAnsweredCorrectly(new Set());
+    setAnswerResults({});
   }, [mode, selectedTopic, questionCount]);
 
   // Update theme attribute when darkMode changes
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
-
-  // Load saved theme preference from localStorage
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('quiz-theme');
-    if (savedTheme === 'dark') {
-      setDarkMode(true);
-    }
-  }, []);
 
   // Save theme preference to localStorage when it changes
   useEffect(() => {
@@ -292,40 +304,39 @@ function App() {
     <div className="container">
       <header className="header">
         <h1>AI-200 Quiz</h1>
-        <div className="theme-toggle" onClick={() => setDarkMode(!darkMode)}>
+        <label className="theme-toggle">
           <input
             type="checkbox"
             checked={darkMode}
             onChange={() => setDarkMode(!darkMode)}
-            onClick={(e) => e.stopPropagation()}
           />
           <span>{darkMode ? 'Dark' : 'Light'}</span>
-        </div>
+        </label>
         <div className="mode-selector">
-          <div
+          <label
             className={`mode-option ${mode === 'per-topic' ? 'selected' : ''}`}
-            onClick={() => setMode('per-topic')}
           >
             <input
               type="radio"
+              name="quiz-mode"
               checked={mode === 'per-topic'}
               onChange={() => setMode('per-topic')}
             />
             <div className="custom-radio"></div>
             <span>Per Topic</span>
-          </div>
-          <div
+          </label>
+          <label
             className={`mode-option ${mode === 'full-exam' ? 'selected' : ''}`}
-            onClick={() => setMode('full-exam')}
           >
             <input
               type="radio"
+              name="quiz-mode"
               checked={mode === 'full-exam'}
               onChange={() => setMode('full-exam')}
             />
             <div className="custom-radio"></div>
             <span>Full Exam</span>
-          </div>
+          </label>
         </div>
 
         <div className="topic-selector">
@@ -367,7 +378,7 @@ function App() {
             </span>
         </div>
 
-        <div className="progress">
+        <div className="progress" role="status" aria-live="polite">
           Question {progress} | Score: {score}
         </div>
       </header>
@@ -393,11 +404,16 @@ function App() {
                         const choiceText = getChoiceText(index);
 
                         return (
-                          <div
+                          <button
+                            type="button"
                             key={choiceId}
                             className={`build-list-choice-wrapper ${
                               isSelected ? 'selected' : ''
                             }`}
+                            aria-label={`Add ${choiceText} to your ordered list`}
+                            aria-pressed={isSelected}
+                            disabled={showAnswer || isSelected}
+                            onClick={() => handleAnswerSelect(index)}
                             draggable={!showAnswer && !isSelected}
                             onDragStart={(e) => {
                               if (showAnswer) return;
@@ -413,7 +429,7 @@ function App() {
                               <span className="build-list-choice-indicator">{String.fromCharCode(65 + index)}</span>
                               <span className="build-list-choice-text">{choiceText}</span>
                             </div>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>
@@ -444,7 +460,7 @@ function App() {
                       }
                     }}
                   >
-                    <h4>Your Order (Drag to reorder)</h4>
+                    <h4>Your Order (drag or use the arrow buttons)</h4>
                     {selectedAnswers[currentQuestionIndex] && selectedAnswers[currentQuestionIndex].length > 0 ? (
                       <ul className="build-list-ordered-list">
                         {(selectedAnswers[currentQuestionIndex] as string[]).map((choiceId, position) => {
@@ -488,19 +504,41 @@ function App() {
                               <span className="build-list-position">{position + 1}.</span>
                               <span className="build-list-item-text">{choiceText}</span>
                               {!showAnswer && (
-                                <button
-                                  className="build-list-remove-btn"
-                                  onClick={() => handleRemoveFromList(choiceId)}
-                                >
-                                  &times;
-                                </button>
+                                <span className="build-list-actions">
+                                  <button
+                                    type="button"
+                                    className="build-list-move-btn"
+                                    aria-label={`Move ${choiceText} up`}
+                                    disabled={position === 0}
+                                    onClick={() => handleMoveInList(position, position - 1)}
+                                  >
+                                    &uarr;
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="build-list-move-btn"
+                                    aria-label={`Move ${choiceText} down`}
+                                    disabled={position === selectedAnswers[currentQuestionIndex].length - 1}
+                                    onClick={() => handleMoveInList(position, position + 1)}
+                                  >
+                                    &darr;
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="build-list-remove-btn"
+                                    aria-label={`Remove ${choiceText} from your ordered list`}
+                                    onClick={() => handleRemoveFromList(choiceId)}
+                                  >
+                                    &times;
+                                  </button>
+                                </span>
                               )}
                             </li>
                           );
                         })}
                       </ul>
                     ) : (
-                      <p className="build-list-empty-hint">Drag items here from the left to build your ordered list</p>
+                      <p className="build-list-empty-hint">Select or drag choices here to build your ordered list</p>
                     )}
                     {showAnswer && currentQuestion.answer && (
                       <div className="build-list-correct-order">
@@ -566,7 +604,14 @@ function App() {
                   : 'Submit Answer'}
               </button>
             ) : (
-              <div className="answer-feedback">
+              <div className="answer-feedback" aria-live="polite">
+                <div
+                  className={`answer-result ${
+                    answerResults[currentQuestionIndex] ? 'correct' : 'wrong'
+                  }`}
+                >
+                  {answerResults[currentQuestionIndex] ? 'Correct' : 'Not quite'}
+                </div>
                 <div className="explanation">{currentQuestion.explanation}</div>
                 {currentQuestion.reference && (
                   <a

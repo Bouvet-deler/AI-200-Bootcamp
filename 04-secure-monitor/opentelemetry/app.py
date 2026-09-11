@@ -25,6 +25,7 @@ from azure.monitor.opentelemetry import configure_azure_monitor
 # `metrics` and `trace` are the OpenTelemetry APIs. We call them AFTER configure_... has set up
 # the SDK behind them, so anything we record is actually exported to Azure.
 from opentelemetry import metrics, trace
+from opentelemetry.trace import SpanKind, Status, StatusCode
 
 # Read the connection string from the environment. os.environ is a dict-like object of
 # environment variables; ["..."] looks one up (and errors loudly if it's missing).
@@ -60,9 +61,11 @@ def process_order(order_id: int) -> None:
 
     # Create a MANUAL span for our business logic. `with ... as span:` is Python's context
     # manager: the span STARTS here and automatically ENDS (recording its duration) when the
-    # 'with' block exits — even if an error is thrown. This span becomes the root operation and
-    # shows up in the 'requests' table; everything inside shares its operation_Id (trace ID).
-    with tracer.start_as_current_span("process_order") as span:
+    # 'with' block exits — even if an error is thrown. For this CLI demo, SERVER models the whole
+    # order run as a top-level request/background operation, so Azure maps it to 'requests'. A
+    # normal in-process manual span defaults to INTERNAL and maps to 'dependencies' / 'InProc'.
+    # Everything inside still shares this span's operation_Id (the OpenTelemetry trace ID).
+    with tracer.start_as_current_span("process_order", kind=SpanKind.SERVER) as span:
         # ATTRIBUTES are key/value tags on the span — searchable context about this operation.
         span.set_attribute("order.id", order_id)
 
@@ -83,6 +86,9 @@ def process_order(order_id: int) -> None:
             # Attach the exception to the CURRENT span. record_exception() surfaces it in the
             # 'exceptions' table, correlated to this trace.
             span.record_exception(err)
+            # Recording details and marking the outcome are separate in OpenTelemetry. Status
+            # wraps the ERROR code that tells the backend this operation failed.
+            span.set_status(Status(StatusCode.ERROR))
             # logger.exception logs at ERROR level and attaches the stack trace.
             logger.exception("Failed to process order %s", order_id)
             return  # stop early on a bad order; don't count it as processed

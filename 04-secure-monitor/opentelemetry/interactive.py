@@ -146,6 +146,11 @@ def send_metric() -> None:
         amount = int(raw)
     except ValueError:
         amount = 1
+    if amount <= 0:
+        # An OTel Counter is monotonic: it accepts positive increments only. An UpDownCounter is
+        # the separate instrument to use when a measurement must also decrease.
+        print("  ⚠ A counter increment must be positive; using 1 instead.")
+        amount = 1
     # The dict is optional dimensions (labels) you can group by later in KQL.
     demo_counter.add(amount, {"source": "playground"})
     print(f"  ✓ Added {amount} to counter 'playground.events'  (table: customMetrics)")
@@ -204,14 +209,16 @@ def _get_logs_client():
     return client
 
 
-# Maps a friendly kind -> the KQL query to run. Each returns the newest 20 rows; the 5-minute
-# window is applied by the `timespan` argument below, not in the query text.
+# LogsQueryClient uses the Log Analytics schema even though query_resource scopes the request to
+# one Application Insights resource. That means AppRequests/TimeGenerated here, rather than the
+# backward-compatible requests/timestamp names shown in Application Insights -> Logs. Each query
+# returns the newest 20 rows; the five-minute window comes from the `timespan` argument below.
 _QUERIES = {
-    "traces": "traces | project timestamp, message, severityLevel | order by timestamp desc | take 20",
-    "requests": "requests | project timestamp, name, resultCode, duration, success | order by timestamp desc | take 20",
-    "dependencies": "dependencies | project timestamp, name, target, success, duration | order by timestamp desc | take 20",
-    "exceptions": "exceptions | project timestamp, type, outerMessage, operation_Id | order by timestamp desc | take 20",
-    "customMetrics": "customMetrics | project timestamp, name, value | order by timestamp desc | take 20",
+    "traces": "AppTraces | project TimeGenerated, Message, SeverityLevel | order by TimeGenerated desc | take 20",
+    "requests": "AppRequests | project TimeGenerated, Name, ResultCode, DurationMs, Success | order by TimeGenerated desc | take 20",
+    "dependencies": "AppDependencies | project TimeGenerated, Name, Target, Success, DurationMs | order by TimeGenerated desc | take 20",
+    "exceptions": "AppExceptions | project TimeGenerated, ExceptionType, OuterMessage, OperationId | order by TimeGenerated desc | take 20",
+    "customMetrics": "AppMetrics | project TimeGenerated, Name, Sum | order by TimeGenerated desc | take 20",
 }
 
 

@@ -3,9 +3,9 @@
 # file will NOT be available to your code in Azure.
 # Install locally with: pip install -r requirements.txt
 
-# Required for every Python function app. Version 1.11.0+ is what enables the v2
-# programming model (the decorators used in function_app.py).
-azure-functions
+# Required for every Python function app. This range starts at the current stable release
+# verified for the sample and avoids silently crossing a future breaking major version.
+azure-functions>=1.25.0,<2.0.0
 
 # --- Optional, uncomment as needed ---------------------------------------------
 # Only add SDKs you actually use. Triggers and bindings do NOT need these — the host

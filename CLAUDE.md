@@ -35,7 +35,9 @@ to Azure**. Write for that reader:
   via `import.meta.glob` in `quiz/src/questions/index.ts` — never hand-register a bank.
 - Question shape is defined in `quiz/src/types.ts`. Keep new questions valid against it:
   - `type`: `'single' | 'multi' | 'build-list'`
-  - `answer` is always an array of choice indices (ordered, for `build-list`).
+  - For `single` and `multi`, `answer` is an array of zero-based choice indices.
+  - For `build-list`, choices are `id`/`text` objects and `answer` is the ordered array of
+    choice IDs.
   - Always include a teaching `explanation`, and a `reference` link to the topic guide when
     one exists.
 - Full-exam sampling weights live in `quiz/src/lib/examWeights.ts` and mirror the official
@@ -48,3 +50,5 @@ to Azure**. Write for that reader:
 3. That's it — the quiz auto-discovers the new bank; the README links into the domain folder.
 
 Keep this file and `.github/copilot-instructions.md` in sync — they state the same rules.
+
+Do not commit changes unless the user explicitly asks for a commit.

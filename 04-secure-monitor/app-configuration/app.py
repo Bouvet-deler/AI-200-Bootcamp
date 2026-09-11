@@ -93,7 +93,12 @@ def set_and_get_keyvault_reference() -> None:
     # App Configuration never holds the actual secret — it holds the address in Key Vault.
     # Resolving the real value requires the app to ALSO have Key Vault access (see ../key-vault/).
     # Here we only store and read the reference; we do not fetch the secret.
-    secret_uri = "https://<your-vault>.vault.azure.net/secrets/db-password"
+    # This URI identifies an existing Key Vault secret. Keep it optional so the otherwise
+    # runnable sample does not write a fake '<your-vault>' reference into a real config store.
+    secret_uri = os.environ.get("KEY_VAULT_SECRET_URI")
+    if not secret_uri:
+        print("[kv-ref]  skipped (set KEY_VAULT_SECRET_URI to an existing secret URI)")
+        return
     reference = SecretReferenceConfigurationSetting(key="App:DbPassword", secret_id=secret_uri)
     client.set_configuration_setting(reference)
 
@@ -115,10 +120,15 @@ def list_app_keys() -> None:
 # `if __name__ == "__main__":` means "only run this when the file is executed directly"
 # (not when imported by another file). Standard Python entry-point idiom.
 if __name__ == "__main__":
-    set_and_get_plain_value()
-    set_and_get_labeled_values()
-    set_and_get_feature_flag()
-    set_and_get_keyvault_reference()
-    list_app_keys()
+    try:
+        # Run each small demonstration in sequence against the same reusable SDK client.
+        set_and_get_plain_value()
+        set_and_get_labeled_values()
+        set_and_get_feature_flag()
+        set_and_get_keyvault_reference()
+        list_app_keys()
 
-    print("Done. Open App Configuration > Configuration explorer in the portal to see these keys.")
+        print("Done. Open App Configuration > Configuration explorer in the portal to see these keys.")
+    finally:
+        # `finally` runs even if an Azure request fails, so network resources are still released.
+        client.close()

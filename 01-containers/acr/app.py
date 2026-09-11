@@ -6,12 +6,17 @@
 #
 # Then make sure you're signed in and point the script at your registry (bash/fish):
 #   az login
-#   export ACR_ENDPOINT="https://<your-registry-name>.azurecr.io"
+#   export ACR_ENDPOINT="https://<login-server-from-az-acr-show>"
 #
-# You need at least the AcrPull role on the registry (see the README's Setup step).
+# An RBAC-only registry needs AcrPull. An ABAC-enabled registry needs Container Registry
+# Repository Reader plus Container Registry Repository Catalog Lister for this catalog-wide sample.
 # This sample only READS. The delete calls at the bottom are commented out on purpose.
 
 import os        # 'import' loads a module (a library). 'os' lets us read environment variables.
+
+# urlparse separates an URL into parts such as scheme and host. Using it is safer than manually
+# removing "https://", and it also handles an accidental trailing slash in ACR_ENDPOINT.
+from urllib.parse import urlparse
 
 # `from X import y` pulls just the named class into scope (instead of the whole module).
 # ContainerRegistryClient is the DATA-PLANE client — it talks to the registry's image data
@@ -27,12 +32,27 @@ from azure.identity import DefaultAzureCredential
 # Read the registry endpoint from the environment.
 # os.environ is a dict-like object of environment variables; ["..."] looks one up
 # (and raises a clear KeyError if you forgot to `export` it).
-endpoint = os.environ["ACR_ENDPOINT"]  # e.g. https://ai200acr.azurecr.io
+endpoint = os.environ["ACR_ENDPOINT"].rstrip("/")  # e.g. https://ai200acr.azurecr.io
 
-# Derive the bare login server ("ai200acr.azurecr.io") from the URL, so we can build the
-# fully-qualified image references (<login-server>/<repo>:<tag>) that you'd actually pull.
-# .replace(...) strips the scheme; it's just plain string editing, nothing Azure-specific.
-login_server = endpoint.replace("https://", "").replace("http://", "")
+# Parse once so we can validate every URL component before opening a network client.
+# A ParseResult is a small object with fields such as scheme, hostname, path, query, and fragment.
+parsed_endpoint = urlparse(endpoint)
+
+# A real ACR endpoint is an HTTPS origin, not a repository URL. Reject paths, query strings, and
+# fragments so a value such as "https://registry.azurecr.io/repository" cannot silently produce
+# misleading image references.
+if (
+    parsed_endpoint.scheme != "https"
+    or parsed_endpoint.hostname is None
+    or parsed_endpoint.path not in ("", "/")
+    or parsed_endpoint.params
+    or parsed_endpoint.query
+    or parsed_endpoint.fragment
+):
+    raise ValueError("ACR_ENDPOINT must be a full URL such as https://myregistry.azurecr.io")
+
+# The hostname is now known to exist. It can include ACR's optional DNS-name-scope hash.
+login_server = parsed_endpoint.hostname
 
 
 def main() -> None:
@@ -80,8 +100,11 @@ def main() -> None:
 
         # --- How you'd DELETE (left commented out so nothing is removed by accident) --------
         # delete_tag removes just the TAG (the label), leaving the underlying image/manifest.
-        # delete_manifest removes the actual IMAGE by digest (needs the AcrDelete role).
-        # Uncomment and set real values to try it — this permanently deletes data.
+        # delete_manifest removes the actual IMAGE by digest. RBAC-only registries use
+        # AcrDelete; ABAC-enabled registries use Container Registry Repository Contributor.
+        # Uncomment and set real values only when you intend to delete data. Artifact soft delete
+        # can provide a recovery window when that preview policy is enabled; without it, deletion
+        # is not recoverable through ACR.
         #
         #   client.delete_tag("web-api", "v1.1")                     # remove one tag
         #   client.delete_manifest("web-api", "sha256:<digest...>")  # remove one image build

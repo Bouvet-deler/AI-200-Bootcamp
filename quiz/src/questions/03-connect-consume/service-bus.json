@@ -20,7 +20,7 @@
     "domain": "03-connect-consume",
     "topic": "service-bus",
     "type": "single",
-    "question": "Several workers compete to process each invoice exactly once. Which Service Bus entity should receive the invoice command?",
+    "question": "Several workers compete so that only one worker handles each delivery of an invoice command. Which Service Bus entity should receive it?",
     "choices": [
       "A queue",
       "A topic with one subscription per worker",
@@ -28,7 +28,7 @@
       "A Service Bus namespace"
     ],
     "answer": [0],
-    "explanation": "A queue uses competing consumers: one queue message is delivered to one receiver. A topic would create independent subscription copies, which is the wrong shape when only one worker should process the command.",
+    "explanation": "A queue uses competing consumers: one queue message goes to one receiver for a given delivery. Peek-Lock can redeliver after a failure, so this is not an exactly-once guarantee and the invoice processor must still be idempotent. A topic with separate subscriptions would intentionally create independent copies.",
     "reference": "../../03-connect-consume/service-bus/README.md#2-queue-vs-topic-and-subscription"
   },
   {
@@ -337,15 +337,15 @@
     "domain": "03-connect-consume",
     "topic": "service-bus",
     "type": "single",
-    "question": "In the Python walkthrough, which SDK type builds a client from the SAS connection string?",
+    "question": "Which Python expression creates the passwordless namespace client used in the walkthrough?",
     "choices": [
-      "ServiceBusClient.from_connection_string",
-      "ServiceBusMessage.from_connection_string",
-      "ServiceBusSubQueue.from_connection_string",
-      "ServiceBusReceiveMode.from_connection_string"
+      "ServiceBusClient(fully_qualified_namespace, DefaultAzureCredential())",
+      "ServiceBusClient.from_connection_string(SERVICEBUS_CONNECTION_STRING)",
+      "ServiceBusMessage(fully_qualified_namespace)",
+      "ServiceBusSubQueue(DefaultAzureCredential())"
     ],
     "answer": [0],
-    "explanation": "ServiceBusClient.from_connection_string opens the namespace client using the SAS connection string. The client then creates queue senders, topic senders, and queue or subscription receivers.",
+    "explanation": "The walkthrough passes the fully qualified namespace and a DefaultAzureCredential token credential to ServiceBusClient. Locally the credential can reuse az login; in Azure the same code can use a managed identity. No SAS connection string is stored.",
     "reference": "../../03-connect-consume/service-bus/send_receive_deadletter.py"
   },
   {
@@ -396,5 +396,85 @@
     "answer": [0, 1, 2],
     "explanation": "Service Bus is pull-based brokered messaging with settlement. Event Grid pushes event notifications. Event Hubs is a replayable stream rather than per-message work completion, and Storage Queues do not provide Service Bus topics/subscriptions.",
     "reference": "../../03-connect-consume/service-bus/README.md#7-choosing-the-messaging-service"
+  },
+  {
+    "id": "service-bus-025",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "A Peek-Lock worker legitimately needs eight minutes to process a message, but the entity's lock duration is five minutes. What should the worker do?",
+    "choices": [
+      "Complete the message before starting the work",
+      "Renew the message lock while processing, for example with the SDK's automatic lock renewer",
+      "Switch to Receive-and-Delete",
+      "Increase MaxDeliveryCount to make the current lock longer"
+    ],
+    "answer": [1],
+    "explanation": "Entity lock duration can be at most five minutes, but a Peek-Lock receiver can renew a live lock. The SDK's automatic lock renewal helper is appropriate for legitimately longer work. Complete only after the business work succeeds; MaxDeliveryCount controls retries, not lock length.",
+    "reference": "../../03-connect-consume/service-bus/README.md#4-receiving-locks-and-settlement"
+  },
+  {
+    "id": "service-bus-026",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "multi",
+    "question": "A production app has one managed identity that only sends to a queue and another that only receives. Which least-privilege assignments are correct? (Select all that apply)",
+    "choices": [
+      "Assign Azure Service Bus Data Sender to the sending identity",
+      "Assign Azure Service Bus Data Receiver to the receiving identity",
+      "Assign namespace Contributor to both; it automatically grants send and receive",
+      "Give both identities RootManageSharedAccessKey"
+    ],
+    "answer": [0, 1],
+    "explanation": "Use the dedicated data-plane roles and scope them to the smallest practical entity. A management-plane Contributor assignment does not grant send or receive operations, and sharing the namespace's all-powerful SAS policy is broader and secret-based.",
+    "reference": "../../03-connect-consume/service-bus/README.md#exam-gotchas"
+  },
+  {
+    "id": "service-bus-027",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "build-list",
+    "question": "Put the setup for a selective high-priority topic subscription in order.",
+    "choices": [
+      { "id": "create-subscription", "text": "Create the topic subscription" },
+      { "id": "delete-default", "text": "Delete its $Default TrueFilter rule" },
+      { "id": "create-filter", "text": "Create a rule with the SQL filter priority = 'high'" },
+      { "id": "receive", "text": "Receive matching messages from the subscription" }
+    ],
+    "answer": ["create-subscription", "delete-default", "create-filter", "receive"],
+    "explanation": "A new subscription starts with $Default, which accepts everything. Delete it before adding the selective SQL rule; otherwise the default rule still copies normal-priority messages. Consumers then receive from the subscription, never directly from the topic.",
+    "reference": "../../03-connect-consume/service-bus/README.md#2-queue-vs-topic-and-subscription"
+  },
+  {
+    "id": "service-bus-028",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "A dead-lettered message has remained in a Service Bus DLQ longer than its original time-to-live. Why is it still present?",
+    "choices": [
+      "DLQs ignore normal message TTL and have no automatic cleanup",
+      "DLQs automatically renew the original message lock forever",
+      "The topic recreates every expired message",
+      "MaxDeliveryCount resets the TTL each hour"
+    ],
+    "answer": [0],
+    "explanation": "The built-in DLQ does not observe normal message TTL and does not purge itself. A receiver must inspect and deliberately settle DLQ messages; completing a DLQ copy deletes it rather than replaying it.",
+    "reference": "../../03-connect-consume/service-bus/README.md#5-dead-letter-queues-dlqs"
+  },
+  {
+    "id": "service-bus-029",
+    "domain": "03-connect-consume",
+    "topic": "service-bus",
+    "type": "single",
+    "question": "A worker commits an order to a database, but its complete_message call fails after the lock is lost. Service Bus later redelivers the message. What prevents a duplicate order?",
+    "choices": [
+      "Use Receive-and-Delete for all orders",
+      "Make the database operation idempotent using MessageId or a stable business key",
+      "Assume Peek-Lock guarantees exactly-once processing",
+      "Remove MessageId so Service Bus cannot recognize the message"
+    ],
+    "answer": [1],
+    "explanation": "Peek-Lock protects against loss but permits redelivery when settlement is not confirmed. Store a stable message or business key with the database effect so a repeated delivery detects that the order was already applied. Broker duplicate detection protects repeated sends, not this receive-side case.",
+    "reference": "../../03-connect-consume/service-bus/README.md#4-receiving-locks-and-settlement"
   }
 ]

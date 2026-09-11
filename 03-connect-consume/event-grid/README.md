@@ -108,8 +108,10 @@ An event subscription can filter on:
   **operator** (`StringIn`, `NumberGreaterThan`, `BoolEquals`, `StringContains`, …) and a value.
   Up to 25 advanced filters and 25 filter values **in total** are allowed per subscription.
 
-> **Exam gotcha:** filters are evaluated with **AND** — an event must satisfy every filter on a
-> subscription to be delivered, not just one.
+> **Exam gotcha:** different filter conditions are evaluated with **AND** — an event must satisfy
+> every condition on the subscription. Multiple values inside one `StringIn`, `NumberIn`, or
+> similar filter are alternatives (**OR**). Subject matching is case-insensitive by default; you
+> can opt into case-sensitive subject filtering.
 
 ### 4. Delivery, retries, and dead-lettering
 
@@ -118,16 +120,19 @@ backoff**.
 
 | Setting | Default | Configurable? |
 | --- | --- | --- |
-| Retry attempts | Up to **30** | `--max-delivery-attempts` (1–30) |
+| Delivery attempts | Up to **30**, including the initial attempt | `--max-delivery-attempts` (1–30) |
 | Event time-to-live | **24 hours** | `--event-ttl` (1–1440 minutes) |
 | Retry schedule | Exponential backoff, capped | Not directly tunable — governed by the two settings above |
 | Dead-letter destination | None (expired events are dropped) | A **Storage Blob container**, via `--deadletter-endpoint` |
 
-A delivery is retried on failed responses. A **200–204** response from the handler counts as
-success. Once **either** the retry-attempt cap **or** the TTL is hit, the event is dropped — or,
-if configured, sent to the **dead-letter** Storage container instead of being lost. Retry timing
-is nondeterministic, so write handlers to be **idempotent**: safely process a duplicate event
-without repeating its business effect.
+Most transient failures are retried, but not every failure is retryable. For a webhook, Event Grid
+doesn't retry HTTP **400, 401, 403, or 413**; it schedules the event for dead-lettering immediately,
+or drops it when no dead-letter destination exists. A **200–204** response counts as success.
+Once **either** the delivery-attempt cap **or** the TTL is hit, the event is dropped — or, if
+configured, sent to the **dead-letter** Storage container instead of being lost. Retry timing is
+nondeterministic, delivery order isn't guaranteed, and at-least-once delivery can produce
+duplicates. Write handlers to be **idempotent**: safely process an already-seen event without
+repeating its business effect.
 
 > **Exam gotcha:** dead-lettering is **opt-in** and always a **Storage Blob container** — Event
 > Grid has no built-in dead-letter *queue* the way Service Bus does.
@@ -154,52 +159,29 @@ without repeating its business effect.
 
 ### 6. Event Grid vs. Service Bus vs. Event Hubs vs. Storage Queues
 
-Azure has four services that all shuttle small pieces of data between applications, and at first
-glance they look like the same thing four times — so here is a comparison. Two questions separate
-them: **what does each one actually hold on to**, and **what does it do with that item once
-somebody has read it?**
+Azure has four services that move data between applications. The useful distinction is whether the
+item is a **notification**, a **piece of work**, or a **stream record**, and how a consumer
+acknowledges it.
 
-Two pieces of jargon you will meet in the Microsoft docs, in plain English first:
+Two terms used in the Microsoft documentation:
 
-- **Peek-lock** (Service Bus, Storage Queues) — when a worker takes a job off the list, the job
-  isn't deleted, just *hidden* from the other workers while that one works on it. Finish → it's
-  deleted. Crash → it becomes visible again and another worker picks it up.
-- **Pub/sub** (publish/subscribe) — the sender doesn't address anyone in particular. It announces
-  *"this happened"*, and every app that registered an interest gets its own copy.
+- **Peek-Lock** (Service Bus) — the broker gives one receiver an exclusive lock. The receiver
+  completes the message after successful work; if it crashes or abandons the message, Service Bus
+  can redeliver it. Storage Queues use a similar *visibility timeout*, but don't call it Peek-Lock.
+- **Pub/sub** (publish/subscribe) — a sender announces that something happened, and each matching
+  subscription gets an independent delivery.
 
-#### What each one holds, and what it does with it
+| Service | Best mental model | Retention and acknowledgement |
+| --- | --- | --- |
+| **Event Grid Basic** | Push a small notification to matching handlers | Keeps an undelivered event only for its retry policy (at most 24 hours). An HTTP 200–204 acknowledges delivery; it isn't a consumer-browsable work queue. |
+| **Service Bus** | Broker a command or business message | Holds the message until it expires or a receiver settles it. Peek-Lock supports explicit complete/abandon/dead-letter operations. |
+| **Storage Queues** | Simple durable work backlog | A received message is temporarily invisible and must be deleted after success. It has no built-in DLQ, topics, or sessions. |
+| **Event Hubs** | Append records to a partitioned stream | Retains events for a configured window regardless of reads. Consumer groups track independent positions, so events can be replayed. |
 
-| Service | What it holds | Example of one item | What it does with it |
-| --- | --- | --- | --- |
-| **Event Grid** | Nothing, really — it's a phone call | *"File `invoice-42.pdf` was uploaded"* | Immediately calls every interested app's URL. As soon as one answers "got it", Event Grid forgets the item |
-| **Service Bus** | A to-do list of jobs | *"Charge card for order 42, 499 kr, customer 7"* | Hands a job to one worker and hides it. Deletes it when that worker says "done"; puts it back if the worker crashes |
-| **Storage Queues** | The same to-do list, bare-bones | *"Resize image `cat.jpg`"* | Same idea, with none of the extras — no ordering, no dead-letter queue, no topics |
-| **Event Hubs** | A long tape of readings, in order | *"Sensor 17, 21.4 °C, 12:00:03"* | Keeps everything and lets readers scroll through it. Reading does **not** remove anything |
-
-#### How long it keeps things
-
-| Service | Kept for                                                                                     | If the reader crashes mid-job |
-| --- |----------------------------------------------------------------------------------------------| --- |
-| **Event Grid** | Until a handler answers "got it" — retried for up to 24 hours, then dead-lettered or dropped | The item is already gone. Lost. |
-| **Service Bus** | Until a worker says "done" (a TTL you set — days or weeks)                                   | Comes back on the list automatically |
-| **Storage Queues** | Same as Service Bus                                                                          | Comes back on the list automatically |
-| **Event Hubs** | A fixed number of days (1–7 on the standard tier), no matter who has read it                 | The reader restarts from its last bookmark |
-
-#### The one-line version
-
-- **Event Grid** — *"tell everyone this happened."* Doesn't store; it notifies.
-- **Service Bus** — *"this job must get done, by the rules."* Holds the job until a worker
-  confirms it finished, and can enforce order, grouping, and all-or-nothing.
-- **Storage Queues** — *"this job must get done, no rules needed."* Holds it just as safely, but
-  can't do order, grouping, or a problem-list. In exchange it's dirt cheap and takes enormous
-  volumes.
-- **Event Hubs** — *"record everything that happened."* Stores for N days; many readers can
-  re-read it independently.
-
-This is also why Event Grid is the wrong choice for orders and payments: **it drops the event the
-moment your code answers the phone.** If your code then crashes, that order is gone. Service Bus
-keeps the job hidden-but-alive until you explicitly confirm you have finished, so a crash costs
-you nothing.
+Event Grid's acknowledgement covers **delivery to the handler**, not the handler's later business
+work. If a webhook returns 200 and then fails before persisting its result, Event Grid considers the
+delivery complete. For an order or payment that must remain locked until processing finishes, put
+the command on Service Bus (or have the Event Grid handler enqueue it before acknowledging).
 
 #### The exam-shorthand version
 
@@ -211,8 +193,8 @@ you nothing.
 | Retention | Until delivered or TTL expires | Until consumed (or a queue TTL) | Fixed retention window (hours–days), replayable |
 | Typical use | *"A blob was created — go react to it"* | *"Process this order reliably"* | *"Ingest 100k device telemetry events/sec"* |
 
-> **Exam gotcha:** if the scenario says **"react to something that happened"** with low volume
-> and fan-out to multiple subscribers → **Event Grid**. **"Reliably process a business
+> **Exam gotcha:** if the scenario says **"react to something that happened"** and fan out a
+> notification to multiple handlers → **Event Grid**. **"Reliably process a business
 > transaction, possibly with ordering/locks"** → **Service Bus**. **"Ingest a firehose of
 > telemetry for analytics"** → **Event Hubs**.
 
@@ -222,6 +204,13 @@ you nothing.
 
 Goal: create a CloudEvents custom topic and an event subscription with a **subject filter** and a
 **custom retry policy**, delivering to an Azure Function or a CloudEvents-capable webhook.
+
+**Prerequisites:** an Azure subscription, Azure CLI, `az login` as a Microsoft Entra user, and
+permission to create resources and role assignments. The data-plane role assignment below can take
+several minutes to become effective.
+
+**Region and shell:** the commands use `westeurope` and **bash** syntax. Azure Cloud Shell's Bash
+mode is the simplest copy-paste environment.
 
 > **Two methods available:**
 > - **[CLI](#cli-setup)** — copy-paste commands (requires [Azure CLI](https://learn.microsoft.com/cli/azure/))
@@ -238,41 +227,12 @@ Goal: create a CloudEvents custom topic and an event subscription with a **subje
   an Event Grid trigger handles the platform validation automatically.
 
 ```bash
-# bash / zsh — Linux, and macOS (its default shell)
+# bash / zsh, including Azure Cloud Shell in Bash mode
 RG="ai200-eg-rg"
 LOCATION="westeurope"
-TOPIC="ai200-orders-topic"
+TOPIC="ai200-orders-$(date +%s)" # Timestamp makes the regional name likely to be unique.
 ENDPOINT="<your-webhook-url>"
 ```
-
-```fish
-# fish — Linux / macOS
-set RG ai200-eg-rg
-set LOCATION westeurope
-set TOPIC ai200-orders-topic
-set ENDPOINT "<your-webhook-url>"
-```
-
-```powershell
-# PowerShell — Windows (also cross-platform)
-$RG = "ai200-eg-rg"
-$LOCATION = "westeurope"
-$TOPIC = "ai200-orders-topic"
-$ENDPOINT = "<your-webhook-url>"
-```
-
-```bat
-:: Command Prompt (cmd.exe) — Windows
-set RG=ai200-eg-rg
-set LOCATION=westeurope
-set TOPIC=ai200-orders-topic
-set ENDPOINT=<your-webhook-url>
-```
-
-> **Referencing variables:** the `az` snippets use bash-style `"$RG"`, which also works in fish
-> and PowerShell. In **cmd** use `%RG%` instead. The trailing `\` on long commands is a *bash*
-> line-continuation — in PowerShell use a backtick `` ` ``, in cmd use `^`, or put the command on
-> one line.
 
 ### CLI Setup
 
@@ -293,55 +253,34 @@ az eventgrid topic create \
   --resource-group "$RG" \
   --location "$LOCATION" \
   --input-schema cloudeventschemav1_0
-```
 
-> **Step 4 assigns shell variables** — this is the one place in CLI Setup where bash, fish,
-> PowerShell, and cmd syntax actually diverges. Steps 1–3 and 5 only *read* `$VAR`/`%VAR%`
-> inside `az` calls, which works the same across shells (see
-> [referencing variables](#set-your-variables) above) — it's assignment that differs per shell.
-
-```bash
-# 4. Fetch the topic's endpoint, access key, and resource ID (bash / zsh)
+# 4. Fetch the endpoint and resource ID. The Python sample never retrieves an access key.
 TOPIC_ENDPOINT=$(az eventgrid topic show \
   --name "$TOPIC" --resource-group "$RG" --query endpoint --output tsv)
-TOPIC_KEY=$(az eventgrid topic key list \
-  --name "$TOPIC" --resource-group "$RG" --query key1 --output tsv)
 TOPIC_ID=$(az eventgrid topic show \
   --name "$TOPIC" --resource-group "$RG" --query id --output tsv)
-echo "Endpoint: $TOPIC_ENDPOINT"
-```
+SIGNED_IN_USER_ID=$(az ad signed-in-user show --query id --output tsv)
 
-```fish
-# 4. Fetch the topic's endpoint, access key, and resource ID (fish)
-set TOPIC_ENDPOINT (az eventgrid topic show --name $TOPIC --resource-group $RG --query endpoint --output tsv)
-set TOPIC_KEY (az eventgrid topic key list --name $TOPIC --resource-group $RG --query key1 --output tsv)
-set TOPIC_ID (az eventgrid topic show --name $TOPIC --resource-group $RG --query id --output tsv)
-echo "Endpoint: $TOPIC_ENDPOINT"
-```
+# 5. Authorize only this signed-in user to publish to this topic. EventGrid Data Sender is a
+#    data-plane role; management roles such as Contributor do not grant event-publish permission.
+az role assignment create \
+  --assignee-object-id "$SIGNED_IN_USER_ID" \
+  --assignee-principal-type User \
+  --role "d5a91429-5739-47e2-a06b-3470a27159e7" \
+  --scope "$TOPIC_ID"
 
-```powershell
-# 4. Fetch the topic's endpoint, access key, and resource ID (PowerShell)
-$TOPIC_ENDPOINT = az eventgrid topic show --name $TOPIC --resource-group $RG --query endpoint --output tsv
-$TOPIC_KEY = az eventgrid topic key list --name $TOPIC --resource-group $RG --query key1 --output tsv
-$TOPIC_ID = az eventgrid topic show --name $TOPIC --resource-group $RG --query id --output tsv
-Write-Host "Endpoint: $TOPIC_ENDPOINT"
-```
+# Disable access-key/SAS authentication after assigning the Entra role. The preview API version is
+# required by Microsoft's documented CLI path for this property on Event Grid Basic topics.
+az resource update \
+  --ids "$TOPIC_ID" \
+  --api-version 2021-06-01-preview \
+  --set properties.disableLocalAuth=true
 
-```bat
-:: 4. Fetch the topic's endpoint, access key, and resource ID (cmd)
-for /f "delims=" %%i in ('az eventgrid topic show --name %TOPIC% --resource-group %RG% --query endpoint --output tsv') do set TOPIC_ENDPOINT=%%i
-for /f "delims=" %%i in ('az eventgrid topic key list --name %TOPIC% --resource-group %RG% --query key1 --output tsv') do set TOPIC_KEY=%%i
-for /f "delims=" %%i in ('az eventgrid topic show --name %TOPIC% --resource-group %RG% --query id --output tsv') do set TOPIC_ID=%%i
-echo Endpoint: %TOPIC_ENDPOINT%
-```
-
-```bash
-# 5. Create an event subscription with:
+# 6. Create an event subscription with:
 #    --subject-begins-with     a SUBJECT FILTER — only "orders/" events reach this handler
 #    --max-delivery-attempts / --event-ttl   a custom RETRY POLICY
 #    --event-delivery-schema   the schema DELIVERED to the handler. This CloudEvents-input
 #    topic can deliver CloudEvents only, so this explicit value documents the contract.
-# (cmd users: use %TOPIC_ID%/%ENDPOINT% instead of $TOPIC_ID/$ENDPOINT below.)
 az eventgrid event-subscription create \
   --name "orders-webhook-sub" \
   --source-resource-id "$TOPIC_ID" \
@@ -374,22 +313,21 @@ Prefer the browser? Create the same resources in the [Azure Portal](https://port
 3. **Create the custom topic:**
    - Click **+ Create a resource** → search "Event Grid Topic" → **Create**
    - Resource group: `ai200-eg-rg`
-   - Name: `ai200-orders-topic` (must be globally unique per region)
+   - Name: `ai200-orders-<unique-suffix>` (must be unique within the Azure region)
    - Region: `West Europe`
-   - **Event Schema**: **Cloud Event Schema v1.0** (recommended for new topics)
-   - **Networking** and **Security** tabs: leave at defaults (public access, key-based auth) —
-     see the callout below
+   - **Advanced** tab: select **Cloud Event Schema v1.0** (recommended for new topics), then set
+     **Local Authentication** to **Disabled** so publishers must use Microsoft Entra ID
+   - **Networking** tab: public access is adequate for this short lab; production topics commonly
+     restrict publisher ingress with IP rules or private endpoints
    - Click **Review + create** → **Create**
 
-> **Networking / Security tabs:** left at defaults (public access, key-based auth) in this
-> guide — they're not part of the AI-200 skill bullet for Event Grid (filters, custom events,
-> retries). In production you'd typically restrict access with a **private endpoint** or **IP
-> firewall rules** (Networking tab), and prefer **Microsoft Entra ID (managed identity)** over
-> the access key this guide's Python sample uses (Security tab → **Local Authentication**).
-
-4. **Get the endpoint and key:**
+4. **Authorize your developer identity and get the endpoint:**
+   - Open the topic → **Access control (IAM)** → **Add role assignment**
+   - Select **EventGrid Data Sender**, choose **User, group, or service principal**, and select the
+     same user that will run `az login` locally
    - Open the topic resource → **Overview** for the **Topic Endpoint**
-   - **Settings** → **Access keys** for **Key 1**
+   - Do not copy an access key; the Python walkthrough uses a short-lived token for your signed-in
+     Microsoft Entra identity. Allow several minutes for the role assignment to propagate.
 
 5. **Create an event subscription with a filter and retry policy:**
    - For the simplest endpoint, deploy an **Azure Function with an Event Grid trigger** (see the
@@ -441,6 +379,9 @@ CloudEvents topic** — do not create a second topic or change the event schema.
 > immediately. The `WebHook-Request-Callback` header provides the manual alternative. For a
 > production webhook, implement the `OPTIONS` response; for the least setup, use an Event
 > Grid-triggered Azure Function.
+>
+> Do not publish secrets or personal data to a public request-capture service. Use webhook.site only
+> with synthetic learning events such as the sample payloads in this folder.
 
 ---
 
@@ -451,8 +392,9 @@ CloudEvents topic** — do not create a second topic or change the event schema.
 az group delete --name "$RG" --yes --no-wait
 ```
 
-> **Important:** deleting a resource group is **permanent**. Everything in it is destroyed and
-> cannot be recovered.
+> **Important:** resource-group deletion is destructive and has no general undo. Review the
+> resource list before confirming; any service-specific recovery depends on protections that were
+> configured for that individual resource.
 
 ---
 
@@ -486,10 +428,10 @@ source .venv/bin/activate.fish
 pip install -r requirements.txt
 ```
 
-### 3. Set your topic endpoint and key
+### 3. Sign in and set the topic endpoint
 
-> **Use a fresh `az` query here, in *this* shell session — don't reuse `$TOPIC_ENDPOINT`/
-> `$TOPIC_KEY` from [CLI Setup](#cli-setup) step 4.** Those variables only exist in the shell
+> **Use a fresh `az` query here, in *this* shell session — don't reuse `$TOPIC_ENDPOINT` from
+> [CLI Setup](#cli-setup) step 4.** That variable exists only in the shell
 > they were assigned in; if step 4 and this step run in different terminals (or even just
 > different `bash -c` calls), `$TOPIC_ENDPOINT` silently expands to an **empty string** and you
 > get a confusing SDK error (`ValueError: ... url part topicHostname was incorrect ...`) instead
@@ -498,35 +440,14 @@ pip install -r requirements.txt
 > if you don't already have them set.
 
 ```bash
-# bash / zsh
-export EVENTGRID_TOPIC_ENDPOINT=$(az eventgrid topic show \
-  --name "$TOPIC" --resource-group "$RG" --query endpoint --output tsv)
-export EVENTGRID_TOPIC_KEY=$(az eventgrid topic key list \
-  --name "$TOPIC" --resource-group "$RG" --query key1 --output tsv)
+# DefaultAzureCredential can reuse the developer identity authenticated by Azure CLI.
+az login
+export EVENTGRID_TOPIC_ENDPOINT="$(az eventgrid topic show \
+  --name "$TOPIC" --resource-group "$RG" --query endpoint --output tsv)"
 ```
 
-```fish
-# fish — `set -x` is fish's equivalent of `export`
-set -x EVENTGRID_TOPIC_ENDPOINT (az eventgrid topic show --name $TOPIC --resource-group $RG --query endpoint --output tsv)
-set -x EVENTGRID_TOPIC_KEY (az eventgrid topic key list --name $TOPIC --resource-group $RG --query key1 --output tsv)
-```
-
-```powershell
-# PowerShell
-$env:EVENTGRID_TOPIC_ENDPOINT = az eventgrid topic show --name $TOPIC --resource-group $RG --query endpoint --output tsv
-$env:EVENTGRID_TOPIC_KEY = az eventgrid topic key list --name $TOPIC --resource-group $RG --query key1 --output tsv
-```
-
-```bat
-:: cmd
-for /f "delims=" %%i in ('az eventgrid topic show --name %TOPIC% --resource-group %RG% --query endpoint --output tsv') do set EVENTGRID_TOPIC_ENDPOINT=%%i
-for /f "delims=" %%i in ('az eventgrid topic key list --name %TOPIC% --resource-group %RG% --query key1 --output tsv') do set EVENTGRID_TOPIC_KEY=%%i
-```
-
-If you followed [Portal Setup](#portal-setup-web-ui) instead of the CLI, there's no `az` session
-to query — paste the endpoint and key from the portal (Overview → Topic Endpoint, Settings →
-Access keys) directly in place of the `EVENTGRID_TOPIC_ENDPOINT`/`EVENTGRID_TOPIC_KEY` values
-above.
+If you followed [Portal Setup](#portal-setup-web-ui), replace the query with the topic endpoint from
+**Overview**, but still run `az login`; `DefaultAzureCredential` uses that signed-in identity.
 
 ### 4. Run it
 
@@ -546,6 +467,11 @@ setup step 5, and never reaches that handler.
 - **Push, not poll (Event Grid Basic).** Event Grid Basic calls your handler; Service Bus and
   Event Hubs are pulled from. If a scenario says "the handler must not run a polling loop," that
   is an Event Grid Basic signal.
+
+- **Publishing authentication and delivery authentication are separate.** This sample authorizes a
+  publisher with **EventGrid Data Sender** and Microsoft Entra ID. A webhook validation handshake
+  proves endpoint ownership but does not by itself authenticate later deliveries; production
+  webhooks should also use Event Grid's supported delivery-authentication options.
 
 - **Webhook validation depends on the delivery schema.** Event Grid-schema delivery uses a
   `SubscriptionValidationEvent` and `validationCode` (or its `validationUrl`); CloudEvents
@@ -575,8 +501,12 @@ setup step 5, and never reaches that handler.
   attempts or 24 hours (defaults)**, whichever happens first. Retry timing is nondeterministic,
   and expiration is evaluated at a scheduled delivery attempt.
 
-- **At least once means duplicates are possible.** Make the handler idempotent so processing an
-  already-seen event does not repeat its business effect.
+- **Some failures are not retried.** For webhooks, HTTP 400, 401, 403, and 413 go straight to
+  dead-lettering, or are dropped when no dead-letter destination is configured. Other failures
+  follow the retry policy.
+
+- **At least once means duplicates are possible, and order isn't guaranteed.** Make the handler
+  idempotent and don't infer business order from delivery order.
 
 - **Dead-lettering is opt-in and Blob-only.** Without a configured dead-letter endpoint, an event
   that exhausts retries is simply **dropped**, not queued anywhere for later inspection.
@@ -591,6 +521,14 @@ setup step 5, and never reaches that handler.
 - **`subject` is what filters usually match, not `type`.** `subjectBeginsWith`/`EndsWith` filter
   on the resource path (`orders/12345`); `includedEventTypes` filters on the *kind* of event
   (`Orders.OrderCreated`). Know which one a scenario is describing.
+
+- **Filter logic has two levels.** Different filter conditions are ANDed. Multiple accepted
+  values inside one `StringIn`/`NumberIn` filter are OR alternatives. Subject filters are
+  case-insensitive unless the subscription enables case-sensitive matching.
+
+- **Event Grid Basic events are at most 1 MB.** Batches can contain up to 5,000 events, but the
+  total publish request is also limited by size. Keep notifications small and put large content in
+  storage, with a URI in the event.
 
 ---
 
@@ -613,3 +551,4 @@ Take the **Event Grid** quiz in the [quiz app](../../quiz/)
 - System topics: <https://learn.microsoft.com/azure/event-grid/system-topics>
 - Compare messaging services: <https://learn.microsoft.com/azure/event-grid/compare-messaging-services>
 - Python SDK reference: <https://learn.microsoft.com/python/api/overview/azure/eventgrid-readme>
+- Publisher authentication with Microsoft Entra ID: <https://learn.microsoft.com/azure/event-grid/authenticate-with-microsoft-entra-id>

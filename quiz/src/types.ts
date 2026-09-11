@@ -12,10 +12,8 @@ export interface QuestionBase {
   domain: string; // e.g., "04-secure-monitor"
   topic: string; // e.g., "kql"
   question: string;
-  choices: string[] | BuildListChoice[];
-  answer: number[] | string[]; // array of choice indices (0-based) or choice IDs for build-list
   explanation: string;
-  reference?: string; // link to topic guide
+  reference: string; // link to the topic guide or other directly supporting local material
 }
 
 // Discriminated union for question types
@@ -35,8 +33,8 @@ export interface MultiAnswerQuestion extends QuestionBase {
 
 export interface BuildListQuestion extends QuestionBase {
   type: 'build-list';
-  // For build-list, choices can be objects with id and text
-  choices: string[] | BuildListChoice[];
+  // Stable IDs let the UI reorder choices without changing the meaning of an answer.
+  choices: BuildListChoice[];
   // Answer is the correct order of choice IDs
   answer: string[];
 }
@@ -46,12 +44,4 @@ export type Question = SingleAnswerQuestion | MultiAnswerQuestion | BuildListQue
 // Domain weights for full-exam sampling (mirror official AI-200 percentages)
 export interface DomainWeights {
   [domain: string]: number; // e.g., "01-containers": 0.225 (22.5%)
-}
-
-// Progress tracking stored in localStorage
-export interface UserProgress {
-  lastAttempted: string; // ISO timestamp
-  correctByTopic: Record<string, number>;
-  totalByTopic: Record<string, number>;
-  fullExamAttempts: number;
 }
