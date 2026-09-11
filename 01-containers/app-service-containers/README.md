@@ -32,7 +32,8 @@ The skill bullet is *"Deploy containers to Azure App Service, including configur
 - **Configuring environment variables** (app settings) and **secrets** (Key Vault references) that get injected into the running container.
 - **Understanding deployment slots** — staging environments with **swap** for zero-downtime production rollouts.
 - **Scaling** — App Service uses **App Service Plans** (not Kubernetes pods); scaling is by plan tier and instance count.
-- **Authentication** — how the App Service app gets **AcrPull** permission on ACR (managed identity).
+- **Authentication** — how the App Service app gets the appropriate ACR pull permission through
+  managed identity.
 - **Networking** — custom domains, TLS/SSL, VNet integration options.
 - **Logging & diagnostics** — where container logs appear (App Service Logs, Log Stream, Container console).
 
@@ -58,9 +59,9 @@ When your app runs a **container** instead of code, these specifics apply:
 
 | Concept | How it works with containers |
 | --- | --- |
-| **Image source** | Pulls from **Azure Container Registry (ACR)** or Docker Hub. Images from ACR require the app's **managed identity** to have the **AcrPull** role. |
+| **Image source** | Pulls from **Azure Container Registry (ACR)** or Docker Hub. For an ACR using **RBAC Registry Permissions**, the app's managed identity needs **AcrPull**. For **RBAC Registry + ABAC Repository Permissions**, use **Container Registry Repository Reader** instead. |
 | **Container configuration** | Configure the image, startup command, and registry authentication. Classic Linux custom containers use `linuxFxVersion`; sidecar-enabled apps store each container as a site-container resource. |
-| **Port mapping** | App Service assumes a classic custom container listens on port 80. Set the `WEBSITES_PORT` app setting when it listens elsewhere. A sidecar-enabled app instead gives its main container a target port. Only one port receives App Service HTTP traffic. |
+| **Port mapping** | App Service assumes a classic custom container listens on port 80. Set the `WEBSITES_PORT` app setting when it listens elsewhere. In a sidecar-enabled app, exactly one **main** container receives external HTTP traffic; sidecars share its network namespace and are reached on `localhost:<port>`. The sidecar `Port`/`targetPort` field is metadata, not an App Service routing switch. |
 | **Continuous Deployment** | Can auto-pull a new image on **tag update** (e.g. `latest`) from ACR, or use **webhooks** for custom triggers. |
 | **Scaling** | Controlled by the **App Service Plan** — you scale the *plan's* instances, not the container itself. There is **no scale-to-zero**; paid plan capacity remains allocated. **Always On** is a separate setting that keeps an app loaded and is off by default. |
 | **Storage** | Image-layer writes outside the App Service persistent path are **ephemeral** and can disappear on restart or instance replacement. Enable App Service storage where appropriate or mount supported Azure Storage for persistent data. |
@@ -93,16 +94,16 @@ When you deploy a container to App Service, you configure it with these key sett
 | **Startup Command** | (Optional) overrides the image's ENTRYPOINT | gunicorn --bind 0.0.0.0:80 app:app |
 | **Startup File** | (Optional) overrides the image's CMD | Not used if Startup Command is set |
 | **Classic-container HTTP port** | App setting used when the main container listens somewhere other than the assumed port 80 | WEBSITES_PORT=8080 |
-| **Sidecar-enabled target port** | The one main-container port to which App Service sends HTTP traffic | 8080 |
+| **Sidecar `Port` / `targetPort`** | Metadata describing the container port; it does not configure public App Service routing | 8080 |
 | **App Settings** | Environment variables available to the container | DB_HOST=server.database.azure.com |
 | **Key Vault References** | Secure way to inject secrets as environment variables | DB_PASSWORD=@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/...) |
 | **Continuous Deployment** | Auto-update container when image tag changes | On with tag latest |
 
-> **Critical:** App Service must route to the port on which the main process actually listens. For
-> a classic custom container listening on 8080, set `WEBSITES_PORT=8080`. For a sidecar-enabled
-> app, set the main site-container's target port. App Service doesn't infer the listening port
-> from Dockerfile `EXPOSE`; a mismatch prevents the health checks and HTTP proxy from reaching the
-> app.
+> **Critical:** For a classic custom container listening on 8080, set
+> `WEBSITES_PORT=8080`; `EXPOSE` alone does not configure classic-container routing. In a
+> sidecar-enabled app, designate the externally reachable container as the **main** container
+> (`isMain: true`). Do not use its `Port`/`targetPort` field as a routing fix: App Service treats
+> that field as metadata. The main container reaches a sidecar over `localhost:<sidecar-port>`.
 
 ### Managed identity and ACR pull permissions
 
@@ -135,7 +136,10 @@ az webapp config set \
 An ACR using **RBAC Registry + ABAC Repository Permissions** uses **Container Registry Repository
 Reader**, normally with a repository-name condition, instead of `AcrPull`.
 
-> **Exam tip:** This is a common scenario. When an App Service container can't pull from ACR, the symptom is **"Image pull failed"** or **"Unauthorized"** in the logs — and the fix is ensuring the app's managed identity has **AcrPull** on the registry.
+> **Exam tip:** This is a common scenario. When an App Service container can't pull from ACR, the
+> symptom is **"Image pull failed"** or **"Unauthorized"** in the logs. On an ACR using **RBAC
+> Registry Permissions**, ensure the app's managed identity has **AcrPull**; on an ABAC-enabled
+> registry, use **Container Registry Repository Reader** instead.
 
 ### Deployment slots for containers
 
@@ -562,13 +566,17 @@ az webapp log download \
 ### 6. Diagnose common container issues
 
 **Symptom: startup/availability failure**
-- Cause: The container isn't listening on the routed port, failed its startup checks, or crashed.
-- Fix: For a classic custom container, check `WEBSITES_PORT`; for a sidecar-enabled app, check the
-  main container target port. Then inspect Log Stream.
+- Cause: The classic container isn't listening on its configured port, the intended main
+  sidecar-enabled container is not configured as `isMain: true`, a startup check failed, or the
+  process crashed.
+- Fix: For a classic custom container, check `WEBSITES_PORT`. For a sidecar-enabled app, confirm
+  the intended container is the main one and inspect Log Stream; changing `targetPort` does not
+  change App Service routing.
 
 **Symptom: Image pull failed / Unauthorized**
-- Cause: Apps managed identity lacks AcrPull on the ACR.
-- Fix: Grant the role as shown in Setup.
+- Cause: The app's managed identity lacks the ACR data-plane permission for the registry mode.
+- Fix: Grant **AcrPull** on an RBAC-only registry, or **Container Registry Repository Reader** on
+  an ABAC-enabled registry, as shown in Setup.
 
 **Symptom: Container won't start / exits immediately**
 - Cause: Missing environment variable, bad config, or app error.
@@ -584,12 +592,15 @@ az webapp log download \
 
 - **Classic versus sidecar-enabled.** A classic app runs one custom container. A sidecar-enabled
   Linux app runs one main container plus optional sidecars; they share the app lifecycle and scale.
-- **Port must match.** Classic custom containers assume port 80 unless `WEBSITES_PORT` is set.
-  Sidecar-enabled apps configure the main container's target port. `EXPOSE` alone doesn't configure
-  App Service routing.
+- **Ports and sidecars differ.** Classic custom containers assume port 80 unless `WEBSITES_PORT`
+  is set. A sidecar-enabled app sends external traffic only to its main container; its
+  `Port`/`targetPort` field is metadata, and sidecars are reached over `localhost`. `EXPOSE` alone
+  does not configure classic-container routing.
 - **Know what the tier buys.** Basic B1 supports a Linux custom container. Standard or higher is
   required for deployment slots; use current documentation for Windows-container plan support.
-- Managed identity + AcrPull. App Service uses its system-assigned managed identity to pull from ACR. It needs the AcrPull role. This is often auto-configured, but know how to grant it manually.
+- Managed identity + ACR permission. For **RBAC Registry Permissions**, App Service uses its
+  selected managed identity with **AcrPull**. An ABAC-enabled registry instead uses **Container
+  Registry Repository Reader**. Know which registry mode the scenario specifies.
 - App Settings = environment variables. App Services App Settings become environment variables inside the container. Key Vault references let you inject secrets the same way.
 - No scale-to-zero. Paid App Service plans retain allocated capacity. **Always On** is a separate,
   off-by-default setting that keeps an app loaded; for demand-driven scale-to-zero, use Container

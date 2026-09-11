@@ -69,7 +69,7 @@ into something usable:
 | **Key–value** | The unit of storage: a `key`, its `value`, and optional `label`/`content-type`. |
 | **Key namespacing** | By convention keys use `:` to imply hierarchy, e.g. `App:Api:Timeout`. It's just a naming style — App Configuration doesn't have real folders. |
 | **Label** | An optional second axis on a key. The *same* key can hold a different value per label (`dev`, `prod`, `""`). This is how you get per-environment config from one key. |
-| **Content type** | A free-form tag on a value. Two content types are special: **feature flags** and **Key Vault references** are ordinary keys with a reserved content type + key prefix. |
+| **Content type** | A free-form tag on a value. Feature flags and Key Vault references use special content types. Only feature flags also require the reserved `.appconfig.featureflag/` key prefix; a Key Vault reference can use an ordinary key such as `Database:ConnectionString`. |
 | **Feature flag** | A specially-namespaced key (prefix `.appconfig.featureflag/`) whose JSON value describes whether a feature is on — optionally via **filters** (percentage, targeting, time window). See [Feature flags in depth](#feature-flags-in-depth). |
 | **Key Vault reference** | A key whose value is a **URI pointing at a Key Vault secret** (not the secret itself). The app resolves the real value from Key Vault at read time. |
 | **Snapshot** | An **immutable, named, point-in-time** set of key-values. Good for pinning a known-good config or rolling back. |

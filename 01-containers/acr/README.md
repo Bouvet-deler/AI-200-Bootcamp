@@ -252,11 +252,10 @@ set LOCATION=westeurope
 set ACR=ai200acr%RANDOM%
 ```
 
-> **Referencing the variables in the commands below.** The `az` snippets are written bash-style
-> (`"$RG"`) and work unchanged in **bash/zsh, fish, and PowerShell** (all expand `$RG`). In
-> **cmd**, write **`%RG%`** instead. The `\` at the end of long commands is a *bash*
-> line-continuation — in PowerShell use a backtick `` ` ``, in cmd use `^`, or just put the whole
-> command on one line.
+> **Shell syntax in this walkthrough.** The CLI Setup and Cleanup blocks are **Bash** commands:
+> they use Bash variable references (`"$RG"`), command substitution (`$(...)`), `printf`, and `\`
+> line continuations. Run them in Azure Cloud Shell (Bash), WSL, or another Bash-compatible shell.
+> Fish and PowerShell require their own variable and continuation syntax; cmd uses `%RG%`.
 
 ### CLI Setup
 

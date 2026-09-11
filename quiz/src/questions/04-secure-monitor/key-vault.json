@@ -88,12 +88,12 @@
     "question": "What happens when you update a secret in Azure Key Vault?",
     "choices": [
       "The old secret is deleted permanently",
-      "A new version is created and the old version is kept for recovery",
+      "A new version is created and the old version remains independently addressable",
       "The secret name changes automatically",
       "The application using it must be redeployed immediately"
     ],
     "answer": [1],
-    "explanation": "When you update a secret, a new version is created and the old version is kept. This versioning enables safe rotation — applications can continue to use the old version if needed, while new requests get the latest version.",
+    "explanation": "When you update a secret, Key Vault creates a new version and retains the prior version as an independently addressable version. This versioning enables safe rotation: an application can pin a known version while versionless reads resolve to the latest. Soft-delete recovery is a separate feature for deleted objects.",
     "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
   },
   {
@@ -310,7 +310,7 @@
     "domain": "04-secure-monitor",
     "topic": "key-vault",
     "type": "single",
-    "question": "Which of these is a valid key type for cryptographic operations in Key Vault?",
+    "question": "Which of these is a valid software-protected key type in a Standard Azure Key Vault?",
     "choices": [
       "AES",
       "RSA",
@@ -318,7 +318,7 @@
       "SHA"
     ],
     "answer": [1],
-    "explanation": "RSA is a valid key type for cryptographic operations in Azure Key Vault. EC (Elliptic Curve) is also supported. AES and DES are symmetric encryption algorithms, not key types stored in Key Vault. SHA is a hashing algorithm.",
+    "explanation": "Standard Key Vault supports software-protected RSA and EC keys, so RSA is correct. AES is available only as the preview `oct-HSM` symmetric key type in Premium Key Vault, not as a software-protected Standard-vault key. DES is not a supported Key Vault key type, and SHA is a hashing algorithm.",
     "reference": "../../04-secure-monitor/key-vault/README.md#core-concepts"
   },
   {

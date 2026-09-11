@@ -251,8 +251,9 @@ immediately. These commands are destructive; verify `RG`, `VAULT`, and `LOCATION
 ```bash
 az group delete --name "$RG" --yes --no-wait
 
-# Run this after the vault has reached the deleted state.
-# It succeeds only because the study vault was created without purge protection.
+# Run this after the vault has reached the deleted state. Purging requires both that the study
+# vault was created without purge protection and that your subscription-level identity has the
+# deleted-vault purge permission (for example, through the Key Vault Purge Operator role).
 az keyvault purge --name "$VAULT" --location "$LOCATION"
 ```
 

@@ -476,12 +476,12 @@
     "type": "single",
     "question": "Which query correctly counts distinct users?",
     "choices": [
-      "`requests | count distinct user_Id`",
+      "`requests | distinct user_Id | count`",
       "`requests | summarize count() by user_Id`",
       "`requests | summarize count() by distinct user_Id`",
       "`requests | count user_Id`"
     ],
-    "answer": [1],
+    "answer": [0],
     "explanation": "To count distinct values: first use `distinct` to get unique values, then `count`: `requests | distinct user_Id | count`. Alternatively: `requests | summarize dcount(user_Id)`.",
     "reference": "../../04-secure-monitor/kql/README.md#worked-queries"
   },
