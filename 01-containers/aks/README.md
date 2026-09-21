@@ -227,6 +227,9 @@ Replace the `<placeholders>`.
 > If `az provider register` returns an authorization error, you lack subscription rights — ask an
 > Azure admin to register the namespaces above.
 
+<details open>
+<summary>Bash CLI Setup</summary>
+
 ```bash
 # 1. Create the resource group (skip if you already made one in another topic).
 az group create --name "$RG" --location "$LOCATION"
@@ -268,6 +271,8 @@ kubectl get nodes
 # If you forgot --attach-acr at create time, grant AcrPull now with a single command:
 az aks update --resource-group "$RG" --name "$CLUSTER" --attach-acr "$ACR"
 ```
+
+</details>
 
 > **"Why do I suddenly have 4 resource groups?"** Creating one cluster spreads resources across
 > **several** resource groups — most of them made **automatically**. This surprises everyone the

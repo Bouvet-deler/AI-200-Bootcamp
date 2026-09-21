@@ -252,6 +252,9 @@ az extension add --name monitor --only-show-errors
 Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first), after
 [setting your variables](#set-your-variables) above.
 
+<details open>
+<summary>Bash CLI Setup</summary>
+
 ```bash
 # 1. Create the resource group
 az group create --name "$RG" --location "$LOCATION"
@@ -274,6 +277,8 @@ az containerapp env create \
 # 4. Verify the environment was created
 az containerapp env list --resource-group "$RG" --output table
 ```
+
+</details>
 
 The environment is now ready. Next, you'll [deploy an app](#hands-on-python--simple-web-api-with-queue-based-scaling).
 

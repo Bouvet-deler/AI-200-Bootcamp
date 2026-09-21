@@ -262,6 +262,9 @@ set ACR=ai200acr%RANDOM%
 Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first), after
 [setting your variables](#set-your-variables) above.
 
+<details open>
+<summary>Bash CLI Setup</summary>
+
 ```bash
 # 1. Create the resource group (skip if you already made one in another topic).
 az group create --name "$RG" --location "$LOCATION"
@@ -306,6 +309,8 @@ az acr login --name "$ACR"
 # 8. Print the login server captured above for ACR_ENDPOINT below.
 printf '%s\n' "$LOGIN_SERVER"
 ```
+
+</details>
 
 **RBAC — grant a service (or user) pull access (recommended, passwordless).** A running app
 needs **AcrPull**; a CI pipeline that pushes needs **AcrPush**:

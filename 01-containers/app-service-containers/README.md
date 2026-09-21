@@ -241,6 +241,9 @@ set ACR=ai200acr%RANDOM%
 
 Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (az login first), after setting your variables above.
 
+<details open>
+<summary>Bash CLI Setup</summary>
+
 ```bash
 # 1. Create the resource group (skip if you already made one in another topic).
 az group create --name "$RG" --location "$LOCATION"
@@ -330,6 +333,8 @@ az webapp config set \
   --name "$APP" \
   --generic-configurations '{"acrUseManagedIdentityCreds": true}'
 ```
+
+</details>
 
 ### Portal Setup (Web UI)
 
