@@ -255,6 +255,9 @@ set ENDPOINT=<your-webhook-url>
 Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first), after
 [setting your variables](#set-your-variables) above.
 
+<details open>
+<summary>Bash CLI Setup</summary>
+
 ```bash
 # 1. Create the resource group
 az group create --name "$RG" --location "$LOCATION"
@@ -306,6 +309,8 @@ az eventgrid event-subscription create \
   --event-ttl 60 \
   --event-delivery-schema cloudeventschemav1_0
 ```
+
+</details>
 
 <details>
 <summary>PowerShell CLI Setup</summary>

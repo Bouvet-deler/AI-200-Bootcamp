@@ -296,6 +296,9 @@ set PRIORITY_SUBSCRIPTION=high-priority-orders
 Run these commands after [setting the variables](#set-your-variables). `az group create` is
 safe to re-run; resource creation commands are idempotent when their properties do not conflict.
 
+<details open>
+<summary>Bash CLI Setup</summary>
+
 ```bash
 # 1. Create the resource group — a logical container for the namespace and its entities.
 az group create --name "$RG" --location "$LOCATION"
@@ -386,6 +389,8 @@ az servicebus namespace update \
   --name "$NAMESPACE" \
   --disable-local-auth true
 ```
+
+</details>
 
 <details>
 <summary>PowerShell CLI Setup</summary>

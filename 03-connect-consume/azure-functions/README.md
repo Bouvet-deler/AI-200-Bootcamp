@@ -344,6 +344,9 @@ set PYTHON_VERSION=3.12
 Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first), after
 [setting your variables](#set-your-variables) above.
 
+<details open>
+<summary>Bash CLI Setup</summary>
+
 ```bash
 # 1. Create the resource group
 az group create --name "$RG" --location "$LOCATION"
@@ -476,6 +479,8 @@ az functionapp create \
 # On Dedicated, turn on Always On so timer and queue triggers keep firing when idle
 az functionapp config set --name "$FUNCTIONAPP" --resource-group "$RG" --always-on true
 ```
+
+</details>
 
 <details>
 <summary>PowerShell CLI Setup</summary>
