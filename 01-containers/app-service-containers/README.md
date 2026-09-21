@@ -133,6 +133,57 @@ az webapp config set \
   --generic-configurations '{"acrUseManagedIdentityCreds": true}'
 ```
 
+<details>
+<summary>PowerShell RBAC commands</summary>
+
+```powershell
+# Get the app's principal ID.
+$APP_PRINCIPAL_ID = az webapp show --resource-group <rg> --name <app> `
+  --query identity.principalId --output tsv
+
+# Get the ACR resource ID.
+$ACR_ID = az acr show --name <acr> --resource-group <rg> --query id --output tsv
+
+# Grant AcrPull to the app's identity on the registry.
+az role assignment create `
+  --assignee $APP_PRINCIPAL_ID `
+  --role AcrPull `
+  --scope $ACR_ID
+
+# Tell the App Service container to use its managed identity for ACR authentication.
+az webapp config set `
+  --resource-group <rg> `
+  --name <app> `
+  --generic-configurations '{"acrUseManagedIdentityCreds": true}'
+```
+
+</details>
+
+<details>
+<summary>Command Prompt (cmd.exe) RBAC commands</summary>
+
+```bat
+:: Get the app's principal ID.
+for /f "delims=" %%I in ('az webapp show --resource-group <rg> --name <app> --query identity.principalId --output tsv') do set APP_PRINCIPAL_ID=%%I
+
+:: Get the ACR resource ID.
+for /f "delims=" %%I in ('az acr show --name <acr> --resource-group <rg> --query id --output tsv') do set ACR_ID=%%I
+
+:: Grant AcrPull to the app's identity on the registry.
+az role assignment create ^
+  --assignee %APP_PRINCIPAL_ID% ^
+  --role AcrPull ^
+  --scope %ACR_ID%
+
+:: Tell the App Service container to use its managed identity for ACR authentication.
+az webapp config set ^
+  --resource-group <rg> ^
+  --name <app> ^
+  --generic-configurations "{\"acrUseManagedIdentityCreds\": true}"
+```
+
+</details>
+
 An ACR using **RBAC Registry + ABAC Repository Permissions** uses **Container Registry Repository
 Reader**, normally with a repository-name condition, instead of `AcrPull`.
 

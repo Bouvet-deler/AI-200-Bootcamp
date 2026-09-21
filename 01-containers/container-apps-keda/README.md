@@ -652,6 +652,51 @@ az containerapp revision list --name ai200-demo --resource-group "$RG" --output 
 
 ```
 
+<details>
+<summary>PowerShell RBAC commands</summary>
+
+```powershell
+# Get the Container App's managed identity principal ID and the ACR resource ID.
+$APP_PRINCIPAL_ID = az containerapp identity show `
+  --name ai200-demo --resource-group $RG --query principalId --output tsv
+$ACR_ID = az acr show --name $ACR_NAME --resource-group $RG --query id --output tsv
+
+# Grant the app identity AcrPull on the registry.
+az role assignment create `
+  --assignee-object-id $APP_PRINCIPAL_ID `
+  --assignee-principal-type ServicePrincipal `
+  --role AcrPull `
+  --scope $ACR_ID
+
+# If the first private-image pull happened before the role assignment propagated, list revisions.
+az containerapp revision list --name ai200-demo --resource-group $RG --output table
+# az containerapp revision restart --name ai200-demo --resource-group $RG --revision <revision-name>
+```
+
+</details>
+
+<details>
+<summary>Command Prompt (cmd.exe) RBAC commands</summary>
+
+```bat
+:: Get the Container App's managed identity principal ID and the ACR resource ID.
+for /f "delims=" %%I in ('az containerapp identity show --name ai200-demo --resource-group %RG% --query principalId --output tsv') do set APP_PRINCIPAL_ID=%%I
+for /f "delims=" %%I in ('az acr show --name %ACR_NAME% --resource-group %RG% --query id --output tsv') do set ACR_ID=%%I
+
+:: Grant the app identity AcrPull on the registry.
+az role assignment create ^
+  --assignee-object-id %APP_PRINCIPAL_ID% ^
+  --assignee-principal-type ServicePrincipal ^
+  --role AcrPull ^
+  --scope %ACR_ID%
+
+:: If the first private-image pull happened before the role assignment propagated, list revisions.
+az containerapp revision list --name ai200-demo --resource-group %RG% --output table
+:: az containerapp revision restart --name ai200-demo --resource-group %RG% --revision <revision-name>
+```
+
+</details>
+
 The deployment will:
 1. Pull the image from ACR
 2. Create the app with HTTP ingress

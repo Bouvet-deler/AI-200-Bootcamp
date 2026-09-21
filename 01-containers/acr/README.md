@@ -400,6 +400,46 @@ az role assignment create \
 # az aks update --name <aks-cluster> --resource-group "$RG" --attach-acr "$ACR"
 ```
 
+<details>
+<summary>PowerShell RBAC commands</summary>
+
+```powershell
+# The registry's resource ID is the scope for the role assignment.
+$ACR_ID = az acr show --name $ACR --resource-group $RG --query id --output tsv
+
+# Grant YOUR signed-in user AcrPull (swap for AcrPush to also push).
+$SIGNED_IN_USER_ID = az ad signed-in-user show --query id --output tsv
+az role assignment create `
+  --assignee $SIGNED_IN_USER_ID `
+  --role AcrPull `
+  --scope $ACR_ID
+
+# Let an AKS cluster pull from this registry with its managed identity:
+# az aks update --name <aks-cluster> --resource-group $RG --attach-acr $ACR
+```
+
+</details>
+
+<details>
+<summary>Command Prompt (cmd.exe) RBAC commands</summary>
+
+```bat
+:: The registry's resource ID is the scope for the role assignment.
+for /f "delims=" %%I in ('az acr show --name %ACR% --resource-group %RG% --query id --output tsv') do set ACR_ID=%%I
+
+:: Grant YOUR signed-in user AcrPull (swap for AcrPush to also push).
+for /f "delims=" %%I in ('az ad signed-in-user show --query id --output tsv') do set SIGNED_IN_USER_ID=%%I
+az role assignment create ^
+  --assignee %SIGNED_IN_USER_ID% ^
+  --role AcrPull ^
+  --scope %ACR_ID%
+
+:: Let an AKS cluster pull from this registry with its managed identity:
+:: az aks update --name <aks-cluster> --resource-group %RG% --attach-acr %ACR%
+```
+
+</details>
+
 ### Portal Setup (Web UI)
 
 Prefer the browser? Create the same registry in the [Azure Portal](https://portal.azure.com):
