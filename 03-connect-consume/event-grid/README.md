@@ -234,6 +234,22 @@ TOPIC="ai200-orders-$(date +%s)" # Timestamp makes the regional name likely to b
 ENDPOINT="<your-webhook-url>"
 ```
 
+```powershell
+# PowerShell - Windows (also cross-platform)
+$RG = "ai200-eg-rg"
+$LOCATION = "westeurope"
+$TOPIC = "ai200-orders-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
+$ENDPOINT = "<your-webhook-url>"
+```
+
+```bat
+:: Command Prompt (cmd.exe) - Windows
+set RG=ai200-eg-rg
+set LOCATION=westeurope
+set TOPIC=ai200-orders-%RANDOM%%RANDOM%
+set ENDPOINT=<your-webhook-url>
+```
+
 ### CLI Setup
 
 Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first), after

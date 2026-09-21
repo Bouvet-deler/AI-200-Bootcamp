@@ -320,6 +320,25 @@ FUNCTIONAPP="ai200-func-$(date +%s)"
 PYTHON_VERSION="3.12"
 ```
 
+```powershell
+# PowerShell - Windows (also cross-platform)
+$timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+$RG = "ai200-func-rg"
+$LOCATION = "westeurope"
+$STORAGE = "ai200funcsa$timestamp"
+$FUNCTIONAPP = "ai200-func-$timestamp"
+$PYTHON_VERSION = "3.12"
+```
+
+```bat
+:: Command Prompt (cmd.exe) - Windows
+set RG=ai200-func-rg
+set LOCATION=westeurope
+set STORAGE=ai200funcsa%RANDOM%%RANDOM%
+set FUNCTIONAPP=ai200-func-%RANDOM%%RANDOM%
+set PYTHON_VERSION=3.12
+```
+
 ### CLI Setup
 
 Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az login` first), after

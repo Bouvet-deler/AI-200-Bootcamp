@@ -269,6 +269,28 @@ ALL_SUBSCRIPTION="all-orders"
 PRIORITY_SUBSCRIPTION="high-priority-orders"
 ```
 
+```powershell
+# PowerShell - Windows (also cross-platform)
+$RG = "ai200-servicebus-rg"
+$LOCATION = "westeurope"
+$NAMESPACE = "ai200-sb-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
+$QUEUE = "orders"
+$TOPIC = "order-events"
+$ALL_SUBSCRIPTION = "all-orders"
+$PRIORITY_SUBSCRIPTION = "high-priority-orders"
+```
+
+```bat
+:: Command Prompt (cmd.exe) - Windows
+set RG=ai200-servicebus-rg
+set LOCATION=westeurope
+set NAMESPACE=ai200-sb-%RANDOM%%RANDOM%
+set QUEUE=orders
+set TOPIC=order-events
+set ALL_SUBSCRIPTION=all-orders
+set PRIORITY_SUBSCRIPTION=high-priority-orders
+```
+
 ### CLI Setup
 
 Run these commands after [setting the variables](#set-your-variables). `az group create` is
