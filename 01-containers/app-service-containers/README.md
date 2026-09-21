@@ -340,28 +340,40 @@ az webapp config set \
 <summary>PowerShell CLI Setup</summary>
 
 ```powershell
+# 1. Create the resource group (skip if you already made one in another topic).
 az group create --name $RG --location $LOCATION
+# 2. Register the App Service and Container Registry providers (one-time per subscription).
 az provider register --namespace Microsoft.Web --wait
 az provider register --namespace Microsoft.ContainerRegistry --wait
+# 3. Create a Basic RBAC-only registry to hold the image.
 az acr create --name $ACR --resource-group $RG --sku Basic --admin-enabled false `
   --role-assignment-mode rbac
+# 4. Build the sample image in the cloud and push it to the registry.
 az acr build --registry $ACR --image web-api:v1.0 `
   https://github.com/Azure-Samples/acr-build-helloworld-node
+# Query the actual login server instead of constructing it from the registry name.
 $LOGIN_SERVER = az acr show --name $ACR --resource-group $RG --query loginServer --output tsv
+# 5. Create the Linux App Service Plan.
 az appservice plan create --name $PLAN --resource-group $RG --sku S1 --is-linux `
   --location $LOCATION
+# 6. Create the app with a system-assigned identity and managed-identity ACR auth.
 az webapp create --name $APP --resource-group $RG --plan $PLAN `
   --container-image-name "$LOGIN_SERVER/web-api:v1.0" --assign-identity "[system]" `
   --acr-use-identity --acr-identity "[system]"
+# 7. Grant the app identity permission to pull from the registry.
 $APP_PRINCIPAL_ID = az webapp identity show --name $APP --resource-group $RG `
   --query principalId --output tsv
 $ACR_ID = az acr show --name $ACR --resource-group $RG --query id --output tsv
 az role assignment create --assignee-object-id $APP_PRINCIPAL_ID `
   --assignee-principal-type ServicePrincipal --role AcrPull --scope $ACR_ID
+# 8. Configure environment variables as App Service settings.
 az webapp config appsettings set --name $APP --resource-group $RG `
   --settings "APP_ENV=production" "LOG_LEVEL=info"
+# 9. Print the app URL.
 az webapp show --name $APP --resource-group $RG --query defaultHostName --output tsv
+# 10. Optional: enable continuous deployment for this image tag.
 az webapp deployment container config --name $APP --resource-group $RG --enable-cd true
+# For an existing app using registry credentials, switch to managed-identity ACR auth.
 az webapp config set --resource-group $RG --name $APP `
   --generic-configurations '{"acrUseManagedIdentityCreds": true}'
 ```
@@ -372,27 +384,39 @@ az webapp config set --resource-group $RG --name $APP `
 <summary>Command Prompt (cmd.exe) CLI Setup</summary>
 
 ```bat
+:: 1. Create the resource group (skip if you already made one in another topic).
 az group create --name %RG% --location %LOCATION%
+:: 2. Register the App Service and Container Registry providers (one-time per subscription).
 az provider register --namespace Microsoft.Web --wait
 az provider register --namespace Microsoft.ContainerRegistry --wait
+:: 3. Create a Basic RBAC-only registry to hold the image.
 az acr create --name %ACR% --resource-group %RG% --sku Basic --admin-enabled false ^
   --role-assignment-mode rbac
+:: 4. Build the sample image in the cloud and push it to the registry.
 az acr build --registry %ACR% --image web-api:v1.0 ^
   https://github.com/Azure-Samples/acr-build-helloworld-node
+:: Query the actual login server instead of constructing it from the registry name.
 for /f "delims=" %%I in ('az acr show --name %ACR% --resource-group %RG% --query loginServer --output tsv') do set LOGIN_SERVER=%%I
+:: 5. Create the Linux App Service Plan.
 az appservice plan create --name %PLAN% --resource-group %RG% --sku S1 --is-linux ^
   --location %LOCATION%
+:: 6. Create the app with a system-assigned identity and managed-identity ACR auth.
 az webapp create --name %APP% --resource-group %RG% --plan %PLAN% ^
   --container-image-name "%LOGIN_SERVER%/web-api:v1.0" --assign-identity "[system]" ^
   --acr-use-identity --acr-identity "[system]"
+:: 7. Grant the app identity permission to pull from the registry.
 for /f "delims=" %%I in ('az webapp identity show --name %APP% --resource-group %RG% --query principalId --output tsv') do set APP_PRINCIPAL_ID=%%I
 for /f "delims=" %%I in ('az acr show --name %ACR% --resource-group %RG% --query id --output tsv') do set ACR_ID=%%I
 az role assignment create --assignee-object-id %APP_PRINCIPAL_ID% ^
   --assignee-principal-type ServicePrincipal --role AcrPull --scope %ACR_ID%
+:: 8. Configure environment variables as App Service settings.
 az webapp config appsettings set --name %APP% --resource-group %RG% ^
   --settings "APP_ENV=production" "LOG_LEVEL=info"
+:: 9. Print the app URL.
 az webapp show --name %APP% --resource-group %RG% --query defaultHostName --output tsv
+:: 10. Optional: enable continuous deployment for this image tag.
 az webapp deployment container config --name %APP% --resource-group %RG% --enable-cd true
+:: For an existing app using registry credentials, switch to managed-identity ACR auth.
 az webapp config set --resource-group %RG% --name %APP% ^
   --generic-configurations "{\"acrUseManagedIdentityCreds\": true}"
 ```

@@ -284,15 +284,20 @@ az containerapp env list --resource-group "$RG" --output table
 <summary>PowerShell CLI Setup</summary>
 
 ```powershell
+# 1. Create the resource group.
 az group create --name $RG --location $LOCATION
+# 2. Create a Log Analytics workspace for Container Apps logs.
 az monitor log-analytics workspace create --resource-group $RG `
   --workspace-name $LOG_ANALYTICS --location $LOCATION
+# 3. Get the subscription ID, workspace resource ID, and shared key.
 $SUBSCRIPTION_ID = az account show --query id -o tsv
 $WORKSPACE_ID = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.OperationalInsights/workspaces/$LOG_ANALYTICS"
 $WORKSPACE_KEY = az monitor log-analytics workspace get-shared-keys `
   --resource-group $RG --workspace-name $LOG_ANALYTICS --query primarySharedKey -o tsv
+# Create the Container Apps environment, the shared network and logging boundary for apps.
 az containerapp env create --name $CONTAINERAPPS_ENV --resource-group $RG `
   --location $LOCATION --logs-workspace-id $WORKSPACE_ID --logs-workspace-key $WORKSPACE_KEY
+# 4. Verify that the environment was created.
 az containerapp env list --resource-group $RG --output table
 ```
 
@@ -302,14 +307,19 @@ az containerapp env list --resource-group $RG --output table
 <summary>Command Prompt (cmd.exe) CLI Setup</summary>
 
 ```bat
+:: 1. Create the resource group.
 az group create --name %RG% --location %LOCATION%
+:: 2. Create a Log Analytics workspace for Container Apps logs.
 az monitor log-analytics workspace create --resource-group %RG% ^
   --workspace-name %LOG_ANALYTICS% --location %LOCATION%
+:: 3. Get the subscription ID, workspace resource ID, and shared key.
 for /f "delims=" %%I in ('az account show --query id -o tsv') do set SUBSCRIPTION_ID=%%I
 set WORKSPACE_ID=/subscriptions/%SUBSCRIPTION_ID%/resourceGroups/%RG%/providers/Microsoft.OperationalInsights/workspaces/%LOG_ANALYTICS%
 for /f "delims=" %%I in ('az monitor log-analytics workspace get-shared-keys --resource-group %RG% --workspace-name %LOG_ANALYTICS% --query primarySharedKey -o tsv') do set WORKSPACE_KEY=%%I
+:: Create the Container Apps environment, the shared network and logging boundary for apps.
 az containerapp env create --name %CONTAINERAPPS_ENV% --resource-group %RG% ^
   --location %LOCATION% --logs-workspace-id %WORKSPACE_ID% --logs-workspace-key %WORKSPACE_KEY%
+:: 4. Verify that the environment was created.
 az containerapp env list --resource-group %RG% --output table
 ```
 

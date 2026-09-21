@@ -316,18 +316,33 @@ printf '%s\n' "$LOGIN_SERVER"
 <summary>PowerShell CLI Setup</summary>
 
 ```powershell
+# 1. Create the resource group (skip if you already made one in another topic).
 az group create --name $RG --location $LOCATION
+
+# 2. One-time-per-subscription: register the Container Registry resource provider.
+#    A new subscription may not have opted in; registration is safe to re-run and async.
 az provider register --namespace Microsoft.ContainerRegistry
 az provider show --namespace Microsoft.ContainerRegistry --query registrationState --output tsv
 
+# 3. Create the registry. Basic is enough for study; RBAC-only mode keeps the role examples valid.
 az acr create --name $ACR --resource-group $RG --sku Basic --role-assignment-mode rbac
+
+# 4. Build two tagged images in the cloud with ACR Tasks (no local Docker needed).
 az acr build --registry $ACR --image web-api:v1.0 --image web-api:v1.1 `
   https://github.com/Azure-Samples/acr-build-helloworld-node.git
+
+# 5. Query the authoritative login server; do not construct it from the registry name.
 $LOGIN_SERVER = az acr show --name $ACR --query loginServer --output tsv
+
+# 7. Log Docker into the registry using the signed-in Entra identity.
 az acr login --name $ACR
+
+# 8. Print the login server for use as the ACR endpoint.
 $LOGIN_SERVER
 
+# The registry resource ID is the scope for the role assignment.
 $ACR_ID = az acr show --name $ACR --resource-group $RG --query id --output tsv
+# Grant the signed-in user AcrPull (use AcrPush when push access is required).
 $SIGNED_IN_USER_ID = az ad signed-in-user show --query id --output tsv
 az role assignment create --assignee $SIGNED_IN_USER_ID --role AcrPull --scope $ACR_ID
 ```
@@ -338,18 +353,30 @@ az role assignment create --assignee $SIGNED_IN_USER_ID --role AcrPull --scope $
 <summary>Command Prompt (cmd.exe) CLI Setup</summary>
 
 ```bat
+:: 1. Create the resource group (skip if you already made one in another topic).
 az group create --name %RG% --location %LOCATION%
+
+:: 2. One-time-per-subscription: register the Container Registry resource provider.
+::    A new subscription may not have opted in; registration is safe to re-run and async.
 az provider register --namespace Microsoft.ContainerRegistry
 az provider show --namespace Microsoft.ContainerRegistry --query registrationState --output tsv
 
+:: 3. Create the registry. Basic is enough for study; RBAC-only mode keeps the role examples valid.
 az acr create --name %ACR% --resource-group %RG% --sku Basic --role-assignment-mode rbac
+
+:: 4. Build two tagged images in the cloud with ACR Tasks (no local Docker needed).
 az acr build --registry %ACR% --image web-api:v1.0 --image web-api:v1.1 ^
   https://github.com/Azure-Samples/acr-build-helloworld-node.git
+:: 5. Query the authoritative login server; do not construct it from the registry name.
 for /f "delims=" %%I in ('az acr show --name %ACR% --query loginServer --output tsv') do set LOGIN_SERVER=%%I
+:: 7. Log Docker into the registry using the signed-in Entra identity.
 az acr login --name %ACR%
+:: 8. Print the login server for use as the ACR endpoint.
 echo %LOGIN_SERVER%
 
+:: The registry resource ID is the scope for the role assignment.
 for /f "delims=" %%I in ('az acr show --name %ACR% --resource-group %RG% --query id --output tsv') do set ACR_ID=%%I
+:: Grant the signed-in user AcrPull (use AcrPush when push access is required).
 for /f "delims=" %%I in ('az ad signed-in-user show --query id --output tsv') do set SIGNED_IN_USER_ID=%%I
 az role assignment create --assignee %SIGNED_IN_USER_ID% --role AcrPull --scope %ACR_ID%
 ```

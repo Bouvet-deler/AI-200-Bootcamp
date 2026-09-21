@@ -278,17 +278,26 @@ az aks update --resource-group "$RG" --name "$CLUSTER" --attach-acr "$ACR"
 <summary>PowerShell CLI Setup</summary>
 
 ```powershell
+# Register the providers AKS and Container Insights need (one-time per subscription).
+# Registration is safe to re-run and requires Contributor or Owner permissions.
 az provider register --namespace Microsoft.ContainerService --wait
 az provider register --namespace Microsoft.OperationsManagement --wait
 az provider register --namespace Microsoft.OperationalInsights --wait
+# Verify that the AKS provider reports Registered before continuing.
 az provider show --namespace Microsoft.ContainerService --query registrationState -o tsv
 
+# 1. Create the resource group (skip if you already made one in another topic).
 az group create --name $RG --location $LOCATION
+# 2. Create a Basic RBAC-only registry to hold your images.
 az acr create --resource-group $RG --name $ACR --sku Basic --role-assignment-mode rbac
+# 3. Create the AKS cluster with two nodes, monitoring, and AcrPull for its kubelet identity.
 az aks create --resource-group $RG --name $CLUSTER --node-count 2 `
   --generate-ssh-keys --attach-acr $ACR --enable-addons monitoring --location $LOCATION
+# 4. Merge the cluster credentials into the local kubeconfig.
 az aks get-credentials --resource-group $RG --name $CLUSTER --overwrite-existing
+# 5. Sanity check: the nodes should report Ready.
 kubectl get nodes
+# If the cluster already existed without --attach-acr, grant AcrPull now.
 az aks update --resource-group $RG --name $CLUSTER --attach-acr $ACR
 ```
 
@@ -298,17 +307,26 @@ az aks update --resource-group $RG --name $CLUSTER --attach-acr $ACR
 <summary>Command Prompt (cmd.exe) CLI Setup</summary>
 
 ```bat
+:: Register the providers AKS and Container Insights need (one-time per subscription).
+:: Registration is safe to re-run and requires Contributor or Owner permissions.
 az provider register --namespace Microsoft.ContainerService --wait
 az provider register --namespace Microsoft.OperationsManagement --wait
 az provider register --namespace Microsoft.OperationalInsights --wait
+:: Verify that the AKS provider reports Registered before continuing.
 az provider show --namespace Microsoft.ContainerService --query registrationState -o tsv
 
+:: 1. Create the resource group (skip if you already made one in another topic).
 az group create --name %RG% --location %LOCATION%
+:: 2. Create a Basic RBAC-only registry to hold your images.
 az acr create --resource-group %RG% --name %ACR% --sku Basic --role-assignment-mode rbac
+:: 3. Create the AKS cluster with two nodes, monitoring, and AcrPull for its kubelet identity.
 az aks create --resource-group %RG% --name %CLUSTER% --node-count 2 ^
   --generate-ssh-keys --attach-acr %ACR% --enable-addons monitoring --location %LOCATION%
+:: 4. Merge the cluster credentials into the local kubeconfig.
 az aks get-credentials --resource-group %RG% --name %CLUSTER% --overwrite-existing
+:: 5. Sanity check: the nodes should report Ready.
 kubectl get nodes
+:: If the cluster already existed without --attach-acr, grant AcrPull now.
 az aks update --resource-group %RG% --name %CLUSTER% --attach-acr %ACR%
 ```
 
