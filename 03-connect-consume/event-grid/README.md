@@ -307,6 +307,66 @@ az eventgrid event-subscription create \
   --event-delivery-schema cloudeventschemav1_0
 ```
 
+<details>
+<summary>PowerShell CLI Setup</summary>
+
+```powershell
+az group create --name $RG --location $LOCATION
+
+az eventgrid topic create `
+  --name $TOPIC --resource-group $RG --location $LOCATION `
+  --input-schema cloudeventschemav1_0
+
+$TOPIC_ENDPOINT = az eventgrid topic show `
+  --name $TOPIC --resource-group $RG --query endpoint --output tsv
+$TOPIC_ID = az eventgrid topic show `
+  --name $TOPIC --resource-group $RG --query id --output tsv
+$SIGNED_IN_USER_ID = az ad signed-in-user show --query id --output tsv
+
+az role assignment create `
+  --assignee-object-id $SIGNED_IN_USER_ID --assignee-principal-type User `
+  --role "d5a91429-5739-47e2-a06b-3470a27159e7" --scope $TOPIC_ID
+
+az resource update --ids $TOPIC_ID --api-version 2021-06-01-preview `
+  --set properties.disableLocalAuth=true
+
+az eventgrid event-subscription create `
+  --name orders-webhook-sub --source-resource-id $TOPIC_ID --endpoint $ENDPOINT `
+  --subject-begins-with "orders/" --max-delivery-attempts 10 --event-ttl 60 `
+  --event-delivery-schema cloudeventschemav1_0
+```
+
+</details>
+
+<details>
+<summary>Command Prompt (cmd.exe) CLI Setup</summary>
+
+```bat
+az group create --name %RG% --location %LOCATION%
+
+az eventgrid topic create ^
+  --name %TOPIC% --resource-group %RG% --location %LOCATION% ^
+  --input-schema cloudeventschemav1_0
+
+for /f "delims=" %%I in ('az eventgrid topic show --name %TOPIC% --resource-group %RG% --query endpoint --output tsv') do set TOPIC_ENDPOINT=%%I
+for /f "delims=" %%I in ('az eventgrid topic show --name %TOPIC% --resource-group %RG% --query id --output tsv') do set TOPIC_ID=%%I
+for /f "delims=" %%I in ('az ad signed-in-user show --query id --output tsv') do set SIGNED_IN_USER_ID=%%I
+
+az role assignment create ^
+  --assignee-object-id %SIGNED_IN_USER_ID% --assignee-principal-type User ^
+  --role "d5a91429-5739-47e2-a06b-3470a27159e7" --scope %TOPIC_ID%
+
+az resource update --ids %TOPIC_ID% --api-version 2021-06-01-preview ^
+  --set properties.disableLocalAuth=true
+
+az eventgrid event-subscription create ^
+  --name orders-webhook-sub --source-resource-id %TOPIC_ID% --endpoint %ENDPOINT% ^
+  --subject-begins-with "orders/" --max-delivery-attempts 10 --event-ttl 60 ^
+  --event-delivery-schema cloudeventschemav1_0
+```
+
+</details>
+
 > The default endpoint type here is a raw **Web Hook**. Because this subscription delivers
 > CloudEvents, Event Grid validates it with an HTTP `OPTIONS` request, not a
 > `SubscriptionValidationEvent` or a `validationUrl`. A production endpoint grants permission

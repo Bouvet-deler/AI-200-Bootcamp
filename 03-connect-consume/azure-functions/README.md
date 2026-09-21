@@ -477,6 +477,134 @@ az functionapp create \
 az functionapp config set --name "$FUNCTIONAPP" --resource-group "$RG" --always-on true
 ```
 
+<details>
+<summary>PowerShell CLI Setup</summary>
+
+```powershell
+az group create --name $RG --location $LOCATION
+
+az storage account create `
+  --name $STORAGE --resource-group $RG --location $LOCATION `
+  --sku Standard_LRS --kind StorageV2
+
+az functionapp create `
+  --name $FUNCTIONAPP --resource-group $RG `
+  --flexconsumption-location $LOCATION --storage-account $STORAGE `
+  --functions-version 4 --runtime python --runtime-version $PYTHON_VERSION
+
+$FUNCTION_PRINCIPAL_ID = az functionapp identity assign `
+  --name $FUNCTIONAPP --resource-group $RG --query principalId --output tsv
+$STORAGE_ID = az storage account show `
+  --name $STORAGE --resource-group $RG --query id --output tsv
+
+az role assignment create `
+  --assignee-object-id $FUNCTION_PRINCIPAL_ID `
+  --assignee-principal-type ServicePrincipal `
+  --role "974c5e8b-45b9-4653-ba55-5f855dd0fb88" --scope $STORAGE_ID
+
+$STORAGE_QUEUE_URI = "https://$STORAGE.queue.core.windows.net"
+az functionapp config appsettings set `
+  --name $FUNCTIONAPP --resource-group $RG `
+  --settings "StorageConnection__queueServiceUri=$STORAGE_QUEUE_URI" `
+             "StorageConnection__credential=managedidentity" "APP_ENVIRONMENT=azure"
+
+az functionapp show --name $FUNCTIONAPP --resource-group $RG `
+  --query defaultHostName --output tsv
+
+# Choose only one alternative hosting plan below; do not run these after Flex Consumption.
+# Legacy Consumption plan
+az functionapp create `
+  --name $FUNCTIONAPP --resource-group $RG `
+  --consumption-plan-location $LOCATION --storage-account $STORAGE `
+  --functions-version 4 --runtime python --runtime-version $PYTHON_VERSION `
+  --os-type Linux
+
+# Optional Premium plan
+az functionapp plan create `
+  --name ai200-premium-plan --resource-group $RG --location $LOCATION `
+  --sku EP1 --is-linux
+az functionapp create `
+  --name $FUNCTIONAPP --resource-group $RG --plan ai200-premium-plan `
+  --storage-account $STORAGE --functions-version 4 --runtime python `
+  --runtime-version $PYTHON_VERSION
+
+# Optional Dedicated plan
+az appservice plan create `
+  --name ai200-asp --resource-group $RG --location $LOCATION `
+  --sku S1 --is-linux
+az functionapp create `
+  --name $FUNCTIONAPP --resource-group $RG --plan ai200-asp `
+  --storage-account $STORAGE --functions-version 4 --runtime python `
+  --runtime-version $PYTHON_VERSION
+az functionapp config set `
+  --name $FUNCTIONAPP --resource-group $RG --always-on true
+```
+
+</details>
+
+<details>
+<summary>Command Prompt (cmd.exe) CLI Setup</summary>
+
+```bat
+az group create --name %RG% --location %LOCATION%
+
+az storage account create ^
+  --name %STORAGE% --resource-group %RG% --location %LOCATION% ^
+  --sku Standard_LRS --kind StorageV2
+
+az functionapp create ^
+  --name %FUNCTIONAPP% --resource-group %RG% ^
+  --flexconsumption-location %LOCATION% --storage-account %STORAGE% ^
+  --functions-version 4 --runtime python --runtime-version %PYTHON_VERSION%
+
+for /f "delims=" %%I in ('az functionapp identity assign --name %FUNCTIONAPP% --resource-group %RG% --query principalId --output tsv') do set FUNCTION_PRINCIPAL_ID=%%I
+for /f "delims=" %%I in ('az storage account show --name %STORAGE% --resource-group %RG% --query id --output tsv') do set STORAGE_ID=%%I
+
+az role assignment create ^
+  --assignee-object-id %FUNCTION_PRINCIPAL_ID% ^
+  --assignee-principal-type ServicePrincipal ^
+  --role "974c5e8b-45b9-4653-ba55-5f855dd0fb88" --scope %STORAGE_ID%
+
+set STORAGE_QUEUE_URI=https://%STORAGE%.queue.core.windows.net
+az functionapp config appsettings set ^
+  --name %FUNCTIONAPP% --resource-group %RG% ^
+  --settings "StorageConnection__queueServiceUri=%STORAGE_QUEUE_URI%" ^
+             "StorageConnection__credential=managedidentity" "APP_ENVIRONMENT=azure"
+
+az functionapp show --name %FUNCTIONAPP% --resource-group %RG% ^
+  --query defaultHostName --output tsv
+
+rem Choose only one alternative hosting plan below; do not run these after Flex Consumption.
+rem Legacy Consumption plan
+az functionapp create ^
+  --name %FUNCTIONAPP% --resource-group %RG% ^
+  --consumption-plan-location %LOCATION% --storage-account %STORAGE% ^
+  --functions-version 4 --runtime python --runtime-version %PYTHON_VERSION% ^
+  --os-type Linux
+
+rem Optional Premium plan
+az functionapp plan create ^
+  --name ai200-premium-plan --resource-group %RG% --location %LOCATION% ^
+  --sku EP1 --is-linux
+az functionapp create ^
+  --name %FUNCTIONAPP% --resource-group %RG% --plan ai200-premium-plan ^
+  --storage-account %STORAGE% --functions-version 4 --runtime python ^
+  --runtime-version %PYTHON_VERSION%
+
+rem Optional Dedicated plan
+az appservice plan create ^
+  --name ai200-asp --resource-group %RG% --location %LOCATION% ^
+  --sku S1 --is-linux
+az functionapp create ^
+  --name %FUNCTIONAPP% --resource-group %RG% --plan ai200-asp ^
+  --storage-account %STORAGE% --functions-version 4 --runtime python ^
+  --runtime-version %PYTHON_VERSION%
+az functionapp config set ^
+  --name %FUNCTIONAPP% --resource-group %RG% --always-on true
+```
+
+</details>
+
 ### Portal Setup (Web UI)
 
 Prefer the browser? Create the same resources in the [Azure Portal](https://portal.azure.com):

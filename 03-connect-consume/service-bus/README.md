@@ -387,6 +387,105 @@ az servicebus namespace update \
   --disable-local-auth true
 ```
 
+<details>
+<summary>PowerShell CLI Setup</summary>
+
+```powershell
+az group create --name $RG --location $LOCATION
+
+az servicebus namespace create `
+  --resource-group $RG --name $NAMESPACE --location $LOCATION --sku Standard
+
+az servicebus queue create `
+  --resource-group $RG --namespace-name $NAMESPACE --name $QUEUE `
+  --max-delivery-count 3 --enable-dead-lettering-on-message-expiration true
+
+az servicebus topic create `
+  --resource-group $RG --namespace-name $NAMESPACE --name $TOPIC
+
+az servicebus topic subscription create `
+  --resource-group $RG --namespace-name $NAMESPACE --topic-name $TOPIC `
+  --name $ALL_SUBSCRIPTION
+
+az servicebus topic subscription create `
+  --resource-group $RG --namespace-name $NAMESPACE --topic-name $TOPIC `
+  --name $PRIORITY_SUBSCRIPTION --enable-dead-lettering-on-message-expiration true
+
+az servicebus topic subscription rule delete `
+  --resource-group $RG --namespace-name $NAMESPACE --topic-name $TOPIC `
+  --subscription-name $PRIORITY_SUBSCRIPTION --name '$Default'
+
+az servicebus topic subscription rule create `
+  --resource-group $RG --namespace-name $NAMESPACE --topic-name $TOPIC `
+  --subscription-name $PRIORITY_SUBSCRIPTION --name high-priority-only `
+  --filter-sql-expression "priority = 'high'"
+
+$SIGNED_IN_USER_ID = az ad signed-in-user show --query id --output tsv
+$NAMESPACE_ID = az servicebus namespace show `
+  --resource-group $RG --name $NAMESPACE --query id --output tsv
+
+az role assignment create `
+  --assignee-object-id $SIGNED_IN_USER_ID --assignee-principal-type User `
+  --role "69a216fc-b8fb-44d8-bc22-1f3c2cd27a39" --scope $NAMESPACE_ID
+az role assignment create `
+  --assignee-object-id $SIGNED_IN_USER_ID --assignee-principal-type User `
+  --role "4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0" --scope $NAMESPACE_ID
+
+az servicebus namespace update `
+  --resource-group $RG --name $NAMESPACE --disable-local-auth true
+```
+
+</details>
+
+<details>
+<summary>Command Prompt (cmd.exe) CLI Setup</summary>
+
+```bat
+az group create --name %RG% --location %LOCATION%
+
+az servicebus namespace create ^
+  --resource-group %RG% --name %NAMESPACE% --location %LOCATION% --sku Standard
+
+az servicebus queue create ^
+  --resource-group %RG% --namespace-name %NAMESPACE% --name %QUEUE% ^
+  --max-delivery-count 3 --enable-dead-lettering-on-message-expiration true
+
+az servicebus topic create ^
+  --resource-group %RG% --namespace-name %NAMESPACE% --name %TOPIC%
+
+az servicebus topic subscription create ^
+  --resource-group %RG% --namespace-name %NAMESPACE% --topic-name %TOPIC% ^
+  --name %ALL_SUBSCRIPTION%
+
+az servicebus topic subscription create ^
+  --resource-group %RG% --namespace-name %NAMESPACE% --topic-name %TOPIC% ^
+  --name %PRIORITY_SUBSCRIPTION% --enable-dead-lettering-on-message-expiration true
+
+az servicebus topic subscription rule delete ^
+  --resource-group %RG% --namespace-name %NAMESPACE% --topic-name %TOPIC% ^
+  --subscription-name %PRIORITY_SUBSCRIPTION% --name $Default
+
+az servicebus topic subscription rule create ^
+  --resource-group %RG% --namespace-name %NAMESPACE% --topic-name %TOPIC% ^
+  --subscription-name %PRIORITY_SUBSCRIPTION% --name high-priority-only ^
+  --filter-sql-expression "priority = 'high'"
+
+for /f "delims=" %%I in ('az ad signed-in-user show --query id --output tsv') do set SIGNED_IN_USER_ID=%%I
+for /f "delims=" %%I in ('az servicebus namespace show --resource-group %RG% --name %NAMESPACE% --query id --output tsv') do set NAMESPACE_ID=%%I
+
+az role assignment create ^
+  --assignee-object-id %SIGNED_IN_USER_ID% --assignee-principal-type User ^
+  --role "69a216fc-b8fb-44d8-bc22-1f3c2cd27a39" --scope %NAMESPACE_ID%
+az role assignment create ^
+  --assignee-object-id %SIGNED_IN_USER_ID% --assignee-principal-type User ^
+  --role "4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0" --scope %NAMESPACE_ID%
+
+az servicebus namespace update ^
+  --resource-group %RG% --name %NAMESPACE% --disable-local-auth true
+```
+
+</details>
+
 > The `$Default` deletion matters. If it remains alongside `high-priority-only`, the default
 > true rule accepts every topic message and the high-priority subscription is not filtered.
 
