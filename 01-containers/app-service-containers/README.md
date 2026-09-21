@@ -336,6 +336,69 @@ az webapp config set \
 
 </details>
 
+<details>
+<summary>PowerShell CLI Setup</summary>
+
+```powershell
+az group create --name $RG --location $LOCATION
+az provider register --namespace Microsoft.Web --wait
+az provider register --namespace Microsoft.ContainerRegistry --wait
+az acr create --name $ACR --resource-group $RG --sku Basic --admin-enabled false `
+  --role-assignment-mode rbac
+az acr build --registry $ACR --image web-api:v1.0 `
+  https://github.com/Azure-Samples/acr-build-helloworld-node
+$LOGIN_SERVER = az acr show --name $ACR --resource-group $RG --query loginServer --output tsv
+az appservice plan create --name $PLAN --resource-group $RG --sku S1 --is-linux `
+  --location $LOCATION
+az webapp create --name $APP --resource-group $RG --plan $PLAN `
+  --container-image-name "$LOGIN_SERVER/web-api:v1.0" --assign-identity "[system]" `
+  --acr-use-identity --acr-identity "[system]"
+$APP_PRINCIPAL_ID = az webapp identity show --name $APP --resource-group $RG `
+  --query principalId --output tsv
+$ACR_ID = az acr show --name $ACR --resource-group $RG --query id --output tsv
+az role assignment create --assignee-object-id $APP_PRINCIPAL_ID `
+  --assignee-principal-type ServicePrincipal --role AcrPull --scope $ACR_ID
+az webapp config appsettings set --name $APP --resource-group $RG `
+  --settings "APP_ENV=production" "LOG_LEVEL=info"
+az webapp show --name $APP --resource-group $RG --query defaultHostName --output tsv
+az webapp deployment container config --name $APP --resource-group $RG --enable-cd true
+az webapp config set --resource-group $RG --name $APP `
+  --generic-configurations '{"acrUseManagedIdentityCreds": true}'
+```
+
+</details>
+
+<details>
+<summary>Command Prompt (cmd.exe) CLI Setup</summary>
+
+```bat
+az group create --name %RG% --location %LOCATION%
+az provider register --namespace Microsoft.Web --wait
+az provider register --namespace Microsoft.ContainerRegistry --wait
+az acr create --name %ACR% --resource-group %RG% --sku Basic --admin-enabled false ^
+  --role-assignment-mode rbac
+az acr build --registry %ACR% --image web-api:v1.0 ^
+  https://github.com/Azure-Samples/acr-build-helloworld-node
+for /f "delims=" %%I in ('az acr show --name %ACR% --resource-group %RG% --query loginServer --output tsv') do set LOGIN_SERVER=%%I
+az appservice plan create --name %PLAN% --resource-group %RG% --sku S1 --is-linux ^
+  --location %LOCATION%
+az webapp create --name %APP% --resource-group %RG% --plan %PLAN% ^
+  --container-image-name "%LOGIN_SERVER%/web-api:v1.0" --assign-identity "[system]" ^
+  --acr-use-identity --acr-identity "[system]"
+for /f "delims=" %%I in ('az webapp identity show --name %APP% --resource-group %RG% --query principalId --output tsv') do set APP_PRINCIPAL_ID=%%I
+for /f "delims=" %%I in ('az acr show --name %ACR% --resource-group %RG% --query id --output tsv') do set ACR_ID=%%I
+az role assignment create --assignee-object-id %APP_PRINCIPAL_ID% ^
+  --assignee-principal-type ServicePrincipal --role AcrPull --scope %ACR_ID%
+az webapp config appsettings set --name %APP% --resource-group %RG% ^
+  --settings "APP_ENV=production" "LOG_LEVEL=info"
+az webapp show --name %APP% --resource-group %RG% --query defaultHostName --output tsv
+az webapp deployment container config --name %APP% --resource-group %RG% --enable-cd true
+az webapp config set --resource-group %RG% --name %APP% ^
+  --generic-configurations "{\"acrUseManagedIdentityCreds\": true}"
+```
+
+</details>
+
 ### Portal Setup (Web UI)
 
 Prefer the browser? Create the same resources in the [Azure Portal](https://portal.azure.com):

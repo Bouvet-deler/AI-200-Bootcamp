@@ -280,6 +280,41 @@ az containerapp env list --resource-group "$RG" --output table
 
 </details>
 
+<details>
+<summary>PowerShell CLI Setup</summary>
+
+```powershell
+az group create --name $RG --location $LOCATION
+az monitor log-analytics workspace create --resource-group $RG `
+  --workspace-name $LOG_ANALYTICS --location $LOCATION
+$SUBSCRIPTION_ID = az account show --query id -o tsv
+$WORKSPACE_ID = "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.OperationalInsights/workspaces/$LOG_ANALYTICS"
+$WORKSPACE_KEY = az monitor log-analytics workspace get-shared-keys `
+  --resource-group $RG --workspace-name $LOG_ANALYTICS --query primarySharedKey -o tsv
+az containerapp env create --name $CONTAINERAPPS_ENV --resource-group $RG `
+  --location $LOCATION --logs-workspace-id $WORKSPACE_ID --logs-workspace-key $WORKSPACE_KEY
+az containerapp env list --resource-group $RG --output table
+```
+
+</details>
+
+<details>
+<summary>Command Prompt (cmd.exe) CLI Setup</summary>
+
+```bat
+az group create --name %RG% --location %LOCATION%
+az monitor log-analytics workspace create --resource-group %RG% ^
+  --workspace-name %LOG_ANALYTICS% --location %LOCATION%
+for /f "delims=" %%I in ('az account show --query id -o tsv') do set SUBSCRIPTION_ID=%%I
+set WORKSPACE_ID=/subscriptions/%SUBSCRIPTION_ID%/resourceGroups/%RG%/providers/Microsoft.OperationalInsights/workspaces/%LOG_ANALYTICS%
+for /f "delims=" %%I in ('az monitor log-analytics workspace get-shared-keys --resource-group %RG% --workspace-name %LOG_ANALYTICS% --query primarySharedKey -o tsv') do set WORKSPACE_KEY=%%I
+az containerapp env create --name %CONTAINERAPPS_ENV% --resource-group %RG% ^
+  --location %LOCATION% --logs-workspace-id %WORKSPACE_ID% --logs-workspace-key %WORKSPACE_KEY%
+az containerapp env list --resource-group %RG% --output table
+```
+
+</details>
+
 The environment is now ready. Next, you'll [deploy an app](#hands-on-python--simple-web-api-with-queue-based-scaling).
 
 ### Portal Setup (Web UI)

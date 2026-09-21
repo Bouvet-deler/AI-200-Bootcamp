@@ -312,6 +312,50 @@ printf '%s\n' "$LOGIN_SERVER"
 
 </details>
 
+<details>
+<summary>PowerShell CLI Setup</summary>
+
+```powershell
+az group create --name $RG --location $LOCATION
+az provider register --namespace Microsoft.ContainerRegistry
+az provider show --namespace Microsoft.ContainerRegistry --query registrationState --output tsv
+
+az acr create --name $ACR --resource-group $RG --sku Basic --role-assignment-mode rbac
+az acr build --registry $ACR --image web-api:v1.0 --image web-api:v1.1 `
+  https://github.com/Azure-Samples/acr-build-helloworld-node.git
+$LOGIN_SERVER = az acr show --name $ACR --query loginServer --output tsv
+az acr login --name $ACR
+$LOGIN_SERVER
+
+$ACR_ID = az acr show --name $ACR --resource-group $RG --query id --output tsv
+$SIGNED_IN_USER_ID = az ad signed-in-user show --query id --output tsv
+az role assignment create --assignee $SIGNED_IN_USER_ID --role AcrPull --scope $ACR_ID
+```
+
+</details>
+
+<details>
+<summary>Command Prompt (cmd.exe) CLI Setup</summary>
+
+```bat
+az group create --name %RG% --location %LOCATION%
+az provider register --namespace Microsoft.ContainerRegistry
+az provider show --namespace Microsoft.ContainerRegistry --query registrationState --output tsv
+
+az acr create --name %ACR% --resource-group %RG% --sku Basic --role-assignment-mode rbac
+az acr build --registry %ACR% --image web-api:v1.0 --image web-api:v1.1 ^
+  https://github.com/Azure-Samples/acr-build-helloworld-node.git
+for /f "delims=" %%I in ('az acr show --name %ACR% --query loginServer --output tsv') do set LOGIN_SERVER=%%I
+az acr login --name %ACR%
+echo %LOGIN_SERVER%
+
+for /f "delims=" %%I in ('az acr show --name %ACR% --resource-group %RG% --query id --output tsv') do set ACR_ID=%%I
+for /f "delims=" %%I in ('az ad signed-in-user show --query id --output tsv') do set SIGNED_IN_USER_ID=%%I
+az role assignment create --assignee %SIGNED_IN_USER_ID% --role AcrPull --scope %ACR_ID%
+```
+
+</details>
+
 **RBAC — grant a service (or user) pull access (recommended, passwordless).** A running app
 needs **AcrPull**; a CI pipeline that pushes needs **AcrPush**:
 

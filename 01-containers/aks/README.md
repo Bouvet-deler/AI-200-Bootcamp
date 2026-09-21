@@ -274,6 +274,46 @@ az aks update --resource-group "$RG" --name "$CLUSTER" --attach-acr "$ACR"
 
 </details>
 
+<details>
+<summary>PowerShell CLI Setup</summary>
+
+```powershell
+az provider register --namespace Microsoft.ContainerService --wait
+az provider register --namespace Microsoft.OperationsManagement --wait
+az provider register --namespace Microsoft.OperationalInsights --wait
+az provider show --namespace Microsoft.ContainerService --query registrationState -o tsv
+
+az group create --name $RG --location $LOCATION
+az acr create --resource-group $RG --name $ACR --sku Basic --role-assignment-mode rbac
+az aks create --resource-group $RG --name $CLUSTER --node-count 2 `
+  --generate-ssh-keys --attach-acr $ACR --enable-addons monitoring --location $LOCATION
+az aks get-credentials --resource-group $RG --name $CLUSTER --overwrite-existing
+kubectl get nodes
+az aks update --resource-group $RG --name $CLUSTER --attach-acr $ACR
+```
+
+</details>
+
+<details>
+<summary>Command Prompt (cmd.exe) CLI Setup</summary>
+
+```bat
+az provider register --namespace Microsoft.ContainerService --wait
+az provider register --namespace Microsoft.OperationsManagement --wait
+az provider register --namespace Microsoft.OperationalInsights --wait
+az provider show --namespace Microsoft.ContainerService --query registrationState -o tsv
+
+az group create --name %RG% --location %LOCATION%
+az acr create --resource-group %RG% --name %ACR% --sku Basic --role-assignment-mode rbac
+az aks create --resource-group %RG% --name %CLUSTER% --node-count 2 ^
+  --generate-ssh-keys --attach-acr %ACR% --enable-addons monitoring --location %LOCATION%
+az aks get-credentials --resource-group %RG% --name %CLUSTER% --overwrite-existing
+kubectl get nodes
+az aks update --resource-group %RG% --name %CLUSTER% --attach-acr %ACR%
+```
+
+</details>
+
 > **"Why do I suddenly have 4 resource groups?"** Creating one cluster spreads resources across
 > **several** resource groups — most of them made **automatically**. This surprises everyone the
 > first time. After `az aks create --enable-addons monitoring` you'll typically see:
