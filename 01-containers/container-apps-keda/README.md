@@ -373,6 +373,9 @@ Run this when you're done experimenting, or whenever you want to start fresh.
 Run these in the [Azure CLI](https://learn.microsoft.com/cli/azure/). Set `RG` as shown in
 [Set your variables](#set-your-variables), then:
 
+<details open>
+<summary>Bash CLI Cleanup</summary>
+
 ```bash
 # Delete the entire resource group and everything in it.
 # This removes: Container Apps environment, Log Analytics workspace, and all apps.
@@ -382,6 +385,36 @@ az group delete --name "$RG" --yes --no-wait
 # Optional: verify the resource group is gone
 az group list --output table
 ```
+
+</details>
+
+<details>
+<summary>PowerShell CLI Cleanup</summary>
+
+```powershell
+# Delete the entire resource group and everything in it.
+# This removes the Container Apps environment, Log Analytics workspace, and all apps.
+az group delete --name $RG --yes --no-wait
+
+# Optional: verify the resource group is gone.
+az group list --output table
+```
+
+</details>
+
+<details>
+<summary>Command Prompt (cmd.exe) CLI Cleanup</summary>
+
+```bat
+:: Delete the entire resource group and everything in it.
+:: This removes the Container Apps environment, Log Analytics workspace, and all apps.
+az group delete --name %RG% --yes --no-wait
+
+:: Optional: verify the resource group is gone.
+az group list --output table
+```
+
+</details>
 
 > **Important:** Deleting a resource group is **permanent and immediate**. All resources in that
 group (Container Apps environment, Log Analytics workspace, all apps) will be deleted and cannot

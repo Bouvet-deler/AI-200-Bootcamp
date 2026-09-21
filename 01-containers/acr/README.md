@@ -484,6 +484,9 @@ Goal: delete the resources created above to avoid storage charges and free the r
 Set `RG` and `ACR` (to the **exact** registry name you created) as shown in
 [Set your variables](#set-your-variables), then:
 
+<details open>
+<summary>Bash CLI Cleanup</summary>
+
 ```bash
 # Delete just the registry (and all its images)...
 az acr delete --name "$ACR" --resource-group "$RG" --yes
@@ -492,6 +495,34 @@ az acr delete --name "$ACR" --resource-group "$RG" --yes
 # '--yes' skips confirmation; '--no-wait' returns without waiting for completion.
 az group delete --name "$RG" --yes --no-wait
 ```
+
+</details>
+
+<details>
+<summary>PowerShell CLI Cleanup</summary>
+
+```powershell
+# Delete just the registry (and all its images).
+az acr delete --name $ACR --resource-group $RG --yes
+
+# Or delete the whole resource group and everything in it.
+az group delete --name $RG --yes --no-wait
+```
+
+</details>
+
+<details>
+<summary>Command Prompt (cmd.exe) CLI Cleanup</summary>
+
+```bat
+:: Delete just the registry (and all its images).
+az acr delete --name %ACR% --resource-group %RG% --yes
+
+:: Or delete the whole resource group and everything in it.
+az group delete --name %RG% --yes --no-wait
+```
+
+</details>
 
 > **Note:** ACR's preview soft-delete policy applies to **artifacts**, not to the registry Azure
 > resource. Deleting the registry removes the registry and its contents; artifact soft delete

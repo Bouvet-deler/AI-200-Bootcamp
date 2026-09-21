@@ -446,6 +446,9 @@ and other Azure resources are billed on every tier.
 
 Set `RG` and `CLUSTER` as shown in [Set your variables](#set-your-variables), then:
 
+<details open>
+<summary>Bash CLI Cleanup</summary>
+
 ```bash
 # Optional: remove the in-cluster objects first (frees the public LoadBalancer IP promptly).
 kubectl delete -f webapp.yaml     # deletes exactly what the manifest created
@@ -459,6 +462,44 @@ az aks delete --resource-group "$RG" --name "$CLUSTER" --yes --no-wait
 # '--yes' skips confirmation; '--no-wait' returns without waiting for completion.
 az group delete --name "$RG" --yes --no-wait
 ```
+
+</details>
+
+<details>
+<summary>PowerShell CLI Cleanup</summary>
+
+```powershell
+# Optional: remove the in-cluster objects first.
+kubectl delete -f webapp.yaml
+# Or just the namespace, which takes everything in it.
+kubectl delete namespace demo
+
+# Delete just the AKS cluster (leaves the resource group and ACR).
+az aks delete --resource-group $RG --name $CLUSTER --yes --no-wait
+
+# Or delete the whole resource group and everything in it.
+az group delete --name $RG --yes --no-wait
+```
+
+</details>
+
+<details>
+<summary>Command Prompt (cmd.exe) CLI Cleanup</summary>
+
+```bat
+:: Optional: remove the in-cluster objects first.
+kubectl delete -f webapp.yaml
+:: Or just the namespace, which takes everything in it.
+kubectl delete namespace demo
+
+:: Delete just the AKS cluster (leaves the resource group and ACR).
+az aks delete --resource-group %RG% --name %CLUSTER% --yes --no-wait
+
+:: Or delete the whole resource group and everything in it.
+az group delete --name %RG% --yes --no-wait
+```
+
+</details>
 
 > If AKS created a default Log Analytics workspace in a separate resource group, deleting
 > `"$RG"` does **not** delete that workspace. In the portal, open the cluster's **Insights**
