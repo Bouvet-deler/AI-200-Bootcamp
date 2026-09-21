@@ -66,7 +66,7 @@ Expect scenario questions like:
 
 Azure Container Apps is organized hierarchically:
 
-```
+```text
 Registry (ACR) ──images──►
                               ┌─────────────────────────────────────────┐
                               │         Container Apps Environment       │
@@ -110,7 +110,7 @@ Revisions are **immutable** — they never change. This enables:
 - **Experiment routing** — split by revision weight or label; use an additional routing layer when
   you need header- or cookie-based experiments
 
-```
+```text
 Old Revision (v1)       New Revision (v2)
       │                       │
       ▼                       ▼
@@ -419,7 +419,7 @@ The app demonstrates **dual scaling**: it scales based on both HTTP traffic AND 
 
 ### Project Structure
 
-```
+```text
 ai200-container-apps-keda/           # After creating the local exercise files below
 ├── app/                          # Your application code
 │   ├── main.py                   # Flask app with queue processing
@@ -525,7 +525,7 @@ if __name__ == "__main__":
 
 **app/requirements.txt:**
 
-```
+```text
 Flask==3.0.0
 azure-storage-queue==12.1.0
 ```

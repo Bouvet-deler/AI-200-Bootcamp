@@ -25,7 +25,7 @@ ACR. The recommended pattern is a managed identity with the registry's pull role
 an RBAC-only registry, or **Container Registry Repository Reader** for an ABAC-enabled registry.
 So a common pipeline is:
 
-```
+```text
   Your code + Dockerfile
         │  az acr build   (or docker build + docker push)
         ▼
